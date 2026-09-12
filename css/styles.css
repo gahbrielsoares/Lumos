@@ -3,7 +3,7 @@
    um único brilho âmbar quente como assinatura visual.
 */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
   --bg: #0A0D14;
@@ -25,7 +25,7 @@
   --radius-md: 14px;
   --radius-lg: 22px;
 
-  --font-display: 'Fraunces', serif;
+  --font-display: 'Anton', sans-serif;
   --font-body: 'Inter', -apple-system, sans-serif;
 }
 
@@ -43,11 +43,23 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: var(--font-display);
-  font-weight: 500;
-  line-height: 1.15;
+  font-family: var(--font-body);
+  font-weight: 700;
+  line-height: 1.2;
   margin: 0;
   letter-spacing: -0.01em;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--glow);
+  text-shadow:
+    0 0 12px var(--glow),
+    0 0 44px var(--glow-soft),
+    0 0 90px var(--glow-dim);
 }
 
 p { color: var(--text-muted); margin: 0; }
@@ -88,8 +100,15 @@ img, svg { display: block; max-width: 100%; }
   align-items: center;
   gap: 10px;
   font-family: var(--font-display);
-  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 19px;
   color: var(--text);
+}
+
+.logo .logo-glow-text {
+  color: var(--glow);
+  text-shadow: 0 0 10px var(--glow-soft);
 }
 
 .logo-mark {
@@ -147,59 +166,138 @@ img, svg { display: block; max-width: 100%; }
 
 .btn-block { width: 100%; }
 
-/* ===== Hero ===== */
+/* ===== Hero (colagem + wordmark) ===== */
 
 .hero {
   position: relative;
-  padding: 84px 32px 96px;
-  overflow: hidden;
-}
-
-.hero-glow {
-  position: absolute;
-  top: -180px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 720px;
-  height: 720px;
-  background: radial-gradient(circle, var(--glow-dim) 0%, transparent 65%);
-  pointer-events: none;
-}
-
-.hero-inner {
-  position: relative;
-  max-width: 680px;
+  padding: 40px 32px 0;
 }
 
 .eyebrow {
   color: var(--glow);
-  font-size: 14.5px;
-  font-weight: 500;
-  margin-bottom: 18px;
-  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 0;
 }
 
-.hero h1 {
-  font-size: clamp(36px, 5vw, 54px);
+.hero-collage {
+  position: relative;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.collage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6px;
+  aspect-ratio: 20 / 9;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  opacity: 0;
+  animation: collage-in 0.9s ease forwards 0.1s;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.tile svg {
+  width: 34%;
+  height: 34%;
+  opacity: 0.85;
+}
+
+.tile-a { background: linear-gradient(160deg, #1B2233, #0D111B); }
+.tile-b { background: linear-gradient(160deg, #241A33, #120D1B); }
+.tile-c { background: linear-gradient(160deg, #1B2233, #0D111B); }
+.tile-d { background: linear-gradient(160deg, #2A200F, #14100A); }
+.tile-e { background: linear-gradient(160deg, #14100A, #2A200F); }
+.tile-f { background: linear-gradient(160deg, #0D111B, #1B2233); }
+.tile-g { background: linear-gradient(160deg, #120D1B, #241A33); }
+.tile-h { background: linear-gradient(160deg, #0D111B, #1B2233); }
+
+.wordmark-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.wordmark-overlay .wordmark {
+  font-size: clamp(56px, 10vw, 130px);
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.94);
+  animation: wordmark-in 1s ease forwards 0.5s;
+}
+
+.hero-info {
+  max-width: 720px;
+  margin: 40px auto 0;
+  text-align: center;
+}
+
+.hero-info h1 {
+  font-size: clamp(24px, 3.2vw, 32px);
   color: var(--text);
-}
-
-.hero h1 em {
-  font-style: italic;
-  color: var(--glow);
-}
-
-.hero-sub {
-  margin-top: 22px;
-  font-size: 18px;
-  max-width: 520px;
-  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .hero-actions {
   display: flex;
+  justify-content: center;
   gap: 14px;
-  margin-top: 36px;
+  margin-top: 30px;
+}
+
+.btn-pill {
+  border-radius: 999px;
+  padding: 14px 30px;
+}
+
+.scroll-cue {
+  display: flex;
+  justify-content: center;
+  margin-top: 44px;
+  padding-bottom: 20px;
+  color: var(--text-faint);
+  animation: bob 2.2s ease-in-out infinite;
+}
+
+@keyframes collage-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wordmark-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+/* ===== Scroll reveal ===== */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ===== Features ===== */
@@ -222,11 +320,11 @@ img, svg { display: block; max-width: 100%; }
   padding: 32px 28px;
 }
 
-.feature-num {
-  font-family: var(--font-display);
-  font-size: 26px;
+.feature-icon {
+  width: 22px;
+  height: 22px;
   color: var(--glow);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .feature h3 {
