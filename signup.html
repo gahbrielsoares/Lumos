@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Criar conta — Lumos CRM</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark"></span>
+      Lumos
+    </a>
+  </header>
+
+  <div class="wrap center-column">
+    <div class="auth-card">
+      <h1>Criar conta</h1>
+      <p class="auth-sub">Leva menos de um minuto.</p>
+
+      <form id="signup-form">
+        <div class="field">
+          <label for="name">Nome</label>
+          <input type="text" id="name" required autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" required minlength="6" autocomplete="new-password" />
+        </div>
+        <div id="msg" class="form-msg"></div>
+        <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+      </form>
+
+      <div class="auth-switch">
+        Já tem conta? <a href="login.html">Entrar</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { signUp } from "./js/auth.js";
+
+    const form = document.getElementById("signup-form");
+    const msg = document.getElementById("msg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+      msg.className = "form-msg";
+
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      const { error } = await signUp({ name, email, password });
+
+      if (error) {
+        msg.textContent = error.message.includes("already registered")
+          ? "Esse e-mail já tem conta. Tente entrar."
+          : "Não foi possível criar a conta. Tente novamente.";
+        msg.classList.add("error");
+        return;
+      }
+
+      msg.textContent = "Conta criada! Redirecionando para o login...";
+      msg.classList.add("ok");
+      setTimeout(() => (window.location.href = "login.html"), 1500);
+    });
+  </script>
+
+</body>
+</html>

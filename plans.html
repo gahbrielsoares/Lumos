@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escolha seu plano — Lumos CRM</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark"></span>
+      Lumos
+    </a>
+    <nav class="nav-links">
+      <a href="#" id="logout-link">Sair</a>
+    </nav>
+  </header>
+
+  <div class="wrap" style="padding-top: 40px; padding-bottom: 100px;">
+    <h1 style="font-size: 32px;">Como você quer usar a Lumos?</h1>
+    <p style="margin-top: 10px; font-size: 15.5px;">Escolha o serviço para falar com nosso time e ativar sua conta.</p>
+
+    <div class="plans-grid">
+      <div class="plan-card">
+        <span class="plan-tag">SERVIÇO 1</span>
+        <h2>Agente de IA</h2>
+        <p>
+          Um agente que recebe, entende e guia seu cliente no WhatsApp — do primeiro
+          contato até onde você quiser que a IA vá sozinha.
+        </p>
+        <a href="https://wa.me/5500000000000?text=Ol%C3%A1%2C%20quero%20conhecer%20o%20Agente%20de%20IA%20da%20Lumos"
+           class="btn btn-primary btn-block" target="_blank" rel="noopener">
+          Falar com a Lumos
+        </a>
+      </div>
+
+      <div class="plan-card">
+        <span class="plan-tag">SERVIÇO 2</span>
+        <h2>CRM completo</h2>
+        <p>
+          Pipeline de vendas, histórico de conversas e acompanhamento de leads —
+          para quem não tem CRM ou quer trocar por algo de primeira linha.
+        </p>
+        <a href="https://wa.me/5500000000000?text=Ol%C3%A1%2C%20quero%20conhecer%20o%20CRM%20da%20Lumos"
+           class="btn btn-primary btn-block" target="_blank" rel="noopener">
+          Falar com a Lumos
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    requireSession();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+  </script>
+
+</body>
+</html>

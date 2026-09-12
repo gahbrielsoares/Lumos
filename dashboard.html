@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Lumos CRM</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo" style="padding: 0 12px 24px;">
+        <span class="logo-mark"></span>
+        Lumos
+      </div>
+      <nav class="dash-nav">
+        <a href="dashboard.html" class="active">Leads</a>
+        <a href="#">Conversas</a>
+        <a href="#">Agenda</a>
+        <a href="#">Configurações</a>
+        <a href="#" id="logout-link">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="dash-main">
+      <h1 style="font-size: 26px;">Leads</h1>
+      <p style="margin-top: 6px;">Pipeline de vendas e acompanhamento.</p>
+
+      <div class="empty-state">
+        <h3>Ainda sem dados aqui</h3>
+        <p>Assim que o agente de IA começar a atender, os leads vão aparecer neste pipeline.</p>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    requireSession();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+  </script>
+
+</body>
+</html>

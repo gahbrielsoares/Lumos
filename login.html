@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar — Lumos CRM</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <span class="logo-mark"></span>
+      Lumos
+    </a>
+  </header>
+
+  <div class="wrap center-column">
+    <div class="auth-card">
+      <h1>Entrar</h1>
+      <p class="auth-sub">Acesse sua conta Lumos.</p>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" required autocomplete="current-password" />
+        </div>
+        <div id="msg" class="form-msg"></div>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+
+      <div class="auth-switch">
+        Ainda não tem conta? <a href="signup.html">Criar conta</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { signIn, redirectAfterLogin } from "./js/auth.js";
+
+    const form = document.getElementById("login-form");
+    const msg = document.getElementById("msg");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+      msg.className = "form-msg";
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      const { error } = await signIn({ email, password });
+
+      if (error) {
+        msg.textContent = "E-mail ou senha incorretos.";
+        msg.classList.add("error");
+        return;
+      }
+
+      msg.textContent = "Entrando...";
+      msg.classList.add("ok");
+      await redirectAfterLogin();
+    });
+  </script>
+
+</body>
+</html>
