@@ -1,31 +1,31 @@
-/* ===== Lumos CRM — Design System =====
-   Conceito: "luz na escuridão" — fundo azul-noite profundo,
-   um único brilho âmbar quente como assinatura visual.
+/* ===== Lumos — Design System =====
+   Conceito: refinado, quente e discreto — fundo quase preto,
+   dourado champanhe usado com moderação, tipografia editorial.
 */
 
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #0A0D14;
-  --bg-elevated: #10141E;
-  --surface: #151A26;
-  --border: #232A3B;
-  --border-soft: #1B2130;
+  --bg: #0B0A08;
+  --bg-elevated: #131210;
+  --surface: #17150F;
+  --border: #2A281F;
+  --border-soft: #1D1B15;
 
-  --text: #E9EBF2;
-  --text-muted: #8A93A8;
-  --text-faint: #565F74;
+  --text: #F2EEE4;
+  --text-muted: #A79C87;
+  --text-faint: #6E6656;
 
-  --glow: #F2B84B;
-  --glow-soft: #F2B84B33;
-  --glow-dim: #F2B84B14;
-  --violet: #8B7FD6;
+  --glow: #C9A961;
+  --glow-soft: #C9A96130;
+  --glow-dim: #C9A96112;
+  --violet: #A79C87;
 
   --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 
-  --font-display: 'Anton', sans-serif;
+  --font-display: 'Fraunces', serif;
   --font-body: 'Inter', -apple-system, sans-serif;
 }
 
@@ -43,8 +43,8 @@ body {
 }
 
 h1, h2, h3 {
-  font-family: var(--font-body);
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 500;
   line-height: 1.2;
   margin: 0;
   letter-spacing: -0.01em;
@@ -52,14 +52,10 @@ h1, h2, h3 {
 
 .wordmark {
   font-family: var(--font-display);
-  text-transform: uppercase;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: var(--glow);
-  text-shadow:
-    0 0 12px var(--glow),
-    0 0 44px var(--glow-soft),
-    0 0 90px var(--glow-dim);
 }
 
 p { color: var(--text-muted); margin: 0; }
@@ -98,25 +94,24 @@ img, svg { display: block; max-width: 100%; }
 .logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   font-family: var(--font-display);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   font-size: 19px;
+  font-weight: 500;
   color: var(--text);
 }
 
 .logo .logo-glow-text {
   color: var(--glow);
-  text-shadow: 0 0 10px var(--glow-soft);
 }
 
 .logo-mark {
-  width: 22px;
-  height: 22px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #FFE3A8, var(--glow) 60%, #8A5B12 100%);
-  box-shadow: 0 0 16px var(--glow-soft);
+  background: var(--glow);
+  box-shadow: 0 0 10px var(--glow-soft);
   flex-shrink: 0;
 }
 
@@ -151,10 +146,10 @@ img, svg { display: block; max-width: 100%; }
 
 .btn-primary {
   background: var(--glow);
-  color: #201404;
+  color: #16140D;
 }
 
-.btn-primary:hover { background: #F5C563; }
+.btn-primary:hover { background: #D9BC7D; }
 
 .btn-ghost {
   background: transparent;
@@ -162,7 +157,7 @@ img, svg { display: block; max-width: 100%; }
   border-color: var(--border);
 }
 
-.btn-ghost:hover { border-color: var(--text-faint); }
+.btn-ghost:hover { border-color: var(--glow); color: var(--glow); }
 
 .btn-block { width: 100%; }
 
@@ -248,7 +243,7 @@ img, svg { display: block; max-width: 100%; }
 .hero-info h1 {
   font-size: clamp(24px, 3.2vw, 32px);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .hero-actions {
@@ -259,8 +254,8 @@ img, svg { display: block; max-width: 100%; }
 }
 
 .btn-pill {
-  border-radius: 999px;
-  padding: 14px 30px;
+  border-radius: var(--radius-sm);
+  padding: 14px 32px;
 }
 
 .scroll-cue {
@@ -291,33 +286,21 @@ img, svg { display: block; max-width: 100%; }
 
 .topbar {
   position: relative;
-  background: linear-gradient(90deg, #C9A6E0, #B98FD9 50%, #C9A6E0);
-  padding: 10px 32px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-soft);
+  padding: 11px 32px;
   text-align: center;
-  overflow: hidden;
 }
 
 .topbar span {
-  position: relative;
-  z-index: 1;
-  color: #241833;
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--glow);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.topbar svg {
-  position: absolute;
-  top: -6px;
-  opacity: 0.35;
-  color: #241833;
-  width: 70px;
-  height: 70px;
-}
-
-.topbar .palm-left { left: 24px; }
-.topbar .palm-right { right: 24px; transform: scaleX(-1); }
+.topbar svg { display: none; }
 
 /* ===== Menu hamburguer ===== */
 
@@ -505,11 +488,12 @@ img, svg { display: block; max-width: 100%; }
 }
 
 .hero-bottom-text {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.6;
-  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  line-height: 1.8;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .client-logo-slot {

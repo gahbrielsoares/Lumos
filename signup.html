@@ -61,9 +61,11 @@
       const { error } = await signUp({ name, email, password });
 
       if (error) {
-        msg.textContent = error.message.includes("already registered")
+        console.error("Erro do Supabase:", error);
+        msg.textContent = error.message.toLowerCase().includes("already registered") ||
+                           error.message.toLowerCase().includes("already exists")
           ? "Esse e-mail já tem conta. Tente entrar."
-          : "Não foi possível criar a conta. Tente novamente.";
+          : `Erro: ${error.message}`;
         msg.classList.add("error");
         return;
       }
