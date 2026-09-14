@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Produtos — Lumos</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo" style="padding: 0 12px 24px;">
+        <span class="logo-mark"></span>
+        Lumos
+      </div>
+      <nav class="dash-nav">
+        <a href="dashboard.html">Leads</a>
+        <a href="#">Conversas</a>
+        <a href="#">Agenda</a>
+        <a href="settings.html">Configurações</a>
+        <a href="#" id="logout-link">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="dash-main">
+      <a href="settings.html" style="font-size: 13.5px; color: var(--text-muted);">← Configurações</a>
+      <h1 style="font-size: 26px; margin-top: 10px;">Produtos</h1>
+      <p style="margin-top: 6px;">Cadastre o que sua loja vende — a IA usa isso pra responder e orçar certo.</p>
+
+      <!-- Categorias -->
+      <div class="settings-block">
+        <h3>Categorias</h3>
+        <p class="settings-hint">Um produto pode pertencer a uma ou mais categorias.</p>
+        <div id="categories-list" class="chips-row"></div>
+        <form id="category-form" class="inline-form" style="margin-top: 14px;">
+          <input type="text" id="category-name" placeholder="Ex: Tintas" required />
+          <button type="submit" class="btn btn-primary">Adicionar</button>
+        </form>
+      </div>
+
+      <!-- Produtos -->
+      <div class="settings-block" style="max-width: 760px;">
+        <h3>Produtos</h3>
+        <div id="products-list" class="products-list"></div>
+
+        <button id="add-product-btn" class="btn btn-ghost" style="margin-top: 16px;">+ Novo produto</button>
+
+        <form id="product-form" class="sub-form" style="display:none;">
+          <input type="hidden" id="product-id" />
+          <div class="field">
+            <label for="p-name">Nome do produto</label>
+            <input type="text" id="p-name" required />
+          </div>
+          <div class="field">
+            <label for="p-desc">Descrição</label>
+            <textarea id="p-desc" rows="3"></textarea>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="p-price">Preço (R$)</label>
+              <input type="number" id="p-price" step="0.01" min="0" required />
+            </div>
+            <div class="field">
+              <label for="p-unit">Unidade</label>
+              <select id="p-unit" required>
+                <option value="unidade">Unidade</option>
+                <option value="litro">Litro</option>
+                <option value="m2">m²</option>
+                <option value="metro">Metro linear</option>
+                <option value="kg">Kg</option>
+                <option value="saco">Saco</option>
+                <option value="caixa">Caixa</option>
+                <option value="rolo">Rolo</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Categorias</label>
+            <div id="category-checkboxes" class="chips-row"></div>
+          </div>
+          <div class="field">
+            <label for="p-photos">Fotos</label>
+            <input type="file" id="p-photos" accept="image/*" multiple />
+          </div>
+          <div id="product-msg" class="form-msg"></div>
+          <div style="display:flex; gap: 10px;">
+            <button type="submit" class="btn btn-primary">Salvar produto</button>
+            <button type="button" id="cancel-product" class="btn btn-ghost">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    import {
+      listCategories, addCategory, deleteCategory,
+      listProducts, addProduct, updateProduct, deleteProduct,
+      uploadPhotos, UNIT_LABELS,
+    } from "./js/products.js";
+
+    await requireSession();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    let categories = [];
+    let editingId = null;
+
+    const categoriesList = document.getElementById("categories-list");
+    const categoryForm = document.getElementById("category-form");
+    const categoryCheckboxes = document.getElementById("category-checkboxes");
+
+    const productsList = document.getElementById("products-list");
+    const addProductBtn = document.getElementById("add-product-btn");
+    const productForm = document.getElementById("product-form");
+    const productMsg = document.getElementById("product-msg");
+    const cancelProduct = document.getElementById("cancel-product");
+
+    async function renderCategories() {
+      const { data } = await listCategories();
+      categories = data || [];
+
+      categoriesList.innerHTML = categories.length
+        ? categories.map((c) => `
+            <span class="chip">${c.name} <button data-del-cat="${c.id}">&times;</button></span>
+          `).join("")
+        : `<p class="settings-hint">Nenhuma categoria ainda.</p>`;
+
+      categoryCheckboxes.innerHTML = categories.length
+        ? categories.map((c) => `
+            <label class="chip-checkbox">
+              <input type="checkbox" value="${c.id}" class="cat-check" /> ${c.name}
+            </label>
+          `).join("")
+        : `<p class="settings-hint">Crie uma categoria primeiro.</p>`;
+
+      categoriesList.querySelectorAll("[data-del-cat]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await deleteCategory(btn.dataset.delCat);
+          renderCategories();
+        });
+      });
+    }
+
+    async function renderProducts() {
+      const { data, error } = await listProducts();
+      if (error) {
+        productsList.innerHTML = `<p class="form-msg error">Erro: ${error.message}</p>`;
+        return;
+      }
+
+      productsList.innerHTML = data.length
+        ? data.map((p) => {
+            const cats = (p.product_categories || [])
+              .map((pc) => pc.categories?.name)
+              .filter(Boolean)
+              .join(", ");
+            const thumb = p.photo_urls?.[0];
+            return `
+              <div class="product-card">
+                ${thumb ? `<img src="${thumb}" class="product-thumb" />` : `<div class="product-thumb product-thumb-empty"></div>`}
+                <div class="product-info">
+                  <div class="number-card-label">${p.name}</div>
+                  <p class="number-card-route">${p.description || ""}</p>
+                  <div class="product-meta">
+                    R$ ${Number(p.price).toFixed(2)} / ${UNIT_LABELS[p.unit] || p.unit}
+                    ${cats ? ` · ${cats}` : ""}
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <button class="btn btn-ghost btn-sm" data-edit="${p.id}">Editar</button>
+                  <button class="btn btn-ghost btn-sm" data-del="${p.id}">Remover</button>
+                </div>
+              </div>
+            `;
+          }).join("")
+        : `<p class="settings-hint">Nenhum produto cadastrado ainda.</p>`;
+
+      productsList.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await deleteProduct(btn.dataset.del);
+          renderProducts();
+        });
+      });
+
+      productsList.querySelectorAll("[data-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const p = data.find((x) => x.id === btn.dataset.edit);
+          openForm(p);
+        });
+      });
+    }
+
+    function openForm(product = null) {
+      productForm.style.display = "flex";
+      addProductBtn.style.display = "none";
+      productForm.reset();
+      document.querySelectorAll(".cat-check").forEach((c) => (c.checked = false));
+
+      editingId = product?.id || null;
+      document.getElementById("product-id").value = editingId || "";
+
+      if (product) {
+        document.getElementById("p-name").value = product.name;
+        document.getElementById("p-desc").value = product.description || "";
+        document.getElementById("p-price").value = product.price;
+        document.getElementById("p-unit").value = product.unit;
+        const productCatIds = (product.product_categories || []).map((pc) => pc.category_id);
+        document.querySelectorAll(".cat-check").forEach((c) => {
+          c.checked = productCatIds.includes(c.value);
+        });
+      }
+    }
+
+    addProductBtn.addEventListener("click", () => openForm());
+
+    cancelProduct.addEventListener("click", () => {
+      productForm.style.display = "none";
+      addProductBtn.style.display = "inline-flex";
+      productForm.reset();
+    });
+
+    categoryForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("category-name");
+      await addCategory(input.value.trim());
+      input.value = "";
+      renderCategories();
+    });
+
+    productForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      productMsg.textContent = "Salvando...";
+      productMsg.className = "form-msg";
+
+      const category_ids = [...document.querySelectorAll(".cat-check:checked")].map((c) => c.value);
+      const files = document.getElementById("p-photos").files;
+
+      try {
+        let photo_urls;
+        if (files.length) {
+          photo_urls = await uploadPhotos(files);
+        }
+
+        const fields = {
+          name: document.getElementById("p-name").value.trim(),
+          description: document.getElementById("p-desc").value.trim(),
+          price: parseFloat(document.getElementById("p-price").value),
+          unit: document.getElementById("p-unit").value,
+          ...(photo_urls ? { photo_urls } : {}),
+        };
+
+        const result = editingId
+          ? await updateProduct(editingId, fields, category_ids)
+          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids });
+
+        if (result.error) throw result.error;
+
+        productForm.style.display = "none";
+        addProductBtn.style.display = "inline-flex";
+        productForm.reset();
+        renderProducts();
+      } catch (err) {
+        productMsg.textContent = `Erro: ${err.message}`;
+        productMsg.className = "form-msg error";
+      }
+    });
+
+    renderCategories().then(renderProducts);
+  </script>
+
+</body>
+</html>
