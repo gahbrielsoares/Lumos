@@ -104,6 +104,44 @@ lumos-crm/
     └── auth.js            → login, cadastro e redirecionamento por papel
 ```
 
+## 6. Números do WhatsApp e roteamento
+
+No **SQL Editor** do Supabase, rode:
+
+```sql
+create table public.whatsapp_numbers (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  type text check (type in ('principal','sub')) not null,
+  label text,
+  phone_number text not null,
+  routing_description text,
+  active boolean default true,
+  created_at timestamp with time zone default now()
+);
+
+alter table public.whatsapp_numbers enable row level security;
+
+create policy "Usuarios veem seus proprios numeros"
+on public.whatsapp_numbers for select
+using (auth.uid() = owner_id);
+
+create policy "Usuarios gerenciam seus proprios numeros"
+on public.whatsapp_numbers for insert
+with check (auth.uid() = owner_id);
+
+create policy "Usuarios atualizam seus proprios numeros"
+on public.whatsapp_numbers for update
+using (auth.uid() = owner_id);
+
+create policy "Usuarios excluem seus proprios numeros"
+on public.whatsapp_numbers for delete
+using (auth.uid() = owner_id);
+```
+
+O campo `owner_id` já deixa a estrutura pronta pra quando houver mais de uma
+loja/cliente usando o sistema — cada um só vê e edita os próprios números.
+
 ## Próximos passos sugeridos
 
 - Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.

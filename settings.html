@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configurações — Lumos</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo" style="padding: 0 12px 24px;">
+        <span class="logo-mark"></span>
+        Lumos
+      </div>
+      <nav class="dash-nav">
+        <a href="dashboard.html">Leads</a>
+        <a href="#">Conversas</a>
+        <a href="#">Agenda</a>
+        <a href="settings.html" class="active">Configurações</a>
+        <a href="#" id="logout-link">Sair</a>
+      </nav>
+    </aside>
+
+    <main class="dash-main">
+      <h1 style="font-size: 26px;">Números do WhatsApp</h1>
+      <p style="margin-top: 6px;">Cadastre o número principal e distribua os assuntos entre a equipe.</p>
+
+      <!-- Número principal -->
+      <div class="settings-block">
+        <h3>Número principal</h3>
+        <p class="settings-hint">É o número que recebe a tecnologia da Lumos e conversa com seus clientes.</p>
+        <form id="principal-form" class="inline-form">
+          <input type="tel" id="principal-phone" placeholder="+55 19 99999-9999" required />
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </form>
+        <div id="principal-msg" class="form-msg"></div>
+      </div>
+
+      <!-- Sub-números -->
+      <div class="settings-block">
+        <h3>Sub-números da equipe</h3>
+        <p class="settings-hint">
+          Cada sub-número recebe as conversas que a IA identificar como daquele assunto. Descreva a rota como se estivesse explicando pra uma pessoa nova no time.
+        </p>
+
+        <div id="numbers-list" class="numbers-list"></div>
+
+        <button id="add-number-btn" class="btn btn-ghost" style="margin-top: 16px;">+ Adicionar sub-número</button>
+
+        <form id="sub-form" class="sub-form" style="display:none;">
+          <div class="field">
+            <label for="sub-label">Nome / setor</label>
+            <input type="text" id="sub-label" placeholder="Ex: Carla — Vendas" required />
+          </div>
+          <div class="field">
+            <label for="sub-phone">Número</label>
+            <input type="tel" id="sub-phone" placeholder="+55 19 99999-9999" required />
+          </div>
+          <div class="field">
+            <label for="sub-route">Definir rota</label>
+            <textarea id="sub-route" rows="3" placeholder="Ex: Esse número é responsável por fechar vendas e negociar valores com o cliente." required></textarea>
+          </div>
+          <div id="sub-msg" class="form-msg"></div>
+          <div style="display:flex; gap: 10px;">
+            <button type="submit" class="btn btn-primary">Adicionar</button>
+            <button type="button" id="cancel-sub" class="btn btn-ghost">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    import { listNumbers, savePrincipal, addSubNumber, deleteNumber } from "./js/numbers.js";
+
+    await requireSession();
+
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    const numbersList = document.getElementById("numbers-list");
+    const principalPhone = document.getElementById("principal-phone");
+    const principalForm = document.getElementById("principal-form");
+    const principalMsg = document.getElementById("principal-msg");
+
+    const addBtn = document.getElementById("add-number-btn");
+    const subForm = document.getElementById("sub-form");
+    const subMsg = document.getElementById("sub-msg");
+    const cancelSub = document.getElementById("cancel-sub");
+
+    async function render() {
+      const { data, error } = await listNumbers();
+      if (error) {
+        numbersList.innerHTML = `<p class="form-msg error">Erro ao carregar números: ${error.message}</p>`;
+        return;
+      }
+
+      const principal = data.find((n) => n.type === "principal");
+      const subs = data.filter((n) => n.type === "sub");
+
+      if (principal) principalPhone.value = principal.phone_number;
+
+      numbersList.innerHTML = subs.length
+        ? subs.map((n) => `
+            <div class="number-card">
+              <div>
+                <div class="number-card-label">${n.label || "Sem nome"} <span class="number-card-phone">${n.phone_number}</span></div>
+                <p class="number-card-route">${n.routing_description || ""}</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" data-delete="${n.id}">Remover</button>
+            </div>
+          `).join("")
+        : `<p class="settings-hint">Nenhum sub-número cadastrado ainda.</p>`;
+
+      numbersList.querySelectorAll("[data-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await deleteNumber(btn.dataset.delete);
+          render();
+        });
+      });
+    }
+
+    principalForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      principalMsg.textContent = "";
+      const { error } = await savePrincipal(principalPhone.value.trim());
+      if (error) {
+        principalMsg.textContent = `Erro: ${error.message}`;
+        principalMsg.className = "form-msg error";
+        return;
+      }
+      principalMsg.textContent = "Salvo.";
+      principalMsg.className = "form-msg ok";
+      render();
+    });
+
+    addBtn.addEventListener("click", () => {
+      subForm.style.display = "flex";
+      addBtn.style.display = "none";
+    });
+
+    cancelSub.addEventListener("click", () => {
+      subForm.style.display = "none";
+      addBtn.style.display = "inline-flex";
+      subForm.reset();
+    });
+
+    subForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      subMsg.textContent = "";
+      const { error } = await addSubNumber({
+        label: document.getElementById("sub-label").value.trim(),
+        phone_number: document.getElementById("sub-phone").value.trim(),
+        routing_description: document.getElementById("sub-route").value.trim(),
+      });
+      if (error) {
+        subMsg.textContent = `Erro: ${error.message}`;
+        subMsg.className = "form-msg error";
+        return;
+      }
+      subForm.reset();
+      subForm.style.display = "none";
+      addBtn.style.display = "inline-flex";
+      render();
+    });
+
+    render();
+  </script>
+
+</body>
+</html>
