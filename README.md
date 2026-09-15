@@ -211,6 +211,118 @@ create policy "Leitura publica" on storage.objects for select to public
   using (bucket_id = 'product-photos');
 ```
 
+## 8. Leads, mensagens e o agente de IA (Edge Function)
+
+### 8.1 Tabelas de leads e mensagens
+
+No **SQL Editor**:
+
+```sql
+create table public.leads (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  name text,
+  phone text not null,
+  stage text default 'novo' check (stage in ('novo','em_andamento','qualificado','visita','proposta','vendido','descartado')),
+  last_message_at timestamp with time zone default now(),
+  created_at timestamp with time zone default now()
+);
+
+create table public.messages (
+  id uuid default gen_random_uuid() primary key,
+  lead_id uuid references public.leads(id) on delete cascade not null,
+  direction text check (direction in ('in','out')) not null,
+  text text,
+  created_at timestamp with time zone default now()
+);
+
+alter table public.leads enable row level security;
+alter table public.messages enable row level security;
+
+create policy "Dono ve seus leads" on public.leads for select using (auth.uid() = owner_id);
+create policy "Dono cria leads" on public.leads for insert with check (auth.uid() = owner_id);
+create policy "Dono atualiza leads" on public.leads for update using (auth.uid() = owner_id);
+
+create policy "Dono ve mensagens" on public.messages for select
+  using (exists (select 1 from public.leads l where l.id = lead_id and l.owner_id = auth.uid()));
+```
+
+A Edge Function (abaixo) usa a `service_role key` internamente, então ela
+ignora essas políticas — só o painel (usuário logado) fica restrito a ver os
+próprios leads.
+
+### 8.2 Criar a Edge Function
+
+1. No Supabase, vá em **Edge Functions → Deploy a new function → Via Editor**.
+2. Nome da função: `whatsapp-webhook`.
+3. Cole o código de `supabase/functions/whatsapp-webhook/index.ts` (está neste
+   repositório).
+4. **Importante**: desative a opção **"Enforce JWT verification"** — a UAZAPI
+   não manda token de autenticação do Supabase, só o token dela mesma dentro
+   do payload. Com o JWT ligado, toda chamada da UAZAPI vai receber 401.
+5. Clique em **Deploy**.
+
+### 8.3 Configurar a chave da IA
+
+Em **Project Settings → Edge Functions → Secrets**, adicione:
+- `OPENAI_API_KEY`: sua chave da [platform.openai.com](https://platform.openai.com).
+
+(`SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` já ficam disponíveis
+automaticamente dentro de toda Edge Function, não precisa cadastrar.)
+
+### 8.4 Trocar o webhook
+
+No painel da UAZAPI, troque a URL do webhook (que hoje aponta pro
+webhook.site) pela URL da sua função, algo como:
+
+```
+https://SEU-PROJETO.supabase.co/functions/v1/whatsapp-webhook
+```
+
+## 9. Configurações do Agente, Provedores de IA e de WhatsApp
+
+No **SQL Editor**:
+
+```sql
+create table public.agent_config (
+  owner_id uuid references auth.users(id) primary key,
+  name text default 'Assistente Lumos',
+  system_prompt text default 'Você é a assistente de atendimento via WhatsApp de uma loja de materiais de construção e acabamento. Responda em português, de forma direta e simpática, como um bom vendedor de balcão.',
+  temperature numeric(3,2) default 0.7,
+  max_tokens integer default 1024,
+  history_limit integer default 10,
+  enabled boolean default true,
+  allowed_phones text default '',
+  active_ai_slot text default 'gratis' check (active_ai_slot in ('paga','gratis')),
+  updated_at timestamp with time zone default now()
+);
+
+create table public.ai_providers (
+  owner_id uuid references auth.users(id) not null,
+  slot text check (slot in ('paga','gratis')) not null,
+  vendor text check (vendor in ('openai','groq','openrouter','gemini')) not null,
+  api_key text default '',
+  model text default '',
+  primary key (owner_id, slot)
+);
+
+create table public.whatsapp_provider_config (
+  owner_id uuid references auth.users(id) primary key,
+  vendor text check (vendor in ('uazapi','evolution')) default 'uazapi',
+  base_url text default '',
+  api_key text default '',
+  instance_id text default ''
+);
+
+alter table public.agent_config enable row level security;
+alter table public.ai_providers enable row level security;
+alter table public.whatsapp_provider_config enable row level security;
+
+create policy "Dono ve/edita agent_config" on public.agent_config for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+create policy "Dono ve/edita ai_providers" on public.ai_providers for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+create policy "Dono ve/edita whatsapp_provider_config" on public.whatsapp_provider_config for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+```
+
 ## Próximos passos sugeridos
 
 - Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.

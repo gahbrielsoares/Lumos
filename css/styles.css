@@ -910,3 +910,74 @@ img, svg { display: block; max-width: 100%; }
   color: var(--glow);
   margin-top: 6px;
 }
+
+/* ===== Agente de IA — toggle, abas de slot ===== */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toggle-row label { margin: 0; }
+
+.toggle-input {
+  width: 38px;
+  height: 22px;
+  appearance: none;
+  background: var(--border);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--text);
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.toggle-input:checked {
+  background: var(--glow);
+}
+
+.toggle-input:checked::before {
+  transform: translateX(16px);
+  background: #16140D;
+}
+
+.slot-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.slot-tab {
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.slot-tab.active {
+  border-color: var(--glow);
+  color: var(--glow);
+}
+
+.active-badge {
+  margin-left: 12px;
+  font-size: 12.5px;
+  color: var(--glow);
+}
