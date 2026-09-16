@@ -1916,3 +1916,99 @@ img, svg { display: block; max-width: 100%; }
 .section-heading-row .hub-icon { width: 32px; height: 32px; border-radius: 10px; }
 .section-heading-row .hub-icon svg { width: 16px; height: 16px; }
 .section-heading-row h3 { margin: 0; }
+
+/* ===== Fase 4 — adapta componentes antigos (settings, chips, formulários,
+   stat-card, number-card) ao tema claro/escuro do painel SaaS, sem precisar
+   mexer no HTML dessas páginas ===== */
+
+.dash-main .settings-block,
+.dash-main .hub-card,
+.dash-main .number-card,
+.dash-main .stat-card,
+.dash-main .product-thumb-empty {
+  background: var(--panel-card);
+  border-color: var(--panel-border);
+}
+
+.dash-main .hub-icon {
+  background: var(--panel-accent-light);
+  color: var(--panel-accent);
+}
+
+.dash-main h1,
+.dash-main h3,
+.dash-main .hub-title,
+.dash-main .number-card-label,
+.dash-main .stat-number {
+  font-family: var(--panel-font-display);
+  color: var(--panel-text);
+}
+
+.dash-main p,
+.dash-main .settings-hint,
+.dash-main .hub-sub,
+.dash-main .number-card-route,
+.dash-main label,
+.dash-main .stat-label {
+  font-family: var(--panel-font-body);
+  color: var(--panel-text-muted);
+}
+
+.dash-main .number-card-phone { color: var(--panel-text-muted); }
+
+.dash-main .field input,
+.dash-main .field textarea,
+.dash-main .field select,
+.dash-main .inline-form input,
+.dash-main .sub-form textarea {
+  background: var(--panel-bg);
+  border-color: var(--panel-border);
+  color: var(--panel-text);
+  font-family: var(--panel-font-body);
+}
+
+.dash-main .chip,
+.dash-main .chip-checkbox {
+  background: var(--panel-bg);
+  border-color: var(--panel-border);
+  color: var(--panel-text-muted);
+}
+
+.dash-main .chip { color: var(--panel-text); }
+.dash-main .chip button { color: var(--panel-text-muted); }
+
+.dash-main .btn-ghost {
+  color: var(--panel-text);
+  border-color: var(--panel-border);
+  font-family: var(--panel-font-body);
+}
+.dash-main .btn-ghost:hover { border-color: var(--panel-accent); color: var(--panel-accent); }
+
+.dash-main .btn-primary {
+  font-family: var(--panel-font-body);
+  background: var(--panel-accent);
+}
+.dash-main .btn-primary:hover { background: var(--panel-primary-hover); filter: brightness(1.1); }
+
+.dash-main .toggle-input { background: var(--panel-border); }
+.dash-main .toggle-input:checked { background: var(--panel-accent); }
+.dash-main .toggle-input::before { background: var(--panel-card); }
+
+.dash-main .slot-tab,
+.dash-main .pill-tab {
+  background: var(--panel-card);
+  border-color: var(--panel-border);
+  color: var(--panel-text-muted);
+  font-family: var(--panel-font-body);
+}
+.dash-main .slot-tab.active,
+.dash-main .pill-tab.active {
+  background: var(--panel-accent-light);
+  border-color: var(--panel-accent);
+  color: var(--panel-accent);
+  animation: none;
+  box-shadow: none;
+}
+
+.dash-main .active-badge { color: var(--panel-accent); }
+.dash-main .form-msg.ok { color: var(--panel-accent); }
