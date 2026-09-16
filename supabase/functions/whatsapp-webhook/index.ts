@@ -14,6 +14,34 @@ const FALLBACK_OPENROUTER_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+function sanitizeReply(text: string): string {
+  return text
+    .replace(/<\/?[A-Za-z_][A-Za-z0-9_]*>/g, "") // remove tags tipo <CPA_DONE>, <|end|> etc.
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Detecta quando o modelo vazou o "raciocínio interno" em vez da resposta final.
+// Isso acontece com modelos de "reasoning" quando a API não separa esse
+// conteúdo automaticamente. Nesses casos é mais seguro usar uma resposta
+// de reserva do que arriscar mandar isso pro cliente.
+function looksLikeLeakedReasoning(text: string): boolean {
+  const markers = [
+    "here's a thinking process",
+    "let me think",
+    "let's think",
+    "analyze user input",
+    "identify context",
+    "step 1",
+    "1.  **",
+    "1. **",
+    "wait, the rule",
+    "revisão final",
+  ];
+  const lower = text.toLowerCase();
+  return markers.some((m) => lower.includes(m)) || text.length > 900;
+}
+
 function onlyDigits(s: string | undefined | null) {
   return (s || "").replace(/\D/g, "");
 }
@@ -44,7 +72,10 @@ async function callAiProvider(
       }
     );
     const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    if (!res.ok) console.error("Erro na chamada Gemini:", res.status, JSON.stringify(data));
+    const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    if (!out) console.error("Gemini respondeu vazio. Payload completo:", JSON.stringify(data));
+    return out;
   }
 
   const endpoints: Record<string, string> = {
@@ -74,7 +105,10 @@ async function callAiProvider(
   });
 
   const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() || "";
+  if (!res.ok) console.error(`Erro na chamada ${vendor}:`, res.status, JSON.stringify(data));
+  const out = data.choices?.[0]?.message?.content?.trim() || "";
+  if (!out) console.error(`${vendor} respondeu vazio. Payload completo:`, JSON.stringify(data));
+  return out;
 }
 
 // ---------- Envio da resposta pelo provedor de WhatsApp configurado ----------
@@ -87,27 +121,66 @@ async function sendWhatsAppReply(
 ) {
   // Sem configuração salva ainda: usa os dados que a própria UAZAPI mandou no payload (comportamento atual)
   if (!waConfig || !waConfig.base_url) {
-    return fetch(`${fallbackBaseUrl}/send/text`, {
+    const res = await fetch(`${fallbackBaseUrl}/send/text`, {
       method: "POST",
       headers: { "Content-Type": "application/json", token: fallbackToken },
       body: JSON.stringify({ number: toNumber, text }),
     });
+    if (!res.ok) console.error("Falha ao enviar (fallback payload):", res.status, await res.text());
+    return res;
   }
 
   if (waConfig.vendor === "evolution") {
-    return fetch(`${waConfig.base_url}/message/sendText/${waConfig.instance_id}`, {
+    const res = await fetch(`${waConfig.base_url}/message/sendText/${waConfig.instance_id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: waConfig.api_key },
       body: JSON.stringify({ number: toNumber, text }),
     });
+    if (!res.ok) console.error("Falha ao enviar (evolution):", res.status, await res.text());
+    return res;
   }
 
   // uazapi (ou qualquer outro compatível)
-  return fetch(`${waConfig.base_url}/send/text`, {
+  const res = await fetch(`${waConfig.base_url}/send/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json", token: waConfig.api_key },
     body: JSON.stringify({ number: toNumber, text }),
   });
+  if (!res.ok) console.error("Falha ao enviar (uazapi):", res.status, await res.text());
+  return res;
+}
+
+// ---------- Envio de foto de produto ----------
+async function sendWhatsAppPhoto(
+  waConfig: { vendor: string; base_url: string; api_key: string; instance_id?: string } | null,
+  fallbackBaseUrl: string,
+  fallbackToken: string,
+  toNumber: string,
+  photoUrl: string,
+  caption: string
+) {
+  const baseUrl = waConfig?.base_url || fallbackBaseUrl;
+  const token = waConfig?.api_key || fallbackToken;
+  const vendor = waConfig?.vendor || "uazapi";
+
+  if (vendor === "evolution") {
+    const res = await fetch(`${baseUrl}/message/sendMedia/${waConfig?.instance_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: token },
+      body: JSON.stringify({ number: toNumber, mediatype: "image", media: photoUrl, caption }),
+    });
+    if (!res.ok) console.error("Falha ao enviar foto (evolution):", res.status, await res.text());
+    return res;
+  }
+
+  // uazapi
+  const res = await fetch(`${baseUrl}/send/media`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token },
+    body: JSON.stringify({ number: toNumber, type: "image", file: photoUrl, text: caption }),
+  });
+  if (!res.ok) console.error("Falha ao enviar foto (uazapi):", res.status, await res.text());
+  return res;
 }
 
 Deno.serve(async (req) => {
@@ -123,16 +196,26 @@ Deno.serve(async (req) => {
       return new Response("ignored", { status: 200 });
     }
 
+    // Ignora mensagens de grupo — só atende conversa individual
+    if (msg.isGroup || payload.chat?.wa_isGroup) {
+      console.log("Mensagem de grupo, ignorando.");
+      return new Response("ignored group", { status: 200 });
+    }
+
     const businessNumber = onlyDigits(payload.owner);
     const customerNumber = onlyDigits(msg.sender_pn);
     const customerName = payload.chat?.wa_name || payload.chat?.name || "";
     const text = msg.text as string;
+
+    console.log("Mensagem recebida. De:", customerNumber, "Para (business):", businessNumber, "Texto:", text);
 
     // 1. Descobrir o dono da conta pelo número principal cadastrado
     const { data: numbers } = await supabase
       .from("whatsapp_numbers")
       .select("owner_id, phone_number")
       .eq("type", "principal");
+
+    console.log("Números principais cadastrados:", JSON.stringify(numbers));
 
     const principal = numbers?.find((n) => onlyDigits(n.phone_number) === businessNumber);
 
@@ -142,6 +225,7 @@ Deno.serve(async (req) => {
     }
 
     const owner_id = principal.owner_id;
+    console.log("Owner encontrado:", owner_id);
 
     // 2. Carregar as configurações do agente
     const { data: agentConfig } = await supabase
@@ -151,12 +235,14 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (agentConfig && agentConfig.enabled === false) {
+      console.log("Agente desativado, ignorando.");
       return new Response("agent disabled", { status: 200 });
     }
 
     if (agentConfig?.allowed_phones) {
       const allowList = agentConfig.allowed_phones.split(",").map((p: string) => onlyDigits(p)).filter(Boolean);
       if (allowList.length && !allowList.includes(customerNumber)) {
+        console.log("Telefone não está na lista permitida:", customerNumber, "Lista:", allowList);
         return new Response("phone not allowed", { status: 200 });
       }
     }
@@ -184,7 +270,7 @@ Deno.serve(async (req) => {
     // 5. Buscar o catálogo de produtos do dono
     const { data: products } = await supabase
       .from("products")
-      .select("name, description, price, unit")
+      .select("name, description, price, unit, photo_urls")
       .eq("owner_id", owner_id)
       .eq("active", true)
       .limit(40);
@@ -217,6 +303,11 @@ Deno.serve(async (req) => {
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
 Se o cliente perguntar algo fora do catálogo ou que exija um humano, diga que vai chamar alguém da equipe.
 
+Se o cliente pedir pra ver uma foto de um produto específico que existe no catálogo abaixo, responda normalmente
+e adicione, em uma linha separada no FINAL da mensagem, exatamente: [FOTO: Nome Exato do Produto]
+Use o nome EXATO como aparece no catálogo. Só use essa marcação quando o produto existir e tiver o pedido claro de foto.
+Nunca explique essa marcação pro cliente, ela é removida automaticamente antes de chegar até ele.
+
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
@@ -237,6 +328,19 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     );
 
     if (!reply) reply = "Desculpa, tive um probleminha aqui — já te respondo.";
+    reply = sanitizeReply(reply);
+
+    if (looksLikeLeakedReasoning(reply)) {
+      console.error("Resposta descartada por parecer raciocínio interno vazado:", reply.slice(0, 300));
+      reply = "Oi! Deixa eu confirmar uma informação aqui e já te respondo certinho.";
+    }
+
+    // Extrai TODAS as marcações [FOTO: nome do produto] — o cliente pode pedir mais de uma foto de uma vez
+    const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
+    const photoProductNames = photoMatches.map((m) => m[1].trim());
+    reply = reply.replace(/\[FOTO:\s*(.+?)\]/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+
+    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames));
 
     // 8. Salvar a resposta e atualizar o lead
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
@@ -249,7 +353,26 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       .eq("owner_id", owner_id)
       .maybeSingle();
 
+    console.log("Config de WhatsApp usada:", JSON.stringify({ ...waConfig, api_key: waConfig?.api_key ? "(definida)" : null }));
+
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
+
+    // 10. Se a IA pediu pra mostrar uma ou mais fotos, busca cada produto e envia as imagens
+    for (const photoProductName of photoProductNames) {
+      const product = (products || []).find(
+        (p) => p.name.toLowerCase().trim() === photoProductName.toLowerCase().trim()
+      ) || (products || []).find((p) =>
+        p.name.toLowerCase().includes(photoProductName.toLowerCase()) ||
+        photoProductName.toLowerCase().includes(p.name.toLowerCase())
+      );
+
+      if (product?.photo_urls?.length) {
+        console.log("Enviando foto do produto:", product.name, product.photo_urls[0]);
+        await sendWhatsAppPhoto(waConfig, payload.BaseUrl, payload.token, customerNumber, product.photo_urls[0], product.name);
+      } else {
+        console.log("Produto pedido na foto não encontrado ou sem foto cadastrada:", photoProductName);
+      }
+    }
 
     return new Response("ok", { status: 200 });
   } catch (err) {
