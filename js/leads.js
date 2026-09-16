@@ -1,8 +1,39 @@
 import { supabase } from "./supabaseClient.js";
 
+export const STAGES = [
+  "novo_contato",
+  "conversando",
+  "consulta_agendada",
+  "compareceu",
+  "follow_up",
+  "fechado",
+  "perdido",
+];
+
+export const STAGE_LABELS = {
+  novo_contato: "Novo Contato",
+  conversando: "Conversando",
+  consulta_agendada: "Consulta Agendada",
+  compareceu: "Compareceu",
+  follow_up: "Follow Up",
+  fechado: "Fechado",
+  perdido: "Perdido",
+};
+
+export const STAGE_DESCRIPTIONS = {
+  novo_contato: "Lead acabou de entrar em contato",
+  conversando: "Em conversa, coletando informações",
+  consulta_agendada: "Visita/consulta marcada, aguardando comparecimento",
+  compareceu: "Compareceu e virou cliente",
+  follow_up: "O Agente de IA fará o follow up automaticamente",
+  fechado: "Negócio fechado, cliente ativo",
+  perdido: "Desistiu ou sem retorno",
+};
+
 export async function getLeadsStats() {
   const { data } = await supabase.from("leads").select("stage");
-  const stats = { total: data?.length || 0, novo: 0, em_andamento: 0, qualificado: 0, visita: 0, proposta: 0, vendido: 0 };
+  const stats = { total: data?.length || 0 };
+  STAGES.forEach((s) => (stats[s] = 0));
   (data || []).forEach((l) => {
     if (stats[l.stage] !== undefined) stats[l.stage]++;
   });
@@ -18,25 +49,45 @@ export async function listLeads() {
   return data || [];
 }
 
-export async function listLeadsInRange(start, end) {
-  const { data } = await supabase
+export async function listLeadsInRange(start, end, { isClient } = {}) {
+  let query = supabase
     .from("leads")
     .select("*")
     .gte("created_at", start.toISOString())
     .lt("created_at", end.toISOString())
     .order("created_at", { ascending: false });
+
+  if (isClient !== undefined) query = query.eq("is_client", isClient);
+
+  const { data } = await query;
   return data || [];
 }
 
-export const STAGE_LABELS = {
-  novo: "Novo",
-  em_andamento: "Em andamento",
-  qualificado: "Qualificado",
-  visita: "Visita",
-  proposta: "Proposta",
-  vendido: "Vendido",
-  descartado: "Descartado",
-};
+export async function getLeadById(id) {
+  const { data } = await supabase.from("leads").select("*").eq("id", id).maybeSingle();
+  return data;
+}
+
+export async function updateLeadStage(id, stage) {
+  const fields = { stage };
+  if (stage === "compareceu") fields.is_client = true;
+  return supabase.from("leads").update(fields).eq("id", id);
+}
+
+export async function updateLeadFields(id, fields) {
+  return supabase.from("leads").update(fields).eq("id", id);
+}
+
+export async function getLatestMessage(leadId) {
+  const { data } = await supabase
+    .from("messages")
+    .select("text, created_at")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
 
 export function timeAgo(dateString) {
   if (!dateString) return "";

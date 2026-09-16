@@ -379,6 +379,27 @@ create policy "Dono ve/edita business_hours" on public.business_hours for all
   using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 ```
 
+## 11. Migração do funil de estágios (Kanban)
+
+Rode no **SQL Editor** — troca o funil antigo pelo novo, mais específico:
+
+```sql
+-- Remapeia os estágios existentes pro novo funil
+update public.leads set stage = 'novo_contato' where stage = 'novo';
+update public.leads set stage = 'conversando' where stage in ('em_andamento','qualificado');
+update public.leads set stage = 'consulta_agendada' where stage in ('visita','proposta');
+update public.leads set stage = 'fechado' where stage = 'vendido';
+update public.leads set stage = 'perdido' where stage = 'descartado';
+
+-- Troca a restrição de valores permitidos
+alter table public.leads drop constraint if exists leads_stage_check;
+alter table public.leads add constraint leads_stage_check
+  check (stage in ('novo_contato','conversando','consulta_agendada','compareceu','follow_up','fechado','perdido'));
+alter table public.leads alter column stage set default 'novo_contato';
+```
+
+**Importante**: depois de rodar isso, atualize também a Edge Function (`supabase/functions/whatsapp-webhook/index.ts`) — o valor `stage: "novo"` no código precisa virar `stage: "novo_contato"`. Já venho com esse arquivo corrigido nesta entrega.
+
 ## Próximos passos sugeridos
 
 - Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.

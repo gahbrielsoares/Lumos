@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
     if (!lead) {
       const { data: newLead } = await supabase
         .from("leads")
-        .insert({ owner_id, phone: customerNumber, name: customerName, stage: "novo" })
+        .insert({ owner_id, phone: customerNumber, name: customerName, stage: "novo_contato" })
         .select()
         .single();
       lead = newLead;
