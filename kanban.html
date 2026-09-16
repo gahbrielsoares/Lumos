@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=7" />
+  <link rel="stylesheet" href="css/styles.css?v=8" />
 </head>
 <body>
 
@@ -123,7 +123,10 @@
         `;
         card.addEventListener("dragstart", () => card.classList.add("dragging"));
         card.addEventListener("dragend", () => card.classList.remove("dragging"));
-        card.addEventListener("click", () => (window.location.href = `leads.html?id=${lead.id}`));
+        card.addEventListener("click", () => {
+          const dest = lead.is_client ? "clientes.html" : "leads.html";
+          window.location.href = `${dest}?id=${lead.id}`;
+        });
         body.appendChild(card);
       });
 

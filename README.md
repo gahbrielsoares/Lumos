@@ -384,6 +384,9 @@ create policy "Dono ve/edita business_hours" on public.business_hours for all
 Rode no **SQL Editor** — troca o funil antigo pelo novo, mais específico:
 
 ```sql
+-- Remove a restrição antiga primeiro (ela bloquearia os updates abaixo)
+alter table public.leads drop constraint if exists leads_stage_check;
+
 -- Remapeia os estágios existentes pro novo funil
 update public.leads set stage = 'novo_contato' where stage = 'novo';
 update public.leads set stage = 'conversando' where stage in ('em_andamento','qualificado');
@@ -391,8 +394,7 @@ update public.leads set stage = 'consulta_agendada' where stage in ('visita','pr
 update public.leads set stage = 'fechado' where stage = 'vendido';
 update public.leads set stage = 'perdido' where stage = 'descartado';
 
--- Troca a restrição de valores permitidos
-alter table public.leads drop constraint if exists leads_stage_check;
+-- Adiciona a nova restrição de valores permitidos
 alter table public.leads add constraint leads_stage_check
   check (stage in ('novo_contato','conversando','consulta_agendada','compareceu','follow_up','fechado','perdido'));
 alter table public.leads alter column stage set default 'novo_contato';

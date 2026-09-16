@@ -954,6 +954,12 @@ img, svg { display: block; max-width: 100%; }
 .panel-badge.fechado { background: #ECFDF5; color: #065F46; border-color: #6EE7B7; }
 .panel-badge.perdido { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
 
+/* Status de agendamentos */
+.panel-badge.agendado { background: #EBF4FF; color: #1C5EA8; border-color: #BFDBFE; }
+.panel-badge.confirmado { background: #F0FDF4; color: #166534; border-color: #BBF7D0; }
+.panel-badge.faltou { background: #FEF2F2; color: #991B1B; border-color: #FECACA; }
+.panel-badge.cancelado { background: #F3F4F6; color: #6B7280; border-color: #E5E7EB; }
+
 /* ===== Kanban ===== */
 
 .kanban-board {

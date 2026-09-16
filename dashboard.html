@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=7" />
+  <link rel="stylesheet" href="css/styles.css?v=8" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -178,7 +178,7 @@
       }
       empty.style.display = "none";
       body.innerHTML = leads.slice(0, 30).map((l) => `
-        <tr onclick="window.location.href='leads.html?id=${l.id}'">
+        <tr onclick="window.location.href='${l.is_client ? "clientes.html" : "leads.html"}?id=${l.id}'">
           <td>${new Date(l.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
           <td>${l.name || "—"}</td>
           <td>${l.phone}</td>

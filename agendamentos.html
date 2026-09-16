@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agendamentos — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <link rel="stylesheet" href="css/styles.css?v=8" />
+</head>
+<body>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav">
+        <a href="dashboard.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+          Dashboard
+        </a>
+        <a href="kanban.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+          Kanban
+        </a>
+        <a href="leads.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><circle cx="18" cy="8.5" r="2.5"/><path d="M16 20v-1a5 5 0 0 1 6.5-4.8"/></svg>
+          Leads
+        </a>
+        <a href="clientes.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M16.5 9l1.7 1.7L21.5 7"/></svg>
+          Clientes
+        </a>
+        <a href="follow-up.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          Follow Up
+        </a>
+        <a href="agendamentos.html" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/></svg>
+          Agendamentos
+        </a>
+        <a href="products.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
+          Produtos
+        </a>
+        <a href="settings.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          Configurações
+        </a>
+        <a href="#" id="logout-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+          Sair
+        </a>
+      </nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Agendamentos</h1>
+          <p style="margin-top: 6px;">Gerencie as consultas e visitas marcadas. Ao confirmar comparecimento, o lead vira cliente automaticamente.</p>
+        </div>
+        <button class="btn btn-primary" id="new-btn">+ Novo agendamento</button>
+      </div>
+
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn" data-range="hoje">Hoje</button>
+        <button class="filter-btn" data-range="ontem">Ontem</button>
+        <button class="filter-btn active" data-range="7d">Últimos 7 dias</button>
+        <button class="filter-btn" data-range="14d">Últimos 14 dias</button>
+        <button class="filter-btn" data-range="mes">Este mês</button>
+        <button class="filter-btn" data-range="mes_passado">Mês passado</button>
+        <button class="filter-btn" data-range="ano">Este ano</button>
+      </div>
+
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead>
+            <tr><th>Nome</th><th>WhatsApp</th><th>Data do Agendamento</th><th>Motivo do Contato</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div class="empty-state" id="table-empty" style="display:none; border:none; border-radius:0;">
+          <h3>Nenhum agendamento nesse período</h3>
+          <p>Clique em "+ Novo agendamento" para marcar o primeiro.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: novo agendamento -->
+  <div class="modal-backdrop" id="new-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Novo agendamento</h3>
+      <div class="detail-field" style="margin-top:16px;">
+        <div class="k">Lead</div>
+        <select class="panel-select" id="new-lead" style="width:100%;"></select>
+      </div>
+      <div class="detail-field">
+        <div class="k">Data e hora</div>
+        <input type="datetime-local" class="panel-select" id="new-datetime" style="width:100%;" />
+      </div>
+      <div id="new-msg" class="form-msg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="new-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="new-confirm">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: confirmar comparecimento -->
+  <div class="modal-backdrop" id="confirm-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Confirmar comparecimento</h3>
+      <p>Ao confirmar, este lead será promovido a cliente automaticamente.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="confirm-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    import { initThemeToggle } from "./js/theme.js";
+    import { getRange } from "./js/dateRange.js";
+    import { supabase } from "./js/supabaseClient.js";
+    import { updateLeadStage } from "./js/leads.js";
+    import {
+      listAppointmentsInRange, createAppointment, updateAppointmentStatus, APPOINTMENT_STATUS_LABELS,
+    } from "./js/agendamentos.js";
+
+    await requireSession();
+    initThemeToggle();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    let pendingConfirm = null; // { appointmentId, leadId }
+
+    async function loadList(rangeKey) {
+      const [start, end] = getRange(rangeKey);
+      const list = await listAppointmentsInRange(start, end);
+
+      const body = document.getElementById("table-body");
+      const empty = document.getElementById("table-empty");
+
+      if (!list.length) {
+        body.innerHTML = "";
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      body.innerHTML = list.map((a) => `
+        <tr>
+          <td>${a.leads?.name || "—"}</td>
+          <td>${a.leads?.phone || "—"}</td>
+          <td>${new Date(a.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+          <td>${a.leads?.motivo_contato || "—"}</td>
+          <td><span class="panel-badge ${a.status}">${APPOINTMENT_STATUS_LABELS[a.status]}</span></td>
+          <td>
+            <select class="panel-select status-select" data-id="${a.id}" data-lead="${a.lead_id}">
+              ${Object.entries(APPOINTMENT_STATUS_LABELS).map(([k, v]) => `<option value="${k}" ${k === a.status ? "selected" : ""}>${v}</option>`).join("")}
+            </select>
+          </td>
+        </tr>
+      `).join("");
+
+      body.querySelectorAll(".status-select").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const id = sel.dataset.id;
+          const leadId = sel.dataset.lead;
+          const newStatus = sel.value;
+
+          if (newStatus === "compareceu") {
+            pendingConfirm = { appointmentId: id, leadId };
+            document.getElementById("confirm-modal").style.display = "flex";
+            return;
+          }
+          await updateAppointmentStatus(id, newStatus);
+          loadList(currentRange);
+        });
+      });
+    }
+
+    let currentRange = "7d";
+    document.querySelectorAll(".filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentRange = btn.dataset.range;
+        loadList(currentRange);
+      });
+    });
+
+    document.getElementById("confirm-cancel").addEventListener("click", () => {
+      document.getElementById("confirm-modal").style.display = "none";
+      pendingConfirm = null;
+      loadList(currentRange);
+    });
+
+    document.getElementById("confirm-ok").addEventListener("click", async () => {
+      if (pendingConfirm) {
+        await updateAppointmentStatus(pendingConfirm.appointmentId, "compareceu");
+        await updateLeadStage(pendingConfirm.leadId, "compareceu");
+      }
+      document.getElementById("confirm-modal").style.display = "none";
+      pendingConfirm = null;
+      loadList(currentRange);
+    });
+
+    // ---------- Novo agendamento ----------
+    document.getElementById("new-btn").addEventListener("click", async () => {
+      const { data: leads } = await supabase.from("leads").select("id, name, phone").order("name");
+      document.getElementById("new-lead").innerHTML = (leads || [])
+        .map((l) => `<option value="${l.id}">${l.name || l.phone}</option>`).join("");
+      document.getElementById("new-modal").style.display = "flex";
+    });
+
+    document.getElementById("new-cancel").addEventListener("click", () => {
+      document.getElementById("new-modal").style.display = "none";
+    });
+
+    document.getElementById("new-confirm").addEventListener("click", async () => {
+      const lead_id = document.getElementById("new-lead").value;
+      const dt = document.getElementById("new-datetime").value;
+      const msg = document.getElementById("new-msg");
+
+      if (!lead_id || !dt) {
+        msg.textContent = "Escolha o lead e a data.";
+        msg.className = "form-msg error";
+        return;
+      }
+
+      const { error } = await createAppointment({ lead_id, data_hora_inicio: new Date(dt).toISOString() });
+      if (error) {
+        msg.textContent = `Erro: ${error.message}`;
+        msg.className = "form-msg error";
+        return;
+      }
+      document.getElementById("new-modal").style.display = "none";
+      loadList(currentRange);
+    });
+
+    loadList("7d");
+  </script>
+
+</body>
+</html>
