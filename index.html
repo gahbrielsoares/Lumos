@@ -3,15 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lumos — Atendimento e vendas guiados por IA</title>
+  <title>Lumos — Do primeiro "oi" no WhatsApp até o boleto pago</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=3" />
+  <link rel="stylesheet" href="css/styles.css?v=5" />
 </head>
 <body>
-
-  <a href="tecnologia.html" class="topbar" style="display:block; text-decoration:none;">
-    <span>Uma bio-tecnologia, que entende o seu cliente →</span>
-  </a>
 
   <header class="site-header">
     <div class="logo">
@@ -25,87 +21,126 @@
         </svg>
       </button>
       <div class="dropdown-menu" id="dropdown-menu">
-        <a href="tecnologia.html">Tecnologia</a>
         <a href="login.html">Entrar</a>
         <a href="signup.html" class="highlight">Criar conta</a>
       </div>
     </div>
   </header>
 
+  <!-- Hero: logo radial brilhando -->
   <section class="hero">
-    <div class="phone-stage">
-      <div class="phone-glow"></div>
-      <div class="phone">
-        <div class="phone-notch"></div>
-        <div class="phone-screen">
-          <div class="wa-header">
-            <div class="wa-avatar">L</div>
-            <div>
-              <div class="wa-title">Lumos IA</div>
-              <div class="wa-status">online</div>
-            </div>
-          </div>
-          <div class="wa-body">
-            <div class="wa-bubble in">
-              Amei o produto!
-              <span class="wa-time">10:35</span>
-            </div>
-            <div class="wa-bubble out">
-              Podemos fechar?
-              <span class="wa-time">10:36 ✓✓</span>
-            </div>
-            <div class="wa-bubble in">
-              Sim, podemos.
-              <span class="wa-time">10:36</span>
-            </div>
-          </div>
-          <div class="wa-input">
-            <div class="field-fake">Mensagem</div>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8696A0" stroke-width="1.8">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>
-            </svg>
-          </div>
-        </div>
+    <div class="radial-hero">
+      <div class="ray a1"></div>
+      <div class="ray a2"></div>
+      <div class="ray a3"></div>
+      <div class="ray a4"></div>
+      <div class="ray a5"></div>
+      <div class="ray a6"></div>
+
+      <div class="radial-label l1">Atende 24h por dia</div>
+      <div class="radial-label l2">Nunca erra orçamento</div>
+      <div class="radial-label l3">Fecha vendas no WhatsApp</div>
+      <div class="radial-label l4">Pipeline em tempo real</div>
+      <div class="radial-label l5">Você sempre no controle</div>
+      <div class="radial-label l6">Cresce com sua loja</div>
+
+      <img src="img/logo.png" alt="Lumos" class="radial-logo" />
+    </div>
+
+    <div class="hero-info">
+      <h1>Do primeiro "oi" no WhatsApp<br>até o <em>boleto pago</em></h1>
+      <div class="hero-actions">
+        <a href="signup.html" class="btn btn-primary btn-pill">Começar agora</a>
+        <a href="login.html" class="btn btn-ghost btn-pill">Já tenho conta</a>
       </div>
     </div>
 
-    <div class="hero-bottom-row">
-      <div class="hero-bottom-text">
-        TRABALHA 24 HORAS<br>7 DIAS POR SEMANA<br>EXPERIÊNCIA
-      </div>
-      <a href="signup.html" class="btn btn-primary btn-pill">Experimentar Tecnologia</a>
-      <div class="client-logo-slot">logo do cliente aqui</div>
+    <div class="scroll-cue" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9l6 6 6-6"/>
+      </svg>
     </div>
   </section>
 
-  <section class="features">
-    <div class="feature reveal">
-      <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
-      </svg>
-      <h3>Atendimento que não erra a conta</h3>
-      <p>O agente calcula m², litros e unidades certas antes de fechar um orçamento — sem depender de quem está no balcão.</p>
+  <!-- O problema -->
+  <section class="tech-section dark">
+    <div class="tech-section-inner">
+      <div class="tech-eyebrow reveal">O problema</div>
+      <h2 class="tech-heading reveal">Se seu atendimento ainda depende de alguém livre pra responder, você já sabe como é:</h2>
+
+      <div class="nested-quote reveal">
+        <div>Cliente manda "vocês têm porcelanato?"</div>
+        <div>Ninguém responde na hora...</div>
+        <div>O cliente já está falando com outra loja...</div>
+        <div>E quando alguém finalmente responde, ele já comprou.</div>
+      </div>
+
+      <p class="reveal" style="color: var(--text); font-weight: 600; margin-bottom: 20px;">E no final?</p>
+
+      <div class="x-list reveal">
+        <div class="x-item"><span class="x-mark">✕</span> Demora pra responder no horário de pico</div>
+        <div class="x-item"><span class="x-mark">✕</span> Erra medida, preço ou unidade no orçamento</div>
+        <div class="x-item"><span class="x-mark">✕</span> Perde a venda pra loja concorrente ao lado</div>
+      </div>
+
+      <div class="highlight-card reveal">
+        <p>Responder em até <strong>5 minutos</strong> gera até <strong>9x mais conversão</strong> do que esperar 30.</p>
+        <span class="highlight-source">Fonte: InsideSales.com / Harvard Business Review</span>
+      </div>
     </div>
-    <div class="feature reveal">
-      <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>
-      </svg>
-      <h3>Pipeline visível, do lead à venda</h3>
-      <p>Todo contato entra no funil automaticamente. Você vê o que está parado e onde vale a pena empurrar.</p>
+  </section>
+
+  <!-- Dado real -->
+  <section class="tech-section data">
+    <div class="tech-section-inner" style="text-align:center;">
+      <h2 class="tech-heading reveal" style="margin-bottom: 8px;">A maioria já vendeu essa briga pro WhatsApp.</h2>
+      <p class="reveal" style="color: var(--text-muted); margin-bottom: 8px;">Quem ainda atende na mão está competindo com quem já automatizou.</p>
+
+      <div class="dot-grid reveal" id="dot-grid"></div>
+      <p class="data-caption reveal"><strong style="color: var(--glow);">82%</strong> dos pequenos negócios brasileiros já vendem pelo WhatsApp — cada ponto dourado representa esse grupo.</p>
+      <span class="highlight-source reveal">Fonte: Sebrae, Pulso dos Pequenos Negócios, 12ª edição (2026)</span>
     </div>
-    <div class="feature reveal">
-      <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-        <path d="M12 2l3 6 6 1-4.5 4.5L17.5 20 12 17l-5.5 3 1-6.5L3 9l6-1z"/>
-      </svg>
-      <h3>No seu ritmo, do seu jeito</h3>
-      <p>Decida até onde a IA vai sozinha e onde um humano entra na conversa — a loja mantém o controle.</p>
+  </section>
+
+  <!-- A solução -->
+  <section class="tech-section light">
+    <div class="tech-section-inner">
+      <div class="tech-eyebrow reveal">A solução</div>
+      <h2 class="tech-heading reveal">A Lumos foi feita pra essa jornada inteira:</h2>
+
+      <div class="fan-stack">
+        <div class="fan-card reveal">
+          <div class="fan-step">PASSO 01</div>
+          <h3>Primeiro contato</h3>
+          <p>O agente responde na hora, 24h por dia — nunca mais um cliente esperando no vazio.</p>
+        </div>
+        <div class="fan-card reveal">
+          <div class="fan-step">PASSO 02</div>
+          <h3>Qualificação</h3>
+          <p>Entende o que o cliente precisa: produto, quantidade, prazo — sem enrolar.</p>
+        </div>
+        <div class="fan-card reveal">
+          <div class="fan-step">PASSO 03</div>
+          <h3>Orçamento certo</h3>
+          <p>Consulta seu catálogo de verdade — preço, unidade e disponibilidade, sem inventar.</p>
+        </div>
+        <div class="fan-card reveal">
+          <div class="fan-step">PASSO 04</div>
+          <h3>Fechamento e faturamento</h3>
+          <p>Direciona pro time certo na hora de fechar, e o pipeline te mostra tudo em tempo real.</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <footer class="site-footer">
     Lumos — tecnologia de atendimento e gestão de vendas.
   </footer>
+
+  <!-- Botão flutuante -->
+  <a href="https://wa.me/5519994844468" class="wa-float" target="_blank" rel="noopener" aria-label="Falar com a Lumos no WhatsApp">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 5L2 22l5.2-1.3c1.5.8 3.1 1.3 4.8 1.3 5.5 0 10-4.5 10-10S17.5 2 12 2z"/></svg>
+  </a>
 
   <script src="js/scroll.js"></script>
   <script>
@@ -117,6 +152,14 @@
         menu.classList.remove("open");
       }
     });
+
+    // Grade de pontos: 100 pontos, 82 dourados
+    const grid = document.getElementById("dot-grid");
+    for (let i = 0; i < 100; i++) {
+      const dot = document.createElement("span");
+      if (i < 82) dot.classList.add("filled");
+      grid.appendChild(dot);
+    }
   </script>
 
 </body>

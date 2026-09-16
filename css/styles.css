@@ -920,6 +920,7 @@ img, svg { display: block; max-width: 100%; }
 
 .toggle-row label { margin: 0; }
 
+.field input.toggle-input,
 .toggle-input {
   width: 38px;
   height: 22px;
@@ -953,32 +954,122 @@ img, svg { display: block; max-width: 100%; }
   background: #16140D;
 }
 
-.slot-tabs {
+.slot-tabs,
+.pill-tabs {
   display: flex;
   gap: 8px;
   margin-bottom: 18px;
 }
 
-.slot-tab {
+.slot-tab,
+.pill-tab {
   padding: 9px 18px;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--text-muted);
   font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.4s ease, background 0.4s ease;
 }
 
-.slot-tab.active {
+.slot-tab.active,
+.pill-tab.active {
   border-color: var(--glow);
   color: var(--glow);
+  background: var(--glow-dim);
+  box-shadow: 0 0 16px var(--glow-soft);
+  animation: tab-ignite 0.5s ease-out;
+}
+
+@keyframes tab-ignite {
+  0% { box-shadow: 0 0 0 rgba(201, 169, 97, 0); background: var(--bg-elevated); }
+  45% { box-shadow: 0 0 26px var(--glow-soft); background: var(--glow-dim); }
+  100% { box-shadow: 0 0 16px var(--glow-soft); background: var(--glow-dim); }
 }
 
 .active-badge {
   margin-left: 12px;
   font-size: 12.5px;
   color: var(--glow);
+}
+
+/* ===== Hero radial (logo brilhando + vantagens) ===== */
+
+.radial-hero {
+  position: relative;
+  width: 480px;
+  max-width: 92vw;
+  height: 400px;
+  margin: 24px auto 0;
+}
+
+.radial-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 84px;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  animation: logo-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes logo-pulse {
+  0%, 100% { filter: drop-shadow(0 0 18px var(--glow)) drop-shadow(0 0 46px var(--glow-soft)); }
+  50% { filter: drop-shadow(0 0 30px var(--glow)) drop-shadow(0 0 78px var(--glow-soft)); }
+}
+
+.ray {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--glow-soft), transparent);
+  transform-origin: 0 50%;
+  opacity: 0;
+  animation: ray-in 1s ease forwards 0.3s;
+}
+
+@keyframes ray-in {
+  from { opacity: 0; width: 0; }
+  to { opacity: 1; width: 150px; }
+}
+
+.ray.a1 { transform: rotate(-135deg); }
+.ray.a2 { transform: rotate(-45deg); }
+.ray.a3 { transform: rotate(180deg); }
+.ray.a4 { transform: rotate(0deg); }
+.ray.a5 { transform: rotate(135deg); }
+.ray.a6 { transform: rotate(45deg); }
+
+.radial-label {
+  position: absolute;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  opacity: 0;
+  animation: label-in 0.8s ease forwards 0.8s;
+}
+
+@keyframes label-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.radial-label.l1 { top: 8%; left: 2%; text-align: left; }
+.radial-label.l2 { top: 8%; right: 2%; text-align: right; }
+.radial-label.l3 { top: 48%; left: -2%; text-align: left; transform: translateY(-50%); }
+.radial-label.l4 { top: 48%; right: -2%; text-align: right; transform: translateY(-50%); }
+.radial-label.l5 { bottom: 6%; left: 8%; text-align: left; }
+.radial-label.l6 { bottom: 6%; right: 8%; text-align: right; }
+
+@media (max-width: 720px) {
+  .radial-hero { height: 220px; }
+  .ray, .radial-label { display: none; }
+  .radial-logo { width: 72px; }
 }
 
 /* ===== Página Tecnologia ===== */
