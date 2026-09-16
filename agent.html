@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agente de IA — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -11,7 +12,7 @@
   <div class="dash-shell">
     <aside class="dash-side">
       <div class="logo" style="padding: 0 12px 24px;">
-        <span class="logo-mark"></span>
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
         Lumos
       </div>
       <nav class="dash-nav">
@@ -29,8 +30,11 @@
       <p style="margin-top: 6px;">Regras, provedores e conexão com o WhatsApp.</p>
 
       <!-- Geral -->
-      <div class="settings-block" style="max-width: 640px;">
+      <div class="section-heading-row" style="margin-top:24px;">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
         <h3>Geral</h3>
+      </div>
+      <div class="settings-block" style="max-width: 640px;">
         <form id="general-form">
           <div class="field">
             <label for="a-name">Nome do agente</label>
@@ -68,8 +72,11 @@
       </div>
 
       <!-- Provedor de IA -->
-      <div class="settings-block" style="max-width: 640px;">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6a6 6 0 1 0 6 6"/><circle cx="12" cy="12" r="2"/></svg></div>
         <h3>Provedor de IA</h3>
+      </div>
+      <div class="settings-block" style="max-width: 640px;">
         <p class="settings-hint">Configure os dois — troque qual está ativo com um clique, sem perder a chave do outro.</p>
 
         <div class="slot-tabs">
@@ -104,8 +111,11 @@
       </div>
 
       <!-- Provedor de WhatsApp -->
-      <div class="settings-block" style="max-width: 640px;">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 1 1-4.02-7.22L21 3l-1.28 4.02A8.46 8.46 0 0 1 21 11.5z"/></svg></div>
         <h3>Provedor de WhatsApp</h3>
+      </div>
+      <div class="settings-block" style="max-width: 640px;">
         <form id="wa-form">
           <div class="field">
             <label for="w-vendor">Fornecedor</label>
@@ -132,8 +142,11 @@
       </div>
 
       <!-- Webhook -->
-      <div class="settings-block" style="max-width: 640px;">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1"/></svg></div>
         <h3>Webhook</h3>
+      </div>
+      <div class="settings-block" style="max-width: 640px;">
         <p class="settings-hint">Cole esta URL no painel do seu provedor de WhatsApp.</p>
         <div class="inline-form">
           <input type="text" id="webhook-url" readonly />

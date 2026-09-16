@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Lumos CRM</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -11,7 +12,7 @@
   <div class="dash-shell">
     <aside class="dash-side">
       <div class="logo" style="padding: 0 12px 24px;">
-        <span class="logo-mark"></span>
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
         Lumos
       </div>
       <nav class="dash-nav">
@@ -27,7 +28,18 @@
       <h1 style="font-size: 26px;">Leads</h1>
       <p style="margin-top: 6px;">Pipeline de vendas e acompanhamento.</p>
 
-      <div class="empty-state">
+      <div class="stat-grid" id="stat-grid">
+        <div class="stat-card"><div class="stat-number" id="stat-total">–</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-number" id="stat-novo">–</div><div class="stat-label">Novos</div></div>
+        <div class="stat-card"><div class="stat-number" id="stat-andamento">–</div><div class="stat-label">Em andamento</div></div>
+        <div class="stat-card"><div class="stat-number" id="stat-vendido">–</div><div class="stat-label">Vendidos</div></div>
+      </div>
+
+      <input type="text" id="lead-search" class="search-pill" placeholder="Buscar por nome ou telefone..." />
+
+      <div class="hub-list" id="leads-list"></div>
+
+      <div class="empty-state" id="empty-state" style="display:none; max-width: 680px;">
         <h3>Ainda sem dados aqui</h3>
         <p>Assim que o agente de IA começar a atender, os leads vão aparecer neste pipeline.</p>
       </div>
@@ -36,11 +48,68 @@
 
   <script type="module">
     import { requireSession, signOut } from "./js/auth.js";
-    requireSession();
+    import { getLeadsStats, listLeads, STAGE_LABELS, timeAgo } from "./js/leads.js";
+
+    await requireSession();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
       signOut();
     });
+
+    const leadIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>`;
+
+    let allLeads = [];
+
+    function renderLeads(list) {
+      const leadsList = document.getElementById("leads-list");
+      const emptyState = document.getElementById("empty-state");
+
+      if (!list.length) {
+        leadsList.innerHTML = "";
+        emptyState.style.display = "block";
+        return;
+      }
+      emptyState.style.display = "none";
+
+      leadsList.innerHTML = list.map((lead) => `
+        <div class="hub-card">
+          <div class="hub-icon">${leadIcon}</div>
+          <div class="hub-body">
+            <div class="hub-title-row">
+              <div>
+                <div class="hub-title">${lead.name || lead.phone}</div>
+                <div class="hub-sub">${lead.phone} · ${timeAgo(lead.last_message_at)}</div>
+              </div>
+              <span class="pill-badge stage-${lead.stage}">${STAGE_LABELS[lead.stage] || lead.stage}</span>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function loadStats() {
+      const stats = await getLeadsStats();
+      document.getElementById("stat-total").textContent = stats.total;
+      document.getElementById("stat-novo").textContent = stats.novo;
+      document.getElementById("stat-andamento").textContent = stats.em_andamento;
+      document.getElementById("stat-vendido").textContent = stats.vendido;
+    }
+
+    async function loadLeads() {
+      allLeads = await listLeads();
+      renderLeads(allLeads);
+    }
+
+    document.getElementById("lead-search").addEventListener("input", (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      if (!q) return renderLeads(allLeads);
+      renderLeads(allLeads.filter((l) =>
+        (l.name || "").toLowerCase().includes(q) || (l.phone || "").includes(q)
+      ));
+    });
+
+    loadStats();
+    loadLeads();
   </script>
 
 </body>

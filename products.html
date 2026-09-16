@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -11,7 +12,7 @@
   <div class="dash-shell">
     <aside class="dash-side">
       <div class="logo" style="padding: 0 12px 24px;">
-        <span class="logo-mark"></span>
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
         Lumos
       </div>
       <nav class="dash-nav">
@@ -28,9 +29,19 @@
       <h1 style="font-size: 26px; margin-top: 10px;">Produtos</h1>
       <p style="margin-top: 6px;">Cadastre o que sua loja vende — a IA usa isso pra responder e orçar certo.</p>
 
-      <!-- Categorias -->
-      <div class="settings-block">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-number" id="stat-products">–</div><div class="stat-label">Produtos</div></div>
+        <div class="stat-card"><div class="stat-number" id="stat-categories">–</div><div class="stat-label">Categorias</div></div>
+        <div class="stat-card"><div class="stat-number" id="stat-with-photo">–</div><div class="stat-label">Com foto</div></div>
+      </div>
+
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
         <h3>Categorias</h3>
+      </div>
+
+      <!-- Categorias -->
+      <div class="hub-card" style="flex-direction: column; align-items: stretch; max-width: 680px;">
         <p class="settings-hint">Um produto pode pertencer a uma ou mais categorias.</p>
         <div id="categories-list" class="chips-row"></div>
         <form id="category-form" class="inline-form" style="margin-top: 14px;">
@@ -39,9 +50,13 @@
         </form>
       </div>
 
-      <!-- Produtos -->
-      <div class="settings-block" style="max-width: 760px;">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></div>
         <h3>Produtos</h3>
+      </div>
+
+      <!-- Produtos -->
+      <div class="hub-card" style="flex-direction: column; align-items: stretch; max-width: 760px;">
         <div id="products-list" class="products-list"></div>
 
         <button id="add-product-btn" class="btn btn-ghost" style="margin-top: 16px;">+ Novo produto</button>
@@ -123,6 +138,7 @@
     async function renderCategories() {
       const { data } = await listCategories();
       categories = data || [];
+      document.getElementById("stat-categories").textContent = categories.length;
 
       categoriesList.innerHTML = categories.length
         ? categories.map((c) => `
@@ -157,18 +173,19 @@
         ? data.map((p) => {
             const cats = (p.product_categories || [])
               .map((pc) => pc.categories?.name)
-              .filter(Boolean)
-              .join(", ");
+              .filter(Boolean);
             const thumb = p.photo_urls?.[0];
             return `
-              <div class="product-card">
-                ${thumb ? `<img src="${thumb}" class="product-thumb" />` : `<div class="product-thumb product-thumb-empty"></div>`}
-                <div class="product-info">
-                  <div class="number-card-label">${p.name}</div>
-                  <p class="number-card-route">${p.description || ""}</p>
-                  <div class="product-meta">
-                    R$ ${Number(p.price).toFixed(2)} / ${UNIT_LABELS[p.unit] || p.unit}
-                    ${cats ? ` · ${cats}` : ""}
+              <div class="hub-card">
+                ${thumb ? `<img src="${thumb}" class="product-thumb" style="border-radius:14px;" />` : `<div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>`}
+                <div class="hub-body">
+                  <div class="hub-title-row">
+                    <div class="hub-title">${p.name}</div>
+                    <span class="pill-badge stage-vendido">R$ ${Number(p.price).toFixed(2)} / ${UNIT_LABELS[p.unit] || p.unit}</span>
+                  </div>
+                  <p class="hub-sub">${p.description || ""}</p>
+                  <div class="chips-row" style="margin-top:8px;">
+                    ${cats.map((c) => `<span class="pill-badge">${c}</span>`).join("")}
                   </div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:6px;">
@@ -179,6 +196,9 @@
             `;
           }).join("")
         : `<p class="settings-hint">Nenhum produto cadastrado ainda.</p>`;
+
+      document.getElementById("stat-products").textContent = data.length;
+      document.getElementById("stat-with-photo").textContent = data.filter((p) => p.photo_urls?.length).length;
 
       productsList.querySelectorAll("[data-del]").forEach((btn) => {
         btn.addEventListener("click", async () => {

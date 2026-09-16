@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -11,7 +12,7 @@
   <div class="dash-shell">
     <aside class="dash-side">
       <div class="logo" style="padding: 0 12px 24px;">
-        <span class="logo-mark"></span>
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
         Lumos
       </div>
       <nav class="dash-nav">
@@ -28,22 +29,31 @@
       <p style="margin-top: 6px;">Cadastre o número principal e distribua os assuntos entre a equipe.</p>
 
       <!-- Agente de IA -->
-      <div class="settings-block">
+      <div class="section-heading-row" style="margin-top:24px;">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg></div>
         <h3>Agente de IA</h3>
+      </div>
+      <div class="settings-block">
         <p class="settings-hint">Prompt, provedores de IA (paga/grátis) e provedor de WhatsApp.</p>
         <a href="agent.html" class="btn btn-ghost">Configurar agente</a>
       </div>
 
       <!-- Produtos -->
-      <div class="settings-block">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
         <h3>Catálogo de produtos</h3>
+      </div>
+      <div class="settings-block">
         <p class="settings-hint">Cadastre o que sua loja vende, com fotos, preço e unidade de medida.</p>
         <a href="products.html" class="btn btn-ghost">Gerenciar produtos</a>
       </div>
 
       <!-- Número principal -->
-      <div class="settings-block">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5a2 2 0 0 1 2-2h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 5z"/></svg></div>
         <h3>Número principal</h3>
+      </div>
+      <div class="settings-block">
         <p class="settings-hint">É o número que recebe a tecnologia da Lumos e conversa com seus clientes.</p>
         <form id="principal-form" class="inline-form">
           <input type="tel" id="principal-phone" placeholder="+55 19 99999-9999" required />
@@ -53,8 +63,11 @@
       </div>
 
       <!-- Sub-números -->
-      <div class="settings-block">
+      <div class="section-heading-row">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M2 20v-1a7 7 0 0 1 14 0v1"/><circle cx="18" cy="8" r="2.5"/><path d="M16 20v-1a5 5 0 0 1 6.5-4.8"/></svg></div>
         <h3>Sub-números da equipe</h3>
+      </div>
+      <div class="settings-block">
         <p class="settings-hint">
           Cada sub-número recebe as conversas que a IA identificar como daquele assunto. Descreva a rota como se estivesse explicando pra uma pessoa nova no time.
         </p>
