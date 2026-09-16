@@ -18,6 +18,16 @@ export async function listLeads() {
   return data || [];
 }
 
+export async function listLeadsInRange(start, end) {
+  const { data } = await supabase
+    .from("leads")
+    .select("*")
+    .gte("created_at", start.toISOString())
+    .lt("created_at", end.toISOString())
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
 export const STAGE_LABELS = {
   novo: "Novo",
   em_andamento: "Em andamento",

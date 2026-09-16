@@ -323,6 +323,62 @@ create policy "Dono ve/edita ai_providers" on public.ai_providers for all using 
 create policy "Dono ve/edita whatsapp_provider_config" on public.whatsapp_provider_config for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
 ```
 
+## 10. Painel estilo SaaS (baseado no prompt do escritório de advocacia)
+
+Adapta o modelo de dados do escritório de advocacia pro nosso negócio. Rode tudo de uma vez no **SQL Editor**:
+
+```sql
+-- Novas colunas na tabela leads (equivalente ao leads_adv deles)
+alter table public.leads add column if not exists motivo_contato text;
+alter table public.leads add column if not exists resumo_conversa text;
+alter table public.leads add column if not exists follow_up_1 timestamptz;
+alter table public.leads add column if not exists follow_up_2 timestamptz;
+alter table public.leads add column if not exists follow_up_3 timestamptz;
+alter table public.leads add column if not exists anotacoes text;
+alter table public.leads add column if not exists data_agendamento timestamptz;
+alter table public.leads add column if not exists is_client boolean default false;
+
+-- Agendamentos (equivalente ao agendamentos_adv deles)
+create table if not exists public.agendamentos (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  lead_id uuid references public.leads(id) not null,
+  data_hora_inicio timestamptz not null,
+  status text check (status in ('agendado','confirmado','compareceu','faltou','cancelado')) default 'agendado',
+  created_at timestamptz default now()
+);
+
+alter table public.agendamentos enable row level security;
+create policy "Dono ve/edita agendamentos" on public.agendamentos for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Configuração da loja (equivalente ao office_config deles — mas por owner_id, já que somos multi-loja)
+create table if not exists public.business_config (
+  owner_id uuid references auth.users(id) primary key,
+  business_name text,
+  logo_url text,
+  favicon_url text
+);
+
+alter table public.business_config enable row level security;
+create policy "Dono ve/edita business_config" on public.business_config for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Horário de funcionamento (equivalente ao office_hours deles)
+create table if not exists public.business_hours (
+  owner_id uuid references auth.users(id) not null,
+  weekday int check (weekday between 0 and 6) not null,
+  is_open boolean default true,
+  hora_inicio time,
+  hora_fim time,
+  primary key (owner_id, weekday)
+);
+
+alter table public.business_hours enable row level security;
+create policy "Dono ve/edita business_hours" on public.business_hours for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+```
+
 ## Próximos passos sugeridos
 
 - Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.
