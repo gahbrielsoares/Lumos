@@ -402,6 +402,14 @@ alter table public.leads alter column stage set default 'novo_contato';
 
 **Importante**: depois de rodar isso, atualize também a Edge Function (`supabase/functions/whatsapp-webhook/index.ts`) — o valor `stage: "novo"` no código precisa virar `stage: "novo_contato"`. Já venho com esse arquivo corrigido nesta entrega.
 
+## 12. Colunas do Kanban ativas/desativadas por loja
+
+Rode no **SQL Editor**:
+
+```sql
+alter table public.business_config add column if not exists disabled_stages text[] default '{}';
+```
+
 ## Próximos passos sugeridos
 
 - Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.

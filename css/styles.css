@@ -725,6 +725,7 @@ img, svg { display: block; max-width: 100%; }
 
 .dash-main {
   flex: 1;
+  min-width: 0;
   padding: 32px 40px;
   color: var(--panel-text);
 }
@@ -2126,3 +2127,7 @@ img, svg { display: block; max-width: 100%; }
 
 .dash-main .active-badge { color: var(--panel-accent); }
 .dash-main .form-msg.ok { color: var(--panel-accent); }
+
+.modal-box .toggle-input { background: var(--panel-border); }
+.modal-box .toggle-input:checked { background: var(--panel-accent); }
+.modal-box .toggle-input::before { background: var(--panel-card); }

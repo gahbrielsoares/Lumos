@@ -29,4 +29,13 @@ export async function saveBusinessHours(rows) {
     .upsert(rows.map((r) => ({ owner_id, ...r })), { onConflict: "owner_id,weekday" });
 }
 
+export async function getDisabledStages() {
+  const cfg = await getBusinessConfig();
+  return cfg?.disabled_stages || [];
+}
+
+export async function saveDisabledStages(stages) {
+  return saveBusinessConfig({ disabled_stages: stages });
+}
+
 export const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
