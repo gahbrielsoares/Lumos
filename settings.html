@@ -5,9 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=10" />
+  <link rel="stylesheet" href="css/styles.css?v=11" />
 </head>
 <body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
 
   <div class="dash-shell">
     <aside class="dash-side">
@@ -172,12 +177,14 @@
     import { requireSession, signOut } from "./js/auth.js";
     import { listNumbers, savePrincipal, addSubNumber, deleteNumber } from "./js/numbers.js";
     import { initThemeToggle } from "./js/theme.js";
+    import { initMobileNav } from "./js/mobileNav.js";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
     } from "./js/businessConfig.js";
 
     await requireSession();
     initThemeToggle();
+    initMobileNav();
 
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
