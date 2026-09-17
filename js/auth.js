@@ -31,20 +31,43 @@ export async function redirectAfterLogin() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role === "admin") {
+  if (profile?.role === "admin" || profile?.role === "cliente") {
     window.location.href = "dashboard.html";
   } else {
     window.location.href = "plans.html";
   }
 }
 
-// ---------- Protege páginas que exigem login ----------
+// ---------- Protege páginas que só exigem estar logado (ex: plans.html) ----------
+export async function requireLogin() {
+  const { data } = await supabase.auth.getSession();
+  if (!data?.session) {
+    window.location.href = "login.html";
+    return null;
+  }
+  return data.session;
+}
+
+// ---------- Protege páginas que exigem login E acesso liberado ----------
 export async function requireSession() {
   const { data } = await supabase.auth.getSession();
   if (!data?.session) {
     window.location.href = "login.html";
+    return null;
   }
-  return data?.session ?? null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.session.user.id)
+    .single();
+
+  if (profile?.role !== "admin" && profile?.role !== "cliente") {
+    window.location.href = "plans.html";
+    return null;
+  }
+
+  return data.session;
 }
 
 export async function signOut() {

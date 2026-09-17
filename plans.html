@@ -53,8 +53,8 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js";
-    requireSession();
+    import { requireLogin, signOut } from "./js/auth.js";
+    requireLogin();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
       signOut();
