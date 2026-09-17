@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lumos — Do primeiro "oi" no WhatsApp até o boleto pago</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=11" />
+  <link rel="stylesheet" href="css/styles.css?v=12" />
 </head>
 <body>
 
@@ -44,8 +44,9 @@
       <div class="radial-label l5">Você sempre no controle</div>
       <div class="radial-label l6">Cresce com sua loja</div>
 
-      <img src="img/logo.png" alt="Lumos" class="radial-logo" />
+      <img src="img/gem.webp" alt="Lumos" class="radial-logo" id="gem-image" draggable="false" />
     </div>
+    <div class="gem-hint" id="gem-hint">Arraste pra explorar</div>
 
     <div class="hero-info">
       <h1>Do primeiro "oi" no WhatsApp<br>até o <em>boleto pago</em></h1>
@@ -143,6 +144,50 @@
   </a>
 
   <script src="js/scroll.js"></script>
+  <script>
+    // Arrastar a pedra inclina ela em 3D (como girar um objeto na mão).
+    // Solta e ela volta a balançar sozinha.
+    (function () {
+      const gem = document.getElementById("gem-image");
+      const stage = document.querySelector(".radial-hero");
+      const hint = document.getElementById("gem-hint");
+      if (!gem || !stage) return;
+
+      let dragging = false;
+
+      function tiltFromPoint(x, y) {
+        const rect = stage.getBoundingClientRect();
+        const px = (x - rect.left) / rect.width - 0.5;
+        const py = (y - rect.top) / rect.height - 0.5;
+        const rotY = px * 70;
+        const rotX = -py * 70;
+        gem.style.transform = `translate(-50%, -50%) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+      }
+
+      gem.addEventListener("pointerdown", (e) => {
+        dragging = true;
+        gem.classList.add("dragging");
+        gem.setPointerCapture(e.pointerId);
+        if (hint) hint.style.opacity = "0";
+        tiltFromPoint(e.clientX, e.clientY);
+      });
+
+      gem.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        tiltFromPoint(e.clientX, e.clientY);
+      });
+
+      function stopDrag() {
+        if (!dragging) return;
+        dragging = false;
+        gem.classList.remove("dragging");
+        gem.style.transform = "";
+      }
+
+      gem.addEventListener("pointerup", stopDrag);
+      gem.addEventListener("pointercancel", stopDrag);
+    })();
+  </script>
   <script>
     const toggle = document.getElementById("menu-toggle");
     const menu = document.getElementById("dropdown-menu");

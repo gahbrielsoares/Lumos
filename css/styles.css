@@ -1491,21 +1491,47 @@ img, svg { display: block; max-width: 100%; }
   max-width: 92vw;
   height: 400px;
   margin: 24px auto 0;
+  perspective: 900px;
 }
 
 .radial-logo {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 84px;
+  width: 200px;
+  border-radius: 50%;
   transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
   z-index: 2;
+  cursor: grab;
+  touch-action: none;
+  animation: logo-pulse 3.6s ease-in-out infinite, gem-sway 7s ease-in-out infinite;
+  transition: filter 0.3s ease;
+}
+
+.radial-logo.dragging {
+  cursor: grabbing;
   animation: logo-pulse 3.6s ease-in-out infinite;
+  transition: none;
+}
+
+.gem-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  margin-top: -10px;
+  opacity: 0.8;
 }
 
 @keyframes logo-pulse {
   0%, 100% { filter: drop-shadow(0 0 18px var(--glow)) drop-shadow(0 0 46px var(--glow-soft)); }
   50% { filter: drop-shadow(0 0 30px var(--glow)) drop-shadow(0 0 78px var(--glow-soft)); }
+}
+
+@keyframes gem-sway {
+  0%, 100% { transform: translate(-50%, -50%) rotateY(-12deg) rotateX(4deg); }
+  50% { transform: translate(-50%, -50%) rotateY(12deg) rotateX(-4deg); }
 }
 
 .ray {
@@ -1559,7 +1585,8 @@ img, svg { display: block; max-width: 100%; }
 @media (max-width: 720px) {
   .radial-hero { height: 220px; }
   .ray, .radial-label { display: none; }
-  .radial-logo { width: 72px; }
+  .radial-logo { width: 150px; }
+  .gem-hint { display: none; }
 }
 
 /* ===== Página Tecnologia ===== */
