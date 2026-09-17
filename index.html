@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lumos — Do primeiro "oi" no WhatsApp até o fechamento</title>
+  <title>Lumos: do primeiro "oi" no WhatsApp até o fechamento</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=12" />
+  <link rel="stylesheet" href="css/styles.css?v=13" />
 </head>
 <body>
 
@@ -27,13 +27,8 @@
     </div>
   </header>
 
-  <!-- Hero: logo radial brilhando -->
+  <!-- Hero -->
   <section class="hero">
-    <div class="radial-hero">
-      <img src="img/chip.webp" alt="Lumos" class="radial-logo" id="gem-image" draggable="false" />
-    </div>
-    <div class="gem-hint" id="gem-hint">Arraste pra explorar</div>
-
     <div class="hero-info">
       <h1>Do primeiro "oi" no WhatsApp<br>até o <em>fechamento</em></h1>
       <div class="hero-actions">
@@ -84,7 +79,7 @@
       <p class="reveal" style="color: var(--text-muted); margin-bottom: 8px;">Quem ainda atende na mão está competindo com quem já automatizou.</p>
 
       <div class="dot-grid reveal" id="dot-grid"></div>
-      <p class="data-caption reveal"><strong style="color: var(--glow);">82%</strong> dos pequenos negócios brasileiros já vendem pelo WhatsApp — cada ponto dourado representa esse grupo.</p>
+      <p class="data-caption reveal"><strong style="color: var(--glow);">82%</strong> dos pequenos negócios brasileiros já vendem pelo WhatsApp. Cada ponto dourado representa esse grupo.</p>
       <span class="highlight-source reveal">Fonte: Sebrae, Pulso dos Pequenos Negócios, 12ª edição (2026)</span>
     </div>
   </section>
@@ -99,17 +94,17 @@
         <div class="fan-card reveal">
           <div class="fan-step">PASSO 01</div>
           <h3>Primeiro contato</h3>
-          <p>O agente responde na hora, 24h por dia — nunca mais um cliente esperando no vazio.</p>
+          <p>O agente responde na hora, 24h por dia. Nunca mais um cliente esperando no vazio.</p>
         </div>
         <div class="fan-card reveal">
           <div class="fan-step">PASSO 02</div>
           <h3>Qualificação</h3>
-          <p>Entende o que o cliente precisa: produto, quantidade, prazo — sem enrolar.</p>
+          <p>Entende o que o cliente precisa: produto, quantidade e prazo, sem enrolar.</p>
         </div>
         <div class="fan-card reveal">
           <div class="fan-step">PASSO 03</div>
           <h3>Orçamento certo</h3>
-          <p>Consulta seu catálogo de verdade — preço, unidade e disponibilidade, sem inventar.</p>
+          <p>Consulta seu catálogo de verdade: preço, unidade e disponibilidade, sem inventar.</p>
         </div>
         <div class="fan-card reveal">
           <div class="fan-step">PASSO 04</div>
@@ -121,7 +116,7 @@
   </section>
 
   <footer class="site-footer">
-    Lumos — tecnologia de atendimento e gestão de vendas.
+    Lumos: tecnologia de atendimento e gestão de vendas.
   </footer>
 
   <!-- Botão flutuante -->
@@ -130,50 +125,6 @@
   </a>
 
   <script src="js/scroll.js"></script>
-  <script>
-    // Arrastar a pedra inclina ela em 3D (como girar um objeto na mão).
-    // Solta e ela volta a balançar sozinha.
-    (function () {
-      const gem = document.getElementById("gem-image");
-      const stage = document.querySelector(".radial-hero");
-      const hint = document.getElementById("gem-hint");
-      if (!gem || !stage) return;
-
-      let dragging = false;
-
-      function tiltFromPoint(x, y) {
-        const rect = stage.getBoundingClientRect();
-        const px = (x - rect.left) / rect.width - 0.5;
-        const py = (y - rect.top) / rect.height - 0.5;
-        const rotY = px * 70;
-        const rotX = -py * 70;
-        gem.style.transform = `translate(-50%, -50%) rotateY(${rotY}deg) rotateX(${rotX}deg)`;
-      }
-
-      gem.addEventListener("pointerdown", (e) => {
-        dragging = true;
-        gem.classList.add("dragging");
-        gem.setPointerCapture(e.pointerId);
-        if (hint) hint.style.opacity = "0";
-        tiltFromPoint(e.clientX, e.clientY);
-      });
-
-      gem.addEventListener("pointermove", (e) => {
-        if (!dragging) return;
-        tiltFromPoint(e.clientX, e.clientY);
-      });
-
-      function stopDrag() {
-        if (!dragging) return;
-        dragging = false;
-        gem.classList.remove("dragging");
-        gem.style.transform = "";
-      }
-
-      gem.addEventListener("pointerup", stopDrag);
-      gem.addEventListener("pointercancel", stopDrag);
-    })();
-  </script>
   <script>
     const toggle = document.getElementById("menu-toggle");
     const menu = document.getElementById("dropdown-menu");

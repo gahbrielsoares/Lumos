@@ -164,7 +164,7 @@ img, svg { display: block; max-width: 100%; }
 
 .hero {
   position: relative;
-  padding: 40px 32px 0;
+  padding: 100px 32px 0;
 }
 
 .eyebrow {
@@ -235,7 +235,7 @@ img, svg { display: block; max-width: 100%; }
 
 .hero-info {
   max-width: 720px;
-  margin: 40px auto 0;
+  margin: 0 auto;
   text-align: center;
 }
 
