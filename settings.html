@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <link rel="stylesheet" href="css/styles.css?v=14" />
+  <link rel="stylesheet" href="css/styles.css?v=15" />
 </head>
 <body>
 
@@ -49,6 +49,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>
           Produtos
         </a>
+                <a href="agents.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>
+          Agentes
+        </a>
         <a href="settings.html" class="active">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
           Configurações
@@ -65,76 +69,17 @@
     </aside>
 
     <main class="dash-main">
-      <h1 style="font-size: 26px;">Números do WhatsApp</h1>
-      <p style="margin-top: 6px;">Cadastre o número principal e distribua os assuntos entre a equipe.</p>
-
-      <!-- Agente de IA -->
-      <div class="section-heading-row" style="margin-top:24px;">
-        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/></svg></div>
-        <h3>Agente de IA</h3>
-      </div>
-      <div class="settings-block">
-        <p class="settings-hint">Prompt, provedores de IA (paga/grátis) e provedor de WhatsApp.</p>
-        <a href="agent.html" class="btn btn-ghost">Configurar agente</a>
-      </div>
+      <h1 style="font-size: 26px;">Configurações</h1>
+      <p style="margin-top: 6px;">Catálogo, dados da loja e horário de funcionamento. Para os agentes de IA e números de WhatsApp, veja a aba Agentes.</p>
 
       <!-- Produtos -->
-      <div class="section-heading-row">
+      <div class="section-heading-row" style="margin-top:24px;">
         <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
         <h3>Catálogo de produtos</h3>
       </div>
       <div class="settings-block">
         <p class="settings-hint">Cadastre o que sua loja vende, com fotos, preço e unidade de medida.</p>
         <a href="products.html" class="btn btn-ghost">Gerenciar produtos</a>
-      </div>
-
-      <!-- Número principal -->
-      <div class="section-heading-row">
-        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5a2 2 0 0 1 2-2h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 5z"/></svg></div>
-        <h3>Número principal</h3>
-      </div>
-      <div class="settings-block">
-        <p class="settings-hint">É o número que recebe a tecnologia da Lumos e conversa com seus clientes.</p>
-        <form id="principal-form" class="inline-form">
-          <input type="tel" id="principal-phone" placeholder="+55 19 99999-9999" required />
-          <button type="submit" class="btn btn-primary">Salvar</button>
-        </form>
-        <div id="principal-msg" class="form-msg"></div>
-      </div>
-
-      <!-- Sub-números -->
-      <div class="section-heading-row">
-        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M2 20v-1a7 7 0 0 1 14 0v1"/><circle cx="18" cy="8" r="2.5"/><path d="M16 20v-1a5 5 0 0 1 6.5-4.8"/></svg></div>
-        <h3>Sub-números da equipe</h3>
-      </div>
-      <div class="settings-block">
-        <p class="settings-hint">
-          Cada sub-número recebe as conversas que a IA identificar como daquele assunto. Descreva a rota como se estivesse explicando pra uma pessoa nova no time.
-        </p>
-
-        <div id="numbers-list" class="numbers-list"></div>
-
-        <button id="add-number-btn" class="btn btn-ghost" style="margin-top: 16px;">+ Adicionar sub-número</button>
-
-        <form id="sub-form" class="sub-form" style="display:none;">
-          <div class="field">
-            <label for="sub-label">Nome / setor</label>
-            <input type="text" id="sub-label" placeholder="Ex: Carla — Vendas" required />
-          </div>
-          <div class="field">
-            <label for="sub-phone">Número</label>
-            <input type="tel" id="sub-phone" placeholder="+55 19 99999-9999" required />
-          </div>
-          <div class="field">
-            <label for="sub-route">Definir rota</label>
-            <textarea id="sub-route" rows="3" placeholder="Ex: Esse número é responsável por fechar vendas e negociar valores com o cliente." required></textarea>
-          </div>
-          <div id="sub-msg" class="form-msg"></div>
-          <div style="display:flex; gap: 10px;">
-            <button type="submit" class="btn btn-primary">Adicionar</button>
-            <button type="button" id="cancel-sub" class="btn btn-ghost">Cancelar</button>
-          </div>
-        </form>
       </div>
 
       <!-- Informações da loja -->
@@ -175,7 +120,6 @@
 
   <script type="module">
     import { requireSession, signOut } from "./js/auth.js";
-    import { listNumbers, savePrincipal, addSubNumber, deleteNumber } from "./js/numbers.js";
     import { initThemeToggle } from "./js/theme.js";
     import { initMobileNav } from "./js/mobileNav.js";
     import {
@@ -256,94 +200,6 @@
       msg.textContent = error ? `Erro: ${error.message}` : "Horários salvos.";
       msg.className = error ? "form-msg error" : "form-msg ok";
     });
-
-    const numbersList = document.getElementById("numbers-list");
-    const principalPhone = document.getElementById("principal-phone");
-    const principalForm = document.getElementById("principal-form");
-    const principalMsg = document.getElementById("principal-msg");
-
-    const addBtn = document.getElementById("add-number-btn");
-    const subForm = document.getElementById("sub-form");
-    const subMsg = document.getElementById("sub-msg");
-    const cancelSub = document.getElementById("cancel-sub");
-
-    async function render() {
-      const { data, error } = await listNumbers();
-      if (error) {
-        numbersList.innerHTML = `<p class="form-msg error">Erro ao carregar números: ${error.message}</p>`;
-        return;
-      }
-
-      const principal = data.find((n) => n.type === "principal");
-      const subs = data.filter((n) => n.type === "sub");
-
-      if (principal) principalPhone.value = principal.phone_number;
-
-      numbersList.innerHTML = subs.length
-        ? subs.map((n) => `
-            <div class="number-card">
-              <div>
-                <div class="number-card-label">${n.label || "Sem nome"} <span class="number-card-phone">${n.phone_number}</span></div>
-                <p class="number-card-route">${n.routing_description || ""}</p>
-              </div>
-              <button class="btn btn-ghost btn-sm" data-delete="${n.id}">Remover</button>
-            </div>
-          `).join("")
-        : `<p class="settings-hint">Nenhum sub-número cadastrado ainda.</p>`;
-
-      numbersList.querySelectorAll("[data-delete]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          await deleteNumber(btn.dataset.delete);
-          render();
-        });
-      });
-    }
-
-    principalForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      principalMsg.textContent = "";
-      const { error } = await savePrincipal(principalPhone.value.trim());
-      if (error) {
-        principalMsg.textContent = `Erro: ${error.message}`;
-        principalMsg.className = "form-msg error";
-        return;
-      }
-      principalMsg.textContent = "Salvo.";
-      principalMsg.className = "form-msg ok";
-      render();
-    });
-
-    addBtn.addEventListener("click", () => {
-      subForm.style.display = "flex";
-      addBtn.style.display = "none";
-    });
-
-    cancelSub.addEventListener("click", () => {
-      subForm.style.display = "none";
-      addBtn.style.display = "inline-flex";
-      subForm.reset();
-    });
-
-    subForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      subMsg.textContent = "";
-      const { error } = await addSubNumber({
-        label: document.getElementById("sub-label").value.trim(),
-        phone_number: document.getElementById("sub-phone").value.trim(),
-        routing_description: document.getElementById("sub-route").value.trim(),
-      });
-      if (error) {
-        subMsg.textContent = `Erro: ${error.message}`;
-        subMsg.className = "form-msg error";
-        return;
-      }
-      subForm.reset();
-      subForm.style.display = "none";
-      addBtn.style.display = "inline-flex";
-      render();
-    });
-
-    render();
   </script>
 
 </body>

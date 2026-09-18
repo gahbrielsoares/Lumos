@@ -410,8 +410,93 @@ Rode no **SQL Editor**:
 alter table public.business_config add column if not exists disabled_stages text[] default '{}';
 ```
 
-## Próximos passos sugeridos
+## 13. Múltiplos Agentes de IA (elimina número principal/sub-números)
 
-- Trocar o link `wa.me/5500000000000` em `plans.html` pelo número real do WhatsApp da Lumos.
-- Substituir o conteúdo do `dashboard.html` pelo pipeline de leads de verdade (tabela `leads` no Supabase).
-- Conectar a API de WhatsApp (UAZAPI) para popular essa tabela automaticamente.
+Cada agente agora é uma unidade completa e independente: nome, número de
+WhatsApp próprio, prompt, provedor de IA e provedor de WhatsApp. Rode tudo de
+uma vez no **SQL Editor**:
+
+```sql
+-- 1. Nova tabela agents, substituindo agent_config e whatsapp_numbers
+create table public.agents (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  name text default 'Assistente Lumos',
+  phone_number text,
+  system_prompt text default 'Você é a assistente de atendimento via WhatsApp de uma loja de materiais de construção e acabamento. Responda em português, de forma direta e simpática, como um bom vendedor de balcão.',
+  temperature numeric(3,2) default 0.7,
+  max_tokens integer default 1024,
+  history_limit integer default 10,
+  enabled boolean default true,
+  allowed_phones text default '',
+  active_ai_slot text default 'gratis' check (active_ai_slot in ('paga','gratis')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.agents enable row level security;
+create policy "Dono ve/edita seus agentes" on public.agents for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- 2. Migra o que já existe: 1 agente por dono, juntando config + número principal
+insert into public.agents (owner_id, name, phone_number, system_prompt, temperature, max_tokens, history_limit, enabled, allowed_phones, active_ai_slot)
+select
+  ac.owner_id,
+  coalesce(ac.name, 'Assistente Lumos'),
+  (select phone_number from public.whatsapp_numbers wn where wn.owner_id = ac.owner_id and wn.type = 'principal' limit 1),
+  ac.system_prompt, ac.temperature, ac.max_tokens, ac.history_limit, ac.enabled, ac.allowed_phones, ac.active_ai_slot
+from public.agent_config ac;
+
+-- 3. Reestrutura ai_providers: de owner_id+slot pra agent_id+slot
+drop policy if exists "Dono ve/edita ai_providers" on public.ai_providers;
+
+alter table public.ai_providers add column if not exists agent_id uuid references public.agents(id);
+update public.ai_providers p set agent_id = a.id from public.agents a where a.owner_id = p.owner_id;
+
+alter table public.ai_providers drop constraint if exists ai_providers_pkey;
+alter table public.ai_providers alter column agent_id set not null;
+alter table public.ai_providers drop column owner_id;
+alter table public.ai_providers add primary key (agent_id, slot);
+
+create policy "Dono ve/edita ai_providers via agente" on public.ai_providers for all
+  using (exists (select 1 from public.agents a where a.id = agent_id and a.owner_id = auth.uid()))
+  with check (exists (select 1 from public.agents a where a.id = agent_id and a.owner_id = auth.uid()));
+
+-- 4. Reestrutura whatsapp_provider_config: de owner_id pra agent_id
+drop policy if exists "Dono ve/edita whatsapp_provider_config" on public.whatsapp_provider_config;
+
+alter table public.whatsapp_provider_config add column if not exists agent_id uuid references public.agents(id);
+update public.whatsapp_provider_config w set agent_id = a.id from public.agents a where a.owner_id = w.owner_id;
+
+alter table public.whatsapp_provider_config drop constraint if exists whatsapp_provider_config_pkey;
+alter table public.whatsapp_provider_config alter column agent_id set not null;
+alter table public.whatsapp_provider_config drop column owner_id;
+alter table public.whatsapp_provider_config add primary key (agent_id);
+
+create policy "Dono ve/edita whatsapp_provider_config via agente" on public.whatsapp_provider_config for all
+  using (exists (select 1 from public.agents a where a.id = agent_id and a.owner_id = auth.uid()))
+  with check (exists (select 1 from public.agents a where a.id = agent_id and a.owner_id = auth.uid()));
+
+-- 5. Marca de qual agente cada lead veio
+alter table public.leads add column if not exists agent_id uuid references public.agents(id);
+update public.leads l set agent_id = a.id from public.agents a where a.owner_id = l.owner_id;
+
+-- 6. Remove as tabelas antigas
+drop table if exists public.whatsapp_numbers;
+drop table if exists public.agent_config;
+```
+
+## Status atual
+
+Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
+produtos com fotos, números do WhatsApp e sub-números com rota, agente de IA
+conectado à UAZAPI (texto, fotos de produto, múltiplos provedores de IA),
+painel completo (Dashboard, Kanban configurável, Leads, Clientes, Follow Up,
+Agendamentos, Configurações da loja e horário de funcionamento), tema
+claro/escuro e navegação mobile.
+
+Pendente / possíveis próximos passos:
+- A IA ainda não usa as rotas dos sub-números pra decidir pra quem encaminhar a conversa.
+- A IA ainda não preenche `motivo_contato` / `resumo_conversa` automaticamente nos leads reais.
+- Suporte a imagem/áudio recebido do cliente (hoje só texto é processado).
+- Formato do webhook da Evolution API ainda não foi testado (só UAZAPI está confirmado).

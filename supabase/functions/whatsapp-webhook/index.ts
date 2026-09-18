@@ -1,9 +1,10 @@
 // Edge Function: whatsapp-webhook
-// Recebe mensagens da UAZAPI, aplica as regras do agent_config (ativo,
-// telefones permitidos, prompt, temperatura), consulta o catálogo, chama
-// o provedor de IA ativo (paga ou grátis) e responde via provedor de
-// WhatsApp configurado (com fallback pros dados que a própria UAZAPI
-// manda no payload, caso nada tenha sido configurado ainda).
+// Recebe mensagens da UAZAPI, descobre qual AGENTE é dono do número que
+// recebeu a mensagem (cada agente tem seu próprio número, prompt e
+// provedores), aplica as regras desse agente (ativo, telefones permitidos),
+// consulta o catálogo, chama o provedor de IA ativo (paga ou grátis) e
+// responde via provedor de WhatsApp configurado (com fallback pros dados que
+// a própria UAZAPI manda no payload, caso nada tenha sido configurado ainda).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -209,56 +210,50 @@ Deno.serve(async (req) => {
 
     console.log("Mensagem recebida. De:", customerNumber, "Para (business):", businessNumber, "Texto:", text);
 
-    // 1. Descobrir o dono da conta pelo número principal cadastrado
-    const { data: numbers } = await supabase
-      .from("whatsapp_numbers")
-      .select("owner_id, phone_number")
-      .eq("type", "principal");
+    // 1. Descobrir qual agente é dono desse número
+    const { data: agents } = await supabase
+      .from("agents")
+      .select("*")
+      .not("phone_number", "is", null);
 
-    console.log("Números principais cadastrados:", JSON.stringify(numbers));
+    console.log("Agentes cadastrados:", JSON.stringify((agents || []).map((a) => ({ id: a.id, phone_number: a.phone_number }))));
 
-    const principal = numbers?.find((n) => onlyDigits(n.phone_number) === businessNumber);
+    const agent = agents?.find((a) => onlyDigits(a.phone_number) === businessNumber);
 
-    if (!principal) {
-      console.error("Número principal não encontrado para:", businessNumber);
-      return new Response("no owner", { status: 200 });
+    if (!agent) {
+      console.error("Nenhum agente encontrado para o número:", businessNumber);
+      return new Response("no agent", { status: 200 });
     }
 
-    const owner_id = principal.owner_id;
-    console.log("Owner encontrado:", owner_id);
+    const owner_id = agent.owner_id;
+    const agent_id = agent.id;
+    console.log("Agente encontrado:", agent_id, "Owner:", owner_id);
 
-    // 2. Carregar as configurações do agente
-    const { data: agentConfig } = await supabase
-      .from("agent_config")
-      .select("*")
-      .eq("owner_id", owner_id)
-      .maybeSingle();
-
-    if (agentConfig && agentConfig.enabled === false) {
+    if (agent.enabled === false) {
       console.log("Agente desativado, ignorando.");
       return new Response("agent disabled", { status: 200 });
     }
 
-    if (agentConfig?.allowed_phones) {
-      const allowList = agentConfig.allowed_phones.split(",").map((p: string) => onlyDigits(p)).filter(Boolean);
+    if (agent.allowed_phones) {
+      const allowList = agent.allowed_phones.split(",").map((p: string) => onlyDigits(p)).filter(Boolean);
       if (allowList.length && !allowList.includes(customerNumber)) {
         console.log("Telefone não está na lista permitida:", customerNumber, "Lista:", allowList);
         return new Response("phone not allowed", { status: 200 });
       }
     }
 
-    // 3. Encontrar ou criar o lead dessa conversa
+    // 3. Encontrar ou criar o lead dessa conversa (por agente, já que cada agente é uma linha separada)
     let { data: lead } = await supabase
       .from("leads")
       .select("*")
-      .eq("owner_id", owner_id)
+      .eq("agent_id", agent_id)
       .eq("phone", customerNumber)
       .maybeSingle();
 
     if (!lead) {
       const { data: newLead } = await supabase
         .from("leads")
-        .insert({ owner_id, phone: customerNumber, name: customerName, stage: "novo_contato" })
+        .insert({ owner_id, agent_id, phone: customerNumber, name: customerName, stage: "novo_contato" })
         .select()
         .single();
       lead = newLead;
@@ -280,7 +275,7 @@ Deno.serve(async (req) => {
       .join("\n");
 
     // 6. Buscar o histórico recente dessa conversa
-    const historyLimit = agentConfig?.history_limit || 10;
+    const historyLimit = agent?.history_limit || 10;
     const { data: history } = await supabase
       .from("messages")
       .select("direction, text")
@@ -295,7 +290,7 @@ Deno.serve(async (req) => {
 
     // 7. Montar o prompt e chamar o provedor de IA ativo
     const basePrompt =
-      agentConfig?.system_prompt ||
+      agent?.system_prompt ||
       "Você é a assistente de atendimento via WhatsApp de uma loja de materiais de construção e acabamento. Responda em português, de forma direta e simpática.";
 
     const systemPrompt = `${basePrompt}
@@ -314,17 +309,17 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     const { data: aiProviders } = await supabase
       .from("ai_providers")
       .select("*")
-      .eq("owner_id", owner_id);
+      .eq("agent_id", agent_id);
 
-    const activeSlot = agentConfig?.active_ai_slot || "gratis";
+    const activeSlot = agent?.active_ai_slot || "gratis";
     const activeProvider = aiProviders?.find((p) => p.slot === activeSlot) || null;
 
     let reply = await callAiProvider(
       activeProvider,
       systemPrompt,
       `Histórico da conversa:\n${conversation}\n\nNova mensagem do cliente: ${text}`,
-      agentConfig?.temperature ?? 0.7,
-      agentConfig?.max_tokens ?? 1024
+      agent?.temperature ?? 0.7,
+      agent?.max_tokens ?? 1024
     );
 
     if (!reply) reply = "Desculpa, tive um probleminha aqui — já te respondo.";
@@ -350,7 +345,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     const { data: waConfig } = await supabase
       .from("whatsapp_provider_config")
       .select("*")
-      .eq("owner_id", owner_id)
+      .eq("agent_id", agent_id)
       .maybeSingle();
 
     console.log("Config de WhatsApp usada:", JSON.stringify({ ...waConfig, api_key: waConfig?.api_key ? "(definida)" : null }));
