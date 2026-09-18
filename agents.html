@@ -247,6 +247,12 @@
       signOut();
     });
 
+    // ---------- Detalhe (variáveis precisam existir antes de loadDetail rodar) ----------
+    let currentAgentId = null;
+    let activeSlot = "gratis";
+    let currentEditSlot = "paga";
+    let providers = {};
+
     const params = new URLSearchParams(window.location.search);
     const agentId = params.get("id");
 
@@ -293,11 +299,6 @@
       window.location.href = `agents.html?id=${data.id}`;
     });
 
-    // ---------- Detalhe ----------
-    let currentAgentId = null;
-    let activeSlot = "gratis";
-    let currentEditSlot = "paga";
-    let providers = {};
 
     async function loadDetail(id) {
       currentAgentId = id;
