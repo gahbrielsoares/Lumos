@@ -47,19 +47,122 @@ function onlyDigits(s: string | undefined | null) {
   return (s || "").replace(/\D/g, "");
 }
 
+// Converte bytes pra base64 sem estourar a pilha em arquivos maiores
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// ---------- Baixa mídia (imagem/áudio) já descriptografada via UAZAPI ----------
+async function downloadUazapiMedia(baseUrl: string, token: string, messageid: string) {
+  const res = await fetch(`${baseUrl}/message/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token },
+    body: JSON.stringify({ id: messageid }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) console.error("Erro ao baixar mídia da UAZAPI:", res.status, JSON.stringify(data));
+  if (!data?.fileURL) console.error("Download de mídia não retornou fileURL. Resposta completa:", JSON.stringify(data));
+  return data;
+}
+
+// ---------- Transcreve áudio usando o mesmo provedor de IA configurado ----------
+async function transcribeAudio(
+  fileUrl: string,
+  provider: { vendor: string; api_key: string } | null,
+  fallbackKey: string
+): Promise<string> {
+  const vendor = provider?.vendor;
+  const apiKey = provider?.api_key || fallbackKey;
+  if (!apiKey) {
+    console.error("Sem chave de API disponível pra transcrever áudio.");
+    return "";
+  }
+
+  try {
+    const audioRes = await fetch(fileUrl);
+    const audioBuffer = new Uint8Array(await audioRes.arrayBuffer());
+
+    if (vendor === "groq" || vendor === "openai") {
+      const endpoint = vendor === "groq"
+        ? "https://api.groq.com/openai/v1/audio/transcriptions"
+        : "https://api.openai.com/v1/audio/transcriptions";
+      const model = vendor === "groq" ? "whisper-large-v3-turbo" : "whisper-1";
+
+      const form = new FormData();
+      form.append("file", new Blob([audioBuffer], { type: "audio/ogg" }), "audio.ogg");
+      form.append("model", model);
+      form.append("language", "pt");
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) console.error(`Erro ao transcrever áudio (${vendor}):`, res.status, JSON.stringify(data));
+      return data.text?.trim() || "";
+    }
+
+    if (vendor === "gemini") {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [
+                { text: "Transcreva o áudio a seguir. Responda SOMENTE com o texto falado, em português, sem comentários." },
+                { inlineData: { mimeType: "audio/ogg", data: bytesToBase64(audioBuffer) } },
+              ],
+            }],
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) console.error("Erro ao transcrever áudio (gemini):", res.status, JSON.stringify(data));
+      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    }
+
+    console.log("Provedor sem suporte a transcrição de áudio implementado ainda:", vendor);
+    return "";
+  } catch (err) {
+    console.error("Erro inesperado ao transcrever áudio:", err);
+    return "";
+  }
+}
+
 // ---------- Provedores de IA (todos compatíveis com o formato OpenAI, exceto Gemini) ----------
 async function callAiProvider(
   provider: { vendor: string; api_key: string; model: string } | null,
   systemPrompt: string,
   userContent: string,
   temperature: number,
-  maxTokens: number
+  maxTokens: number,
+  imageUrl?: string | null
 ): Promise<string> {
   const vendor = provider?.vendor || "openrouter";
   const apiKey = provider?.api_key || FALLBACK_OPENROUTER_KEY;
   const model = provider?.model || "meta-llama/llama-3.1-8b-instruct:free";
 
   if (vendor === "gemini") {
+    const parts: Record<string, unknown>[] = [{ text: userContent }];
+    if (imageUrl) {
+      try {
+        const imgRes = await fetch(imageUrl);
+        const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: bytesToBase64(imgBytes) } });
+      } catch (err) {
+        console.error("Erro ao baixar imagem pro Gemini:", err);
+      }
+    }
+
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
@@ -67,7 +170,7 @@ async function callAiProvider(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: userContent }] }],
+          contents: [{ role: "user", parts }],
           generationConfig: { temperature, maxOutputTokens: maxTokens },
         }),
       }
@@ -85,6 +188,13 @@ async function callAiProvider(
     openrouter: "https://openrouter.ai/api/v1/chat/completions",
   };
 
+  const userMessageContent = imageUrl
+    ? [
+        { type: "text", text: userContent },
+        { type: "image_url", image_url: { url: imageUrl } },
+      ]
+    : userContent;
+
   const res = await fetch(endpoints[vendor] || endpoints.openrouter, {
     method: "POST",
     headers: {
@@ -100,7 +210,7 @@ async function callAiProvider(
       max_tokens: maxTokens,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
+        { role: "user", content: userMessageContent },
       ],
     }),
   });
@@ -200,7 +310,10 @@ Deno.serve(async (req) => {
       console.log("Mensagem não-texto recebida. Tipo:", msg.type, "| messageType:", msg.messageType, "| Payload completo:", JSON.stringify(payload));
     }
 
-    if (!msg || msg.fromMe || msg.type !== "text") {
+    const isImage = msg?.messageType === "ImageMessage";
+    const isAudio = msg?.messageType === "AudioMessage";
+
+    if (!msg || msg.fromMe || (msg.type !== "text" && !isImage && !isAudio)) {
       return new Response("ignored", { status: 200 });
     }
 
@@ -213,9 +326,8 @@ Deno.serve(async (req) => {
     const businessNumber = onlyDigits(payload.owner);
     const customerNumber = onlyDigits(msg.sender_pn);
     const customerName = payload.chat?.wa_name || payload.chat?.name || "";
-    const text = msg.text as string;
-
-    console.log("Mensagem recebida. De:", customerNumber, "Para (business):", businessNumber, "Texto:", text);
+    let text = msg.text as string;
+    let imageUrlForAi: string | null = null;
 
     // 1. Descobrir qual agente é dono desse número
     const { data: agents } = await supabase
@@ -248,6 +360,34 @@ Deno.serve(async (req) => {
         return new Response("phone not allowed", { status: 200 });
       }
     }
+
+    // Busca o provedor de IA ativo já aqui, porque precisamos dele pra transcrever áudio
+    const { data: aiProviders } = await supabase
+      .from("ai_providers")
+      .select("*")
+      .eq("agent_id", agent_id);
+
+    const activeSlot = agent?.active_ai_slot || "gratis";
+    const activeProvider = aiProviders?.find((p) => p.slot === activeSlot) || null;
+
+    // 2.b Processa imagem ou áudio, se for o caso, antes de seguir o fluxo normal de texto
+    if (isImage || isAudio) {
+      const media = await downloadUazapiMedia(payload.BaseUrl, payload.token, msg.messageid);
+
+      if (!media?.fileURL) {
+        text = isImage ? (msg.text || "[cliente enviou uma imagem que não consegui abrir]") : "[cliente enviou um áudio que não consegui abrir]";
+      } else if (isImage) {
+        imageUrlForAi = media.fileURL;
+        text = msg.text ? `[Imagem enviada] ${msg.text}` : "[Cliente enviou uma imagem, sem legenda]";
+        console.log("Imagem baixada:", media.fileURL);
+      } else if (isAudio) {
+        const transcription = await transcribeAudio(media.fileURL, activeProvider, FALLBACK_OPENROUTER_KEY);
+        text = transcription || "[cliente enviou um áudio que não consegui transcrever]";
+        console.log("Áudio transcrito:", text);
+      }
+    }
+
+    console.log("Mensagem recebida. De:", customerNumber, "Para (business):", businessNumber, "Texto:", text);
 
     // 3. Encontrar ou criar o lead dessa conversa (por agente, já que cada agente é uma linha separada)
     let { data: lead } = await supabase
@@ -334,20 +474,13 @@ ${restaurantInstructions}
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
-    const { data: aiProviders } = await supabase
-      .from("ai_providers")
-      .select("*")
-      .eq("agent_id", agent_id);
-
-    const activeSlot = agent?.active_ai_slot || "gratis";
-    const activeProvider = aiProviders?.find((p) => p.slot === activeSlot) || null;
-
     let reply = await callAiProvider(
       activeProvider,
       systemPrompt,
       `Histórico da conversa:\n${conversation}\n\nNova mensagem do cliente: ${text}`,
       agent?.temperature ?? 0.7,
-      agent?.max_tokens ?? 1024
+      agent?.max_tokens ?? 1024,
+      imageUrlForAi
     );
 
     if (!reply) reply = "Desculpa, tive um probleminha aqui — já te respondo.";
