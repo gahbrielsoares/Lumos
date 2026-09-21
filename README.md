@@ -486,6 +486,14 @@ drop table if exists public.whatsapp_numbers;
 drop table if exists public.agent_config;
 ```
 
+## 14. Gerenciar Abas (módulo restaurante, fase A)
+
+Rode no **SQL Editor**:
+
+```sql
+alter table public.business_config add column if not exists disabled_tabs text[] default '{}';
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
