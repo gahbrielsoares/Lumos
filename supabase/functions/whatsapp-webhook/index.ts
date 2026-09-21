@@ -317,6 +317,11 @@ Se o cliente pedir pra ver uma foto de um produto específico que existe no cat�
 e adicione, em uma linha separada no FINAL da mensagem, exatamente: [FOTO: Nome Exato do Produto]
 Use o nome EXATO como aparece no catálogo. Só use essa marcação quando o produto existir e tiver o pedido claro de foto.
 Nunca explique essa marcação pro cliente, ela é removida automaticamente antes de chegar até ele.
+
+Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em uma linha separada, sempre:
+[CONTEXTO: motivo do contato em poucas palavras | resumo curto do que já foi conversado até agora, 1-2 frases]
+Atualize esse resumo a cada mensagem, refletindo o estado mais recente da conversa. Essa marcação é interna,
+nunca a explique pro cliente — ela é removida automaticamente antes de chegar até ele.
 ${restaurantInstructions}
 
 Catálogo:
@@ -355,19 +360,29 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     const pedidoMatches = [...reply.matchAll(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi)];
     const contaMatch = /\[CONTA\]/i.test(reply);
 
+    // Motivo do contato + resumo da conversa (usado em qualquer tipo de negócio)
+    const contextoMatch = reply.match(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/i);
+
     reply = reply
       .replace(/\[FOTO:\s*(.+?)\]/gi, "")
       .replace(/\[MESA:\s*(.+?)\]/gi, "")
       .replace(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi, "")
       .replace(/\[CONTA\]/gi, "")
+      .replace(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch);
+    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch, "| Contexto:", contextoMatch ? `${contextoMatch[1]} / ${contextoMatch[2]}` : null);
 
     // 8. Salvar a resposta e atualizar o lead
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
-    await supabase.from("leads").update({ last_message_at: new Date().toISOString() }).eq("id", lead.id);
+
+    const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
+    if (contextoMatch) {
+      leadUpdate.motivo_contato = contextoMatch[1].trim();
+      leadUpdate.resumo_conversa = contextoMatch[2].trim();
+    }
+    await supabase.from("leads").update(leadUpdate).eq("id", lead.id);
 
     // 9. Enviar a resposta pelo provedor de WhatsApp configurado (ou fallback do payload)
     const { data: waConfig } = await supabase
