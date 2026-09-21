@@ -502,17 +502,22 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
     // Motivo do contato + resumo da conversa (usado em qualquer tipo de negócio)
     const contextoMatch = reply.match(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/i);
+    // Fallback: às vezes a IA esquece o "|" e escreve só uma frase — ainda aproveitamos como motivo
+    const contextoSimpleMatch = !contextoMatch ? reply.match(/\[CONTEXTO:\s*(.+?)\]/i) : null;
 
     reply = reply
       .replace(/\[FOTO:\s*(.+?)\]/gi, "")
       .replace(/\[MESA:\s*(.+?)\]/gi, "")
       .replace(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi, "")
       .replace(/\[CONTA\]/gi, "")
-      .replace(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/gi, "")
+      // Remoção tolerante: apaga QUALQUER [CONTEXTO: ...], com ou sem "|", formatado certo ou não
+      .replace(/\[CONTEXTO:[^\]]*\]/gi, "")
+      // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO)[^\]]*\]/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
-    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch, "| Contexto:", contextoMatch ? `${contextoMatch[1]} / ${contextoMatch[2]}` : null);
+    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch, "| Contexto:", contextoMatch ? `${contextoMatch[1]} / ${contextoMatch[2]}` : contextoSimpleMatch ? `(sem separador) ${contextoSimpleMatch[1]}` : null);
 
     // 8. Salvar a resposta e atualizar o lead
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
@@ -521,6 +526,8 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     if (contextoMatch) {
       leadUpdate.motivo_contato = contextoMatch[1].trim();
       leadUpdate.resumo_conversa = contextoMatch[2].trim();
+    } else if (contextoSimpleMatch) {
+      leadUpdate.motivo_contato = contextoSimpleMatch[1].trim();
     }
     await supabase.from("leads").update(leadUpdate).eq("id", lead.id);
 
