@@ -475,6 +475,11 @@ Se o cliente pedir pra ver uma foto de um produto específico que existe no cat�
 e adicione, em uma linha separada no FINAL da mensagem, exatamente: [FOTO: Nome Exato do Produto]
 Use o nome EXATO como aparece no catálogo. Só use essa marcação quando o produto existir e tiver o pedido claro de foto.
 Nunca explique essa marcação pro cliente, ela é removida automaticamente antes de chegar até ele.
+IMPORTANTE: a foto só é enviada de verdade através dessa marcação. Nunca escreva "segue a foto", "aqui está" ou
+qualquer frase parecida SEM incluir a marcação [FOTO: ...] correspondente — isso engana o cliente, que não recebe nada.
+Se você já enviou a foto de um produto antes NESTA MESMA conversa (veja o histórico) e o cliente não pediu de novo
+explicitamente, não repita a marcação — só avise em texto que já mandou antes e pergunte se quer que envie de novo.
+Se o cliente pedir de novo (algo como "manda de novo", "não recebi", "envia outra vez"), inclua a marcação normalmente.
 
 Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em uma linha separada, sempre:
 [CONTEXTO: motivo do contato em poucas palavras | resumo curto do que já foi conversado até agora, 1-2 frases]
@@ -529,6 +534,11 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       .trim();
 
     console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch, "| Contexto:", contextoMatch ? `${contextoMatch[1]} / ${contextoMatch[2]}` : contextoSimpleMatch ? `(sem separador) ${contextoSimpleMatch[1]}` : null);
+
+    // Alerta: a IA prometeu foto em texto mas esqueceu a marcação [FOTO: ...]
+    if (!photoProductNames.length && /segue\s+a[s]?\s+foto|aqui\s+est[áa]\s+a\s+foto|envio\s+a\s+foto/i.test(reply)) {
+      console.error("ALERTA: resposta parece prometer foto mas não incluiu a marcação [FOTO: ...]. Resposta:", reply);
+    }
 
     // 8. Salvar a resposta e atualizar o lead
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
