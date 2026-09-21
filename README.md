@@ -586,6 +586,16 @@ Rode no **SQL Editor**:
 alter table public.business_config add column if not exists disabled_dashboard_cards text[] default '{}';
 ```
 
+## 18. Novo tipo de negócio: Materiais de Construção
+
+Rode no **SQL Editor**:
+
+```sql
+alter table public.business_config drop constraint if exists business_config_business_type_check;
+alter table public.business_config add constraint business_config_business_type_check
+  check (business_type in ('geral','materiais_construcao','restaurante','clinica','salao','imobiliaria'));
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

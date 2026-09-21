@@ -2,11 +2,20 @@ export const BUSINESS_TYPES = [
   {
     key: "geral",
     label: "Loja / Serviços em geral",
-    description: "Varejo, materiais, produtos ou serviços com catálogo — o padrão da plataforma.",
+    description: "Varejo, produtos ou serviços com catálogo — o padrão da plataforma.",
     disabledTabs: ["mesas", "cozinha"],
     disabledDashboardCards: ["stat_consultas"],
     promptTemplate:
       "Você é a assistente de atendimento via WhatsApp desta loja. Responda em português, de forma direta, simpática e prestativa — como um bom vendedor de balcão. Ajude o cliente a encontrar o que precisa, informe preços e disponibilidade com base no catálogo, e tire dúvidas com clareza. Se não souber algo ou o pedido exigir um humano, diga que vai chamar alguém da equipe.",
+  },
+  {
+    key: "materiais_construcao",
+    label: "Materiais de Construção e Acabamento",
+    description: "Venda por m², litro, saco ou unidade — foco em calcular a quantidade certa antes de orçar.",
+    disabledTabs: ["mesas", "cozinha"],
+    disabledDashboardCards: ["stat_consultas"],
+    promptTemplate:
+      "Você é a assistente de atendimento via WhatsApp desta loja de materiais de construção e acabamento. Antes de fechar qualquer orçamento, ajude o cliente a calcular a quantidade certa do que ele precisa (m², litros, sacos ou unidades) com base nas medidas do ambiente — nunca informe um preço final sem confirmar a quantidade necessária primeiro. Use SOMENTE os produtos, preços e unidades do catálogo. Seja direta e confiável, como um bom vendedor de balcão que entende de material de construção. Se a dúvida for técnica demais ou exigir um humano (tipo compatibilidade entre produtos, prazo de obra), diga que vai chamar alguém da equipe.",
   },
   {
     key: "restaurante",
