@@ -43,6 +43,13 @@
         <button class="filter-btn" data-range="ano">Este ano</button>
       </div>
 
+      <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+        <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
+        <select class="panel-select" id="agent-filter" style="min-width:220px;">
+          <option value="">Todos os agentes</option>
+        </select>
+      </div>
+
       <div class="panel-stat-grid">
         <div class="panel-stat-card">
           <div>
@@ -111,6 +118,7 @@
     import { requireSession, signOut } from "./js/auth.js";
     import { listLeadsInRange, STAGE_LABELS } from "./js/leads.js";
     import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js";
+    import { listAgents } from "./js/agents.js";
     import { initThemeToggle } from "./js/theme.js";
     import { initMobileNav } from "./js/mobileNav.js";
     import { renderSidebar } from "./js/sidebar.js";
@@ -126,10 +134,13 @@
     });
 
     let volumeChart, weekdayChart, hoursChart;
+    let currentRange = "7d";
 
     async function loadDashboard(rangeKey) {
+      currentRange = rangeKey;
+      const agentId = document.getElementById("agent-filter").value;
       const [start, end] = getRange(rangeKey);
-      const leads = await listLeadsInRange(start, end);
+      const leads = await listLeadsInRange(start, end, { agentId });
 
       document.getElementById("stat-leads").textContent = leads.length;
       document.getElementById("stat-clientes").textContent = leads.filter((l) => l.is_client).length;
@@ -233,7 +244,28 @@
       });
     });
 
-    document.getElementById("stat-consultas").textContent = await countTodayAppointments();
+    async function reloadConsultasHoje() {
+      const agentId = document.getElementById("agent-filter").value;
+      document.getElementById("stat-consultas").textContent = await countTodayAppointments(agentId || undefined);
+    }
+
+    document.getElementById("agent-filter").addEventListener("change", () => {
+      loadDashboard(currentRange);
+      reloadConsultasHoje();
+    });
+
+    (async () => {
+      const agents = await listAgents();
+      const select = document.getElementById("agent-filter");
+      agents.forEach((a) => {
+        const opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.name || a.phone_number || "Agente";
+        select.appendChild(opt);
+      });
+    })();
+
+    reloadConsultasHoje();
     loadDashboard("7d");
   </script>
 

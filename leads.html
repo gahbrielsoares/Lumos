@@ -45,6 +45,13 @@
           <button class="filter-btn" data-range="ano">Este ano</button>
         </div>
 
+        <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+          <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
+          <select class="panel-select" id="agent-filter" style="min-width:220px;">
+            <option value="">Todos os agentes</option>
+          </select>
+        </div>
+
         <div class="panel-table-wrap">
           <table class="panel-table">
             <thead>
@@ -101,6 +108,7 @@
     import { initMobileNav } from "./js/mobileNav.js";
     import { renderSidebar } from "./js/sidebar.js";
     import { getRange } from "./js/dateRange.js";
+    import { listAgents } from "./js/agents.js";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
@@ -129,12 +137,30 @@
           loadList(btn.dataset.range);
         });
       });
+
+      (async () => {
+        const agents = await listAgents();
+        const select = document.getElementById("agent-filter");
+        agents.forEach((a) => {
+          const opt = document.createElement("option");
+          opt.value = a.id;
+          opt.textContent = a.name || a.phone_number || "Agente";
+          select.appendChild(opt);
+        });
+      })();
+
+      document.getElementById("agent-filter").addEventListener("change", () => {
+        const active = document.querySelector(".filter-btn.active");
+        loadList(active ? active.dataset.range : "7d");
+      });
+
       loadList("7d");
     }
 
     async function loadList(rangeKey) {
+      const agentId = document.getElementById("agent-filter").value;
       const [start, end] = getRange(rangeKey);
-      const leads = await listLeadsInRange(start, end, { isClient: false });
+      const leads = await listLeadsInRange(start, end, { isClient: false, agentId });
 
       const body = document.getElementById("table-body");
       const empty = document.getElementById("table-empty");

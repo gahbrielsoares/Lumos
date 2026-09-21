@@ -39,6 +39,13 @@
         </button>
       </div>
 
+      <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+        <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
+        <select class="panel-select" id="agent-filter" style="min-width:220px;">
+          <option value="">Todos os agentes</option>
+        </select>
+      </div>
+
       <div class="kanban-board" id="kanban-board"></div>
     </main>
   </div>
@@ -74,6 +81,7 @@
     import { renderSidebar } from "./js/sidebar.js";
     import { supabase } from "./js/supabaseClient.js";
     import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js";
+    import { listAgents } from "./js/agents.js";
     import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js";
 
     await requireSession();
@@ -91,7 +99,10 @@
     let disabledStages = await getDisabledStages();
 
     async function loadBoard() {
-      const { data: leads } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+      const agentId = document.getElementById("agent-filter").value;
+      let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
+      if (agentId) query = query.eq("agent_id", agentId);
+      const { data: leads } = await query;
       const visibleStages = STAGES.filter((s) => !disabledStages.includes(s));
 
       board.innerHTML = visibleStages.map((stage) => `
@@ -168,6 +179,19 @@
       pendingMove = null;
       loadBoard();
     });
+
+    (async () => {
+      const agents = await listAgents();
+      const select = document.getElementById("agent-filter");
+      agents.forEach((a) => {
+        const opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.name || a.phone_number || "Agente";
+        select.appendChild(opt);
+      });
+    })();
+
+    document.getElementById("agent-filter").addEventListener("change", loadBoard);
 
     loadBoard();
 

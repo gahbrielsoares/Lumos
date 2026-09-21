@@ -42,6 +42,13 @@
         <button class="filter-btn" data-range="ano">Este ano</button>
       </div>
 
+      <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
+        <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
+        <select class="panel-select" id="agent-filter" style="min-width:220px;">
+          <option value="">Todos os agentes</option>
+        </select>
+      </div>
+
       <div class="panel-table-wrap">
         <table class="panel-table">
           <thead>
@@ -65,6 +72,7 @@
     import { getRange } from "./js/dateRange.js";
     import { supabase } from "./js/supabaseClient.js";
     import { STAGE_LABELS, getLatestMessage } from "./js/leads.js";
+    import { listAgents } from "./js/agents.js";
 
     await requireSession();
     initThemeToggle();
@@ -76,14 +84,17 @@
     });
 
     async function loadList(rangeKey) {
+      const agentId = document.getElementById("agent-filter").value;
       const [start, end] = getRange(rangeKey);
-      const { data: leads } = await supabase
+      let query = supabase
         .from("leads")
         .select("*")
         .eq("stage", "follow_up")
         .gte("created_at", start.toISOString())
         .lt("created_at", end.toISOString())
         .order("created_at", { ascending: false });
+      if (agentId) query = query.eq("agent_id", agentId);
+      const { data: leads } = await query;
 
       const body = document.getElementById("table-body");
       const empty = document.getElementById("table-empty");
@@ -110,6 +121,22 @@
       }));
       body.innerHTML = rows.join("");
     }
+
+    (async () => {
+      const agents = await listAgents();
+      const select = document.getElementById("agent-filter");
+      agents.forEach((a) => {
+        const opt = document.createElement("option");
+        opt.value = a.id;
+        opt.textContent = a.name || a.phone_number || "Agente";
+        select.appendChild(opt);
+      });
+    })();
+
+    document.getElementById("agent-filter").addEventListener("change", () => {
+      const active = document.querySelector(".filter-btn.active");
+      loadList(active ? active.dataset.range : "7d");
+    });
 
     document.querySelectorAll(".filter-btn").forEach((btn) => {
       btn.addEventListener("click", () => {

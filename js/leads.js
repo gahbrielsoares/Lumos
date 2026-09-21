@@ -49,7 +49,7 @@ export async function listLeads() {
   return data || [];
 }
 
-export async function listLeadsInRange(start, end, { isClient } = {}) {
+export async function listLeadsInRange(start, end, { isClient, agentId } = {}) {
   let query = supabase
     .from("leads")
     .select("*")
@@ -58,6 +58,7 @@ export async function listLeadsInRange(start, end, { isClient } = {}) {
     .order("created_at", { ascending: false });
 
   if (isClient !== undefined) query = query.eq("is_client", isClient);
+  if (agentId) query = query.eq("agent_id", agentId);
 
   const { data } = await query;
   return data || [];

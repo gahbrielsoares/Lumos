@@ -1,17 +1,20 @@
 import { supabase } from "./supabaseClient.js";
 
-export async function countTodayAppointments() {
+export async function countTodayAppointments(agentId) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
 
-  const { data } = await supabase
+  let query = supabase
     .from("agendamentos")
-    .select("id, status")
+    .select("id, status, leads!inner(agent_id)")
     .gte("data_hora_inicio", start.toISOString())
     .lt("data_hora_inicio", end.toISOString());
 
+  if (agentId) query = query.eq("leads.agent_id", agentId);
+
+  const { data } = await query;
   return (data || []).filter((a) => a.status !== "cancelado").length;
 }
 
