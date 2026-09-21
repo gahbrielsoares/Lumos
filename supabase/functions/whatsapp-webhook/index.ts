@@ -193,6 +193,13 @@ Deno.serve(async (req) => {
     }
 
     const msg = payload.message;
+
+    // Log temporário: mostra o tipo e o payload completo de QUALQUER mensagem,
+    // pra descobrirmos o formato real de áudio/imagem antes de programar em cima disso.
+    if (msg && !msg.fromMe && msg.type !== "text") {
+      console.log("Mensagem não-texto recebida. Tipo:", msg.type, "| messageType:", msg.messageType, "| Payload completo:", JSON.stringify(payload));
+    }
+
     if (!msg || msg.fromMe || msg.type !== "text") {
       return new Response("ignored", { status: 200 });
     }
