@@ -47,6 +47,17 @@ function onlyDigits(s: string | undefined | null) {
   return (s || "").replace(/\D/g, "");
 }
 
+// Normaliza texto pra comparar nomes de produto com segurança: minúsculas,
+// espaços únicos, e trata qualquer tipo de traço/hífen "chique" que a IA
+// às vezes gera (—, –, ‑, −) como um hífen comum.
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // Converte bytes pra base64 sem estourar a pilha em arquivos maiores
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -611,10 +622,10 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
           const itemName = m[1].trim();
           const quantity = parseInt(m[2]) || 1;
           const product = (products || []).find(
-            (p) => p.name.toLowerCase().trim() === itemName.toLowerCase().trim()
+            (p) => normalizeForMatch(p.name) === normalizeForMatch(itemName)
           ) || (products || []).find((p) =>
-            p.name.toLowerCase().includes(itemName.toLowerCase()) ||
-            itemName.toLowerCase().includes(p.name.toLowerCase())
+            normalizeForMatch(p.name).includes(normalizeForMatch(itemName)) ||
+            normalizeForMatch(itemName).includes(normalizeForMatch(p.name))
           );
           return {
             product_id: product?.id || null,
@@ -650,10 +661,10 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     // 10.c Se a IA pediu pra mostrar uma ou mais fotos, busca cada produto e envia as imagens
     for (const photoProductName of photoProductNames) {
       const product = (products || []).find(
-        (p) => p.name.toLowerCase().trim() === photoProductName.toLowerCase().trim()
+        (p) => normalizeForMatch(p.name) === normalizeForMatch(photoProductName)
       ) || (products || []).find((p) =>
-        p.name.toLowerCase().includes(photoProductName.toLowerCase()) ||
-        photoProductName.toLowerCase().includes(p.name.toLowerCase())
+        normalizeForMatch(p.name).includes(normalizeForMatch(photoProductName)) ||
+        normalizeForMatch(photoProductName).includes(normalizeForMatch(p.name))
       );
 
       if (product?.photo_urls?.length) {
