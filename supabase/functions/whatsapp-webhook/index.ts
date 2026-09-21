@@ -176,6 +176,10 @@ async function callAiProvider(
       }
     );
     const data = await res.json();
+    if (!res.ok && imageUrl) {
+      console.error("Erro na chamada Gemini com imagem, tentando de novo só com texto:", res.status, JSON.stringify(data));
+      return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, null);
+    }
     if (!res.ok) console.error("Erro na chamada Gemini:", res.status, JSON.stringify(data));
     const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
     if (!out) console.error("Gemini respondeu vazio. Payload completo:", JSON.stringify(data));
@@ -216,6 +220,13 @@ async function callAiProvider(
   });
 
   const data = await res.json();
+
+  // Se mandamos imagem e o modelo não aceitou (não tem visão), tenta de novo só com texto
+  if (!res.ok && imageUrl) {
+    console.error(`Erro na chamada ${vendor} com imagem (modelo provavelmente sem visão), tentando de novo só com texto:`, res.status, JSON.stringify(data));
+    return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, null);
+  }
+
   if (!res.ok) console.error(`Erro na chamada ${vendor}:`, res.status, JSON.stringify(data));
   const out = data.choices?.[0]?.message?.content?.trim() || "";
   if (!out) console.error(`${vendor} respondeu vazio. Payload completo:`, JSON.stringify(data));
