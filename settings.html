@@ -38,7 +38,7 @@
         <h3>Tipo de negócio</h3>
       </div>
       <div class="settings-block">
-        <p class="settings-hint">Define um modelo de prompt e um conjunto de abas recomendado pro seu nicho. Novos agentes já nascem com esse prompt pré-preenchido — mas você pode editar à vontade depois, e ligar/desligar qualquer aba em "Gerenciar Abas" quando quiser.</p>
+        <p class="settings-hint">Define um modelo de prompt e um conjunto de abas recomendado pro seu nicho. Novos agentes já nascem com esse prompt pré-preenchido. Pros agentes que já existem, você decide um por um se quer atualizar — nada muda sozinho.</p>
         <div class="field">
           <label for="biz-type">Nicho</label>
           <select id="biz-type"></select>
@@ -106,12 +106,27 @@
     </main>
   </div>
 
+  <!-- Modal: atualizar prompt dos agentes pro novo modelo -->
+  <div class="modal-backdrop" id="prompt-update-modal" style="display:none;">
+    <div class="modal-box" style="max-width:420px;">
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Atualizar prompt dos agentes?</h3>
+      <p>O tipo de negócio foi salvo. Se quiser, marque abaixo quais agentes devem receber o novo prompt padrão desse nicho — os não marcados continuam exatamente como estão.</p>
+      <div id="prompt-update-list" style="display:flex; flex-direction:column; gap:8px; margin: 14px 0;"></div>
+      <div id="prompt-update-msg" class="form-msg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="prompt-update-skip">Não atualizar nenhum</button>
+        <button class="btn btn-primary" id="prompt-update-confirm">Atualizar selecionados</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { requireSession, signOut } from "./js/auth.js";
     import { initThemeToggle } from "./js/theme.js";
     import { initMobileNav } from "./js/mobileNav.js";
     import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js";
     import { BUSINESS_TYPES, getBusinessTypeInfo } from "./js/businessTypes.js";
+    import { listAgents, saveAgent } from "./js/agents.js";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
     } from "./js/businessConfig.js";
@@ -249,10 +264,45 @@
       msg.textContent = `Salvo. Abas recomendadas pra "${info.label}" aplicadas — atualize a página pra ver.`;
       msg.className = "form-msg ok";
 
-      // Atualiza a lista de Gerenciar Abas na tela pra refletir o que acabou de ser salvo
       document.querySelectorAll(".tab-check").forEach((chk) => {
         chk.checked = !info.disabledTabs.includes(chk.value);
       });
+
+      // Pergunta separadamente se quer atualizar o prompt de algum agente — nunca automático
+      openPromptUpdateModal(info);
+    });
+
+    async function openPromptUpdateModal(info) {
+      const agents = await listAgents();
+      const list = document.getElementById("prompt-update-list");
+
+      if (!agents.length) {
+        document.getElementById("prompt-update-modal").style.display = "none";
+        return;
+      }
+
+      list.innerHTML = agents.map((a) => `
+        <label class="toggle-row" style="justify-content: space-between;">
+          <span>${a.name || "Sem nome"} <span style="color:var(--panel-text-muted); font-weight:400;">— ${a.phone_number || "sem número"}</span></span>
+          <input type="checkbox" class="toggle-input agent-prompt-check" value="${a.id}" />
+        </label>
+      `).join("");
+
+      document.getElementById("prompt-update-msg").textContent = "";
+
+      document.getElementById("prompt-update-confirm").onclick = async () => {
+        const selected = [...document.querySelectorAll(".agent-prompt-check:checked")].map((c) => c.value);
+        for (const agentId of selected) {
+          await saveAgent(agentId, { system_prompt: info.promptTemplate });
+        }
+        document.getElementById("prompt-update-modal").style.display = "none";
+      };
+
+      document.getElementById("prompt-update-modal").style.display = "flex";
+    }
+
+    document.getElementById("prompt-update-skip").addEventListener("click", () => {
+      document.getElementById("prompt-update-modal").style.display = "none";
     });
   </script>
 
