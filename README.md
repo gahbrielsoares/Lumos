@@ -578,6 +578,14 @@ alter table public.business_config add column if not exists business_type text d
 alter table public.agents drop column if exists business_type;
 ```
 
+## 17. Cards do Dashboard configuráveis por nicho
+
+Rode no **SQL Editor**:
+
+```sql
+alter table public.business_config add column if not exists disabled_dashboard_cards text[] default '{}';
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

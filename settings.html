@@ -253,6 +253,7 @@
       const { error } = await saveBusinessConfig({
         business_type: bizSelect.value,
         disabled_tabs: info.disabledTabs,
+        disabled_dashboard_cards: info.disabledDashboardCards,
       });
 
       if (error) {

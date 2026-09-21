@@ -38,4 +38,13 @@ export async function saveDisabledStages(stages) {
   return saveBusinessConfig({ disabled_stages: stages });
 }
 
+export async function getDisabledDashboardCards() {
+  const cfg = await getBusinessConfig();
+  return cfg?.disabled_dashboard_cards || [];
+}
+
+export async function saveDisabledDashboardCards(cards) {
+  return saveBusinessConfig({ disabled_dashboard_cards: cards });
+}
+
 export const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
