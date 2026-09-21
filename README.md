@@ -494,6 +494,77 @@ Rode no **SQL Editor**:
 alter table public.business_config add column if not exists disabled_tabs text[] default '{}';
 ```
 
+## 15. Módulo Restaurante — Mesas, Cozinha e pedidos (fases B, C, D)
+
+Rode tudo de uma vez no **SQL Editor**:
+
+```sql
+-- Tipo de negócio do agente (controla se ele usa o fluxo de restaurante)
+alter table public.agents add column if not exists business_type text default 'geral' check (business_type in ('geral','restaurante'));
+
+-- Mesas
+create table public.restaurant_tables (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  agent_id uuid references public.agents(id),
+  label text not null,
+  status text check (status in ('livre','ocupada')) default 'livre',
+  created_at timestamptz default now()
+);
+
+alter table public.restaurant_tables enable row level security;
+create policy "Dono ve/edita suas mesas" on public.restaurant_tables for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Sessões de mesa (abre quando o 1º cliente informa a mesa, fecha quando a conta é paga)
+create table public.table_sessions (
+  id uuid default gen_random_uuid() primary key,
+  table_id uuid references public.restaurant_tables(id) not null,
+  owner_id uuid references auth.users(id) not null,
+  status text check (status in ('ativa','aguardando_pagamento','fechada')) default 'ativa',
+  opened_at timestamptz default now(),
+  closed_at timestamptz
+);
+
+alter table public.table_sessions enable row level security;
+create policy "Dono ve/edita suas sessoes" on public.table_sessions for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Liga o lead à sessão de mesa e à jornada dele (chegou / conversando / aguardando pagamento)
+alter table public.leads add column if not exists table_session_id uuid references public.table_sessions(id);
+alter table public.leads add column if not exists visit_status text check (visit_status in ('iniciado','conversando','aguardando_pagamento')) default 'iniciado';
+
+-- Pedidos (podem ser vários por visita) e itens (puxados do Cardápio = tabela products)
+create table public.orders (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) not null,
+  table_session_id uuid references public.table_sessions(id) not null,
+  lead_id uuid references public.leads(id) not null,
+  status text check (status in ('novo_pedido','entregue')) default 'novo_pedido',
+  total numeric(12,2) default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.orders enable row level security;
+create policy "Dono ve/edita seus pedidos" on public.orders for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+create table public.order_items (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references public.orders(id) on delete cascade not null,
+  product_id uuid references public.products(id),
+  product_name text not null,
+  quantity integer default 1,
+  unit_price numeric(12,2) not null
+);
+
+alter table public.order_items enable row level security;
+create policy "Dono ve/edita itens via pedido" on public.order_items for all
+  using (exists (select 1 from public.orders o where o.id = order_id and o.owner_id = auth.uid()))
+  with check (exists (select 1 from public.orders o where o.id = order_id and o.owner_id = auth.uid()));
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

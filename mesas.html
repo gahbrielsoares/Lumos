@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mesas — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=16" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Mesas</h1>
+          <p style="margin-top: 6px;">Cada coluna é uma mesa. O cliente informa o número pelo WhatsApp — sem QR code, sem papel.</p>
+        </div>
+        <button class="btn btn-primary" id="new-table-btn">+ Nova mesa</button>
+      </div>
+
+      <div class="kanban-board" id="tables-board" style="margin-top:24px;"></div>
+
+      <div class="empty-state" id="tables-empty" style="display:none;">
+        <h3>Nenhuma mesa criada ainda</h3>
+        <p>Clique em "+ Nova mesa" para começar.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: nova mesa -->
+  <div class="modal-backdrop" id="new-table-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Nova mesa</h3>
+      <div class="detail-field" style="margin-top:16px;">
+        <div class="k">Identificação</div>
+        <input type="text" class="panel-select" id="new-table-label" placeholder="Ex: Mesa 1" style="width:100%;" />
+      </div>
+      <div id="new-table-msg" class="form-msg"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="new-table-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="new-table-confirm">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: confirmar cobrança da mesa -->
+  <div class="modal-backdrop" id="charge-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Cobrar mesa inteira</h3>
+      <p>Todos os clientes ativos nessa mesa vão pra "Aguardando pagamento", somando os pedidos de cada um. Confirma?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="charge-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="charge-confirm">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js";
+    import { initThemeToggle } from "./js/theme.js";
+    import { initMobileNav } from "./js/mobileNav.js";
+    import { renderSidebar } from "./js/sidebar.js";
+    import {
+      listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
+      closeSession, chargeSession, chargeLead, VISIT_STATUS_LABELS,
+    } from "./js/tables.js";
+    import { listOrdersBySession } from "./js/orders.js";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("mesas");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    const board = document.getElementById("tables-board");
+    let pendingChargeSession = null;
+
+    async function loadBoard() {
+      const tables = await listTables();
+      const empty = document.getElementById("tables-empty");
+
+      if (!tables.length) {
+        board.innerHTML = "";
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      board.innerHTML = tables.map((t) => `
+        <div class="kanban-col" data-table-id="${t.id}">
+          <div class="kanban-col-header">
+            <h4>
+              ${t.label}
+              <span class="pill-badge ${t.status === "ocupada" ? "stage-vendido" : ""}">${t.status === "ocupada" ? "Ocupada" : "Livre"}</span>
+            </h4>
+            <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm charge-table-btn" data-id="${t.id}">Cobrar mesa</button>
+              <button class="btn btn-ghost btn-sm close-table-btn" data-id="${t.id}">Encerrar</button>
+              <button class="btn btn-ghost btn-sm del-table-btn" data-id="${t.id}" style="color:#B94040; border-color:#B94040;">Excluir</button>
+            </div>
+          </div>
+          <div class="kanban-col-body" id="table-body-${t.id}">
+            <p class="settings-hint" style="padding:8px 4px;">Carregando...</p>
+          </div>
+        </div>
+      `).join("");
+
+      for (const t of tables) {
+        renderTableOccupants(t.id);
+      }
+
+      board.querySelectorAll(".charge-table-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const session = await getActiveSession(btn.dataset.id);
+          if (!session) return alert("Essa mesa não tem ninguém sentado agora.");
+          pendingChargeSession = session.id;
+          document.getElementById("charge-modal").style.display = "flex";
+        });
+      });
+
+      board.querySelectorAll(".close-table-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const session = await getActiveSession(btn.dataset.id);
+          if (!session) return alert("Essa mesa já está livre.");
+          if (!confirm("Encerrar a sessão dessa mesa? Ela fica livre pro próximo grupo de clientes.")) return;
+          await closeSession(session.id, btn.dataset.id);
+          loadBoard();
+        });
+      });
+
+      board.querySelectorAll(".del-table-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Excluir esta mesa? Isso não apaga os leads já atendidos, só remove a mesa da lista.")) return;
+          await deleteTable(btn.dataset.id);
+          loadBoard();
+        });
+      });
+    }
+
+    async function renderTableOccupants(table_id) {
+      const body = document.getElementById(`table-body-${table_id}`);
+      const session = await getActiveSession(table_id);
+
+      if (!session) {
+        body.innerHTML = `<p class="settings-hint" style="padding:8px 4px;">Ninguém sentado agora.</p>`;
+        return;
+      }
+
+      const leads = await listSessionLeads(session.id);
+      if (!leads.length) {
+        body.innerHTML = `<p class="settings-hint" style="padding:8px 4px;">Mesa aberta, aguardando o primeiro pedido.</p>`;
+        return;
+      }
+
+      const orders = await listOrdersBySession(session.id);
+
+      body.innerHTML = leads.map((lead) => {
+        const leadOrders = orders.filter((o) => o.lead_id === lead.id);
+        const total = leadOrders.reduce((s, o) => s + Number(o.total), 0);
+        return `
+          <div class="kanban-card" style="cursor:pointer;" data-lead-id="${lead.id}">
+            <div class="name">${lead.name || lead.phone}</div>
+            <div class="reason">${VISIT_STATUS_LABELS[lead.visit_status] || lead.visit_status}${total > 0 ? ` · R$ ${total.toFixed(2)}` : ""}</div>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+              <button class="btn btn-ghost btn-sm charge-lead-btn" data-id="${lead.id}">Cobrar</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      body.querySelectorAll(".charge-lead-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await chargeLead(btn.dataset.id);
+          renderTableOccupants(table_id);
+        });
+      });
+
+      body.querySelectorAll("[data-lead-id]").forEach((card) => {
+        card.addEventListener("click", () => {
+          window.location.href = `leads.html?id=${card.dataset.leadId}`;
+        });
+      });
+    }
+
+    document.getElementById("new-table-btn").addEventListener("click", () => {
+      document.getElementById("new-table-label").value = "";
+      document.getElementById("new-table-msg").textContent = "";
+      document.getElementById("new-table-modal").style.display = "flex";
+    });
+
+    document.getElementById("new-table-cancel").addEventListener("click", () => {
+      document.getElementById("new-table-modal").style.display = "none";
+    });
+
+    document.getElementById("new-table-confirm").addEventListener("click", async () => {
+      const label = document.getElementById("new-table-label").value.trim();
+      const msg = document.getElementById("new-table-msg");
+      if (!label) {
+        msg.textContent = "Digite uma identificação pra mesa.";
+        msg.className = "form-msg error";
+        return;
+      }
+      const { error } = await createTable(label);
+      if (error) {
+        msg.textContent = `Erro: ${error.message}`;
+        msg.className = "form-msg error";
+        return;
+      }
+      document.getElementById("new-table-modal").style.display = "none";
+      loadBoard();
+    });
+
+    document.getElementById("charge-cancel").addEventListener("click", () => {
+      document.getElementById("charge-modal").style.display = "none";
+      pendingChargeSession = null;
+    });
+
+    document.getElementById("charge-confirm").addEventListener("click", async () => {
+      if (pendingChargeSession) await chargeSession(pendingChargeSession);
+      document.getElementById("charge-modal").style.display = "none";
+      pendingChargeSession = null;
+      loadBoard();
+    });
+
+    loadBoard();
+  </script>
+
+</body>
+</html>

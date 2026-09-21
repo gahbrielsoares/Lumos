@@ -32,6 +32,14 @@ export const NAV_ITEMS = [
     icon: `<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/>`,
   },
   {
+    key: "mesas", href: "mesas.html", label: "Mesas",
+    icon: `<rect x="3" y="9" width="18" height="4" rx="1"/><path d="M5 13v6M19 13v6"/>`,
+  },
+  {
+    key: "cozinha", href: "cozinha.html", label: "Cozinha",
+    icon: `<path d="M6 3v6a2 2 0 0 0 4 0V3M8 9v12M16 3v18"/>`,
+  },
+  {
     key: "agents", href: "agents.html", label: "Agentes", core: true,
     icon: `<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/>`,
   },

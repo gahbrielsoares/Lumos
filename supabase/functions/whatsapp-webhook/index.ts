@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
     // 5. Buscar o catálogo de produtos do dono
     const { data: products } = await supabase
       .from("products")
-      .select("name, description, price, unit, photo_urls")
+      .select("id, name, description, price, unit, photo_urls")
       .eq("owner_id", owner_id)
       .eq("active", true)
       .limit(40);
@@ -293,6 +293,15 @@ Deno.serve(async (req) => {
       agent?.system_prompt ||
       "Você é a assistente de atendimento via WhatsApp de uma loja de materiais de construção e acabamento. Responda em português, de forma direta e simpática.";
 
+    const restaurantInstructions = agent?.business_type === "restaurante" ? `
+
+Você atende um restaurante. Siga estas regras à risca:
+1. Se ainda não sabe em qual mesa o cliente está NESTA conversa, sua PRIMEIRA pergunta deve ser "Qual é o número da sua mesa?" — não fale de cardápio antes disso.
+2. Assim que o cliente informar o número da mesa, confirme normalmente e adicione no final da mensagem, em uma linha própria: [MESA: número]
+3. Quando o cliente confirmar um pedido de itens do catálogo, adicione no final da mensagem, um item por linha: [PEDIDO: Nome Exato do Item | quantidade]
+4. Quando o cliente pedir a conta / fechar a mesa, adicione no final: [CONTA]
+Nunca explique essas marcações pro cliente — elas são removidas automaticamente antes de chegar até ele.` : "";
+
     const systemPrompt = `${basePrompt}
 
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
@@ -302,6 +311,7 @@ Se o cliente pedir pra ver uma foto de um produto específico que existe no cat�
 e adicione, em uma linha separada no FINAL da mensagem, exatamente: [FOTO: Nome Exato do Produto]
 Use o nome EXATO como aparece no catálogo. Só use essa marcação quando o produto existir e tiver o pedido claro de foto.
 Nunca explique essa marcação pro cliente, ela é removida automaticamente antes de chegar até ele.
+${restaurantInstructions}
 
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
@@ -333,9 +343,21 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     // Extrai TODAS as marcações [FOTO: nome do produto] — o cliente pode pedir mais de uma foto de uma vez
     const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
     const photoProductNames = photoMatches.map((m) => m[1].trim());
-    reply = reply.replace(/\[FOTO:\s*(.+?)\]/gi, "").replace(/\n{3,}/g, "\n\n").trim();
 
-    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames));
+    // Marcações do fluxo de restaurante
+    const mesaMatch = reply.match(/\[MESA:\s*(.+?)\]/i);
+    const pedidoMatches = [...reply.matchAll(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi)];
+    const contaMatch = /\[CONTA\]/i.test(reply);
+
+    reply = reply
+      .replace(/\[FOTO:\s*(.+?)\]/gi, "")
+      .replace(/\[MESA:\s*(.+?)\]/gi, "")
+      .replace(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi, "")
+      .replace(/\[CONTA\]/gi, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    console.log("Resposta da IA:", reply, "| Fotos pedidas:", JSON.stringify(photoProductNames), "| Mesa:", mesaMatch?.[1], "| Pedido:", pedidoMatches.length, "| Conta:", contaMatch);
 
     // 8. Salvar a resposta e atualizar o lead
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
@@ -352,7 +374,91 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
-    // 10. Se a IA pediu pra mostrar uma ou mais fotos, busca cada produto e envia as imagens
+    // 10.b Fluxo de restaurante: vincular à mesa, criar pedido, ou marcar aguardando pagamento
+    if (agent?.business_type === "restaurante") {
+      // [MESA: N] — vincula o lead a uma sessão ativa daquela mesa (cria a sessão se for a primeira pessoa)
+      if (mesaMatch) {
+        const mesaDigits = onlyDigits(mesaMatch[1]);
+        const { data: tables } = await supabase
+          .from("restaurant_tables")
+          .select("*")
+          .eq("owner_id", owner_id);
+
+        const table = (tables || []).find((t) => onlyDigits(t.label) === mesaDigits);
+
+        if (table) {
+          let { data: session } = await supabase
+            .from("table_sessions")
+            .select("*")
+            .eq("table_id", table.id)
+            .eq("status", "ativa")
+            .maybeSingle();
+
+          if (!session) {
+            const { data: newSession } = await supabase
+              .from("table_sessions")
+              .insert({ table_id: table.id, owner_id, status: "ativa" })
+              .select()
+              .single();
+            session = newSession;
+            await supabase.from("restaurant_tables").update({ status: "ocupada" }).eq("id", table.id);
+          }
+
+          await supabase
+            .from("leads")
+            .update({ table_session_id: session.id, visit_status: "conversando" })
+            .eq("id", lead.id);
+          lead.table_session_id = session.id;
+
+          console.log("Lead vinculado à mesa:", table.label, "sessão:", session.id);
+        } else {
+          console.log("Nenhuma mesa encontrada com o número:", mesaMatch[1]);
+        }
+      }
+
+      // [PEDIDO: item | qtd] — cria um novo pedido com os itens pedidos
+      if (pedidoMatches.length && lead.table_session_id) {
+        const items = pedidoMatches.map((m) => {
+          const itemName = m[1].trim();
+          const quantity = parseInt(m[2]) || 1;
+          const product = (products || []).find(
+            (p) => p.name.toLowerCase().trim() === itemName.toLowerCase().trim()
+          ) || (products || []).find((p) =>
+            p.name.toLowerCase().includes(itemName.toLowerCase()) ||
+            itemName.toLowerCase().includes(p.name.toLowerCase())
+          );
+          return {
+            product_id: product?.id || null,
+            product_name: product?.name || itemName,
+            quantity,
+            unit_price: product?.price || 0,
+          };
+        });
+
+        const total = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
+
+        const { data: order } = await supabase
+          .from("orders")
+          .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total })
+          .select()
+          .single();
+
+        if (order) {
+          await supabase.from("order_items").insert(
+            items.map((it) => ({ order_id: order.id, ...it }))
+          );
+          console.log("Pedido criado:", order.id, "Total:", total);
+        }
+      }
+
+      // [CONTA] — cliente pediu a conta
+      if (contaMatch) {
+        await supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead.id);
+        console.log("Lead marcado como aguardando pagamento.");
+      }
+    }
+
+    // 10.c Se a IA pediu pra mostrar uma ou mais fotos, busca cada produto e envia as imagens
     for (const photoProductName of photoProductNames) {
       const product = (products || []).find(
         (p) => p.name.toLowerCase().trim() === photoProductName.toLowerCase().trim()
