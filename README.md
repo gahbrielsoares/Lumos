@@ -565,6 +565,19 @@ create policy "Dono ve/edita itens via pedido" on public.order_items for all
   with check (exists (select 1 from public.orders o where o.id = order_id and o.owner_id = auth.uid()));
 ```
 
+## 16. Tipo de negócio vira propriedade da loja (não do agente)
+
+Rode no **SQL Editor**:
+
+```sql
+-- Tipo de negócio agora fica na loja (business_config), não no agente
+alter table public.business_config add column if not exists business_type text default 'geral'
+  check (business_type in ('geral','restaurante','clinica','salao','imobiliaria'));
+
+-- Remove o campo antigo, que estava no lugar errado
+alter table public.agents drop column if exists business_type;
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

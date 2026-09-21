@@ -32,8 +32,24 @@
       <h1 style="font-size: 26px;">Configurações</h1>
       <p style="margin-top: 6px;">Catálogo, dados da loja e horário de funcionamento. Para os agentes de IA e números de WhatsApp, veja a aba Agentes.</p>
 
-      <!-- Produtos -->
+      <!-- Tipo de negócio -->
       <div class="section-heading-row" style="margin-top:24px;">
+        <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg></div>
+        <h3>Tipo de negócio</h3>
+      </div>
+      <div class="settings-block">
+        <p class="settings-hint">Define um modelo de prompt e um conjunto de abas recomendado pro seu nicho. Novos agentes já nascem com esse prompt pré-preenchido — mas você pode editar à vontade depois, e ligar/desligar qualquer aba em "Gerenciar Abas" quando quiser.</p>
+        <div class="field">
+          <label for="biz-type">Nicho</label>
+          <select id="biz-type"></select>
+        </div>
+        <p id="biz-type-desc" class="settings-hint" style="margin-top:-8px;"></p>
+        <div id="biz-type-msg" class="form-msg"></div>
+        <button id="biz-type-save" class="btn btn-primary">Salvar tipo de negócio</button>
+      </div>
+
+      <!-- Produtos -->
+      <div class="section-heading-row">
         <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
         <h3>Catálogo de produtos</h3>
       </div>
@@ -95,6 +111,7 @@
     import { initThemeToggle } from "./js/theme.js";
     import { initMobileNav } from "./js/mobileNav.js";
     import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js";
+    import { BUSINESS_TYPES, getBusinessTypeInfo } from "./js/businessTypes.js";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
     } from "./js/businessConfig.js";
@@ -195,6 +212,47 @@
       const { error } = await saveDisabledTabs(disabled);
       msg.textContent = error ? `Erro: ${error.message}` : "Salvo. Atualize a página para ver a barra lateral mudar.";
       msg.className = error ? "form-msg error" : "form-msg ok";
+    });
+
+    // ---------- Tipo de negócio ----------
+    const bizSelect = document.getElementById("biz-type");
+    const bizDesc = document.getElementById("biz-type-desc");
+
+    bizSelect.innerHTML = BUSINESS_TYPES.map((b) => `<option value="${b.key}">${b.label}</option>`).join("");
+
+    function renderBizDesc() {
+      bizDesc.textContent = getBusinessTypeInfo(bizSelect.value).description;
+    }
+    bizSelect.addEventListener("change", renderBizDesc);
+
+    (async () => {
+      const cfg = await getBusinessConfig();
+      bizSelect.value = cfg?.business_type || "geral";
+      renderBizDesc();
+    })();
+
+    document.getElementById("biz-type-save").addEventListener("click", async () => {
+      const msg = document.getElementById("biz-type-msg");
+      const info = getBusinessTypeInfo(bizSelect.value);
+
+      const { error } = await saveBusinessConfig({
+        business_type: bizSelect.value,
+        disabled_tabs: info.disabledTabs,
+      });
+
+      if (error) {
+        msg.textContent = `Erro: ${error.message}`;
+        msg.className = "form-msg error";
+        return;
+      }
+
+      msg.textContent = `Salvo. Abas recomendadas pra "${info.label}" aplicadas — atualize a página pra ver.`;
+      msg.className = "form-msg ok";
+
+      // Atualiza a lista de Gerenciar Abas na tela pra refletir o que acabou de ser salvo
+      document.querySelectorAll(".tab-check").forEach((chk) => {
+        chk.checked = !info.disabledTabs.includes(chk.value);
+      });
     });
   </script>
 

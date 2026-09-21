@@ -72,15 +72,8 @@
               <input type="tel" id="a-phone" placeholder="+55 19 99999-9999" />
             </div>
             <div class="field">
-              <label for="a-business-type">Tipo de negócio</label>
-              <select id="a-business-type">
-                <option value="geral">Geral (loja, serviços...)</option>
-                <option value="restaurante">Restaurante (ativa Mesas e Cozinha)</option>
-              </select>
-            </div>
-            <div class="field">
               <label for="a-prompt">Prompt do sistema</label>
-              <textarea id="a-prompt" rows="4"></textarea>
+              <textarea id="a-prompt" rows="10" style="min-height:220px;"></textarea>
             </div>
             <div class="field-row">
               <div class="field">
@@ -201,6 +194,8 @@
     import { initThemeToggle } from "./js/theme.js";
     import { initMobileNav } from "./js/mobileNav.js";
     import { renderSidebar } from "./js/sidebar.js";
+    import { getBusinessConfig } from "./js/businessConfig.js";
+    import { getBusinessTypeInfo } from "./js/businessTypes.js";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
@@ -263,7 +258,9 @@
     }
 
     document.getElementById("new-agent-btn").addEventListener("click", async () => {
-      const { data, error } = await createAgent({ name: "Novo agente" });
+      const cfg = await getBusinessConfig();
+      const info = getBusinessTypeInfo(cfg?.business_type || "geral");
+      const { data, error } = await createAgent({ name: "Novo agente", system_prompt: info.promptTemplate });
       if (error) return alert(`Erro ao criar agente: ${error.message}`);
       window.location.href = `agents.html?id=${data.id}`;
     });
@@ -280,7 +277,6 @@
       document.getElementById("detail-title").textContent = agent.name || "Agente";
       document.getElementById("a-name").value = agent.name || "";
       document.getElementById("a-phone").value = agent.phone_number || "";
-      document.getElementById("a-business-type").value = agent.business_type || "geral";
       document.getElementById("a-prompt").value = agent.system_prompt || "";
       document.getElementById("a-temp").value = agent.temperature;
       document.getElementById("a-tokens").value = agent.max_tokens;
@@ -304,7 +300,6 @@
       const { error } = await saveAgent(currentAgentId, {
         name: document.getElementById("a-name").value.trim(),
         phone_number: document.getElementById("a-phone").value.trim(),
-        business_type: document.getElementById("a-business-type").value,
         system_prompt: document.getElementById("a-prompt").value.trim(),
         temperature: parseFloat(document.getElementById("a-temp").value),
         max_tokens: parseInt(document.getElementById("a-tokens").value),

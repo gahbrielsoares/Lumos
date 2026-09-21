@@ -293,7 +293,13 @@ Deno.serve(async (req) => {
       agent?.system_prompt ||
       "Você é a assistente de atendimento via WhatsApp de uma loja de materiais de construção e acabamento. Responda em português, de forma direta e simpática.";
 
-    const restaurantInstructions = agent?.business_type === "restaurante" ? `
+    const { data: bizConfig } = await supabase
+      .from("business_config")
+      .select("business_type")
+      .eq("owner_id", owner_id)
+      .maybeSingle();
+
+    const restaurantInstructions = bizConfig?.business_type === "restaurante" ? `
 
 Você atende um restaurante. Siga estas regras à risca:
 1. Se ainda não sabe em qual mesa o cliente está NESTA conversa, sua PRIMEIRA pergunta deve ser "Qual é o número da sua mesa?" — não fale de cardápio antes disso.
@@ -375,7 +381,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
     // 10.b Fluxo de restaurante: vincular à mesa, criar pedido, ou marcar aguardando pagamento
-    if (agent?.business_type === "restaurante") {
+    if (bizConfig?.business_type === "restaurante") {
       // [MESA: N] — vincula o lead a uma sessão ativa daquela mesa (cria a sessão se for a primeira pessoa)
       if (mesaMatch) {
         const mesaDigits = onlyDigits(mesaMatch[1]);
