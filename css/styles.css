@@ -112,9 +112,9 @@ img, svg { display: block; max-width: 100%; }
   object-fit: contain;
   flex-shrink: 0;
   filter:
-    drop-shadow(0 0 5px #FF9F43)
-    drop-shadow(0 0 14px rgba(255, 159, 67, 0.65))
-    drop-shadow(0 0 28px rgba(255, 159, 67, 0.35));
+    drop-shadow(0 0 4px rgba(255, 159, 67, 0.5))
+    drop-shadow(0 0 10px rgba(255, 159, 67, 0.3))
+    drop-shadow(0 0 18px rgba(255, 159, 67, 0.15));
 }
 
 .nav-links {
