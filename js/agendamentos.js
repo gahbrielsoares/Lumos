@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=25";
+import { supabase } from "./supabaseClient.js?v=26";
 
 export async function countTodayAppointments(agentId) {
   const start = new Date();
