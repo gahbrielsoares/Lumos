@@ -806,7 +806,6 @@ img, svg { display: block; max-width: 100%; }
 
 .dash-shell {
   position: relative;
-  z-index: 1;
   display: flex;
   min-height: 100vh;
   background: var(--panel-bg);

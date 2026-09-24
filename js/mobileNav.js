@@ -25,7 +25,6 @@ export function initMobileNav() {
     if (!href || href === "#") return; // deixa o link de Sair com seu próprio handler
     a.addEventListener("click", (e) => {
       e.preventDefault();
-      alert("DIAGNÓSTICO: cliquei em " + href); // temporário, vamos remover depois
       close();
       window.location.href = href;
     });
