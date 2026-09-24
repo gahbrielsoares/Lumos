@@ -1811,7 +1811,7 @@ img, svg { display: block; max-width: 100%; }
   margin: 0 auto;
 }
 
-.tech-section.dark { background: #0B0A08; max-width: 100%; }
+.tech-section.dark { max-width: 100%; }
 .tech-section.dark .tech-section-inner { max-width: 720px; margin: 0 auto; padding: 0 24px; }
 
 .tech-eyebrow {
@@ -1899,7 +1899,6 @@ img, svg { display: block; max-width: 100%; }
 /* ---- Seção de dado real (dot matrix) ---- */
 
 .tech-section.data {
-  background: linear-gradient(160deg, #2A2210, #0B0A08 60%);
   padding: 90px 24px;
 }
 
