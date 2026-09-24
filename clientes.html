@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Clientes — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js" defer></script>
+  <script src="js/logo.js?v=23" defer></script>
   <link rel="stylesheet" href="css/styles.css?v=22" />
 </head>
 <body>
@@ -109,16 +109,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js";
-    import { initThemeToggle } from "./js/theme.js";
-    import { initMobileNav } from "./js/mobileNav.js";
-    import { renderSidebar } from "./js/sidebar.js";
-    import { getRange } from "./js/dateRange.js";
-    import { listAgents } from "./js/agents.js";
+    import { requireSession, signOut } from "./js/auth.js?v=23";
+    import { initThemeToggle } from "./js/theme.js?v=23";
+    import { initMobileNav } from "./js/mobileNav.js?v=23";
+    import { renderSidebar } from "./js/sidebar.js?v=23";
+    import { getRange } from "./js/dateRange.js?v=23";
+    import { listAgents } from "./js/agents.js?v=23";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
-    } from "./js/leads.js";
+    } from "./js/leads.js?v=23";
 
     await requireSession();
     initThemeToggle();

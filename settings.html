@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js" defer></script>
+  <script src="js/logo.js?v=23" defer></script>
   <link rel="stylesheet" href="css/styles.css?v=22" />
 </head>
 <body>
@@ -127,15 +127,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js";
-    import { initThemeToggle } from "./js/theme.js";
-    import { initMobileNav } from "./js/mobileNav.js";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js";
-    import { BUSINESS_TYPES, getBusinessTypeInfo } from "./js/businessTypes.js";
-    import { listAgents, saveAgent } from "./js/agents.js";
+    import { requireSession, signOut } from "./js/auth.js?v=23";
+    import { initThemeToggle } from "./js/theme.js?v=23";
+    import { initMobileNav } from "./js/mobileNav.js?v=23";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js?v=23";
+    import { BUSINESS_TYPES, getBusinessTypeInfo } from "./js/businessTypes.js?v=23";
+    import { listAgents, saveAgent } from "./js/agents.js?v=23";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js";
+    } from "./js/businessConfig.js?v=23";
 
     await requireSession();
     initThemeToggle();
