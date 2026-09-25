@@ -84,7 +84,7 @@ async function downloadUazapiMedia(baseUrl: string, token: string, messageid: st
 // ---------- Transcreve áudio usando o mesmo provedor de IA configurado ----------
 async function transcribeAudio(
   fileUrl: string,
-  provider: { vendor: string; api_key: string } | null,
+  provider: { vendor: string; api_key: string; model?: string } | null,
   fallbackKey: string
 ): Promise<string> {
   const vendor = provider?.vendor;
@@ -120,8 +120,10 @@ async function transcribeAudio(
     }
 
     if (vendor === "gemini") {
+      // Usa o mesmo modelo configurado no slot (mais barato e respeita a cota do plano)
+      const geminiModel = provider?.model || "gemini-3.1-flash-lite";
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -150,6 +152,12 @@ async function transcribeAudio(
 }
 
 // ---------- Provedores de IA (todos compatíveis com o formato OpenAI, exceto Gemini) ----------
+// Se o modelo não conseguiu receber a imagem, avisa pra ele não inventar uma descrição
+const NO_IMAGE_NOTICE = `
+
+ATENÇÃO: a imagem enviada pelo cliente NÃO pôde ser carregada nesta resposta. Não descreva a imagem e não inclua a
+marcação [IMAGEM: ...]. Peça gentilmente para o cliente contar o que mostra a foto.`;
+
 async function callAiProvider(
   provider: { vendor: string; api_key: string; model: string } | null,
   systemPrompt: string,
@@ -189,7 +197,7 @@ async function callAiProvider(
     const data = await res.json();
     if (!res.ok && imageUrl) {
       console.error("Erro na chamada Gemini com imagem, tentando de novo só com texto:", res.status, JSON.stringify(data));
-      return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, null);
+      return callAiProvider(provider, systemPrompt + NO_IMAGE_NOTICE, userContent, temperature, maxTokens, null);
     }
     if (!res.ok) console.error("Erro na chamada Gemini:", res.status, JSON.stringify(data));
     const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
@@ -235,7 +243,7 @@ async function callAiProvider(
   // Se mandamos imagem e o modelo não aceitou (não tem visão), tenta de novo só com texto
   if (!res.ok && imageUrl) {
     console.error(`Erro na chamada ${vendor} com imagem (modelo provavelmente sem visão), tentando de novo só com texto:`, res.status, JSON.stringify(data));
-    return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, null);
+    return callAiProvider(provider, systemPrompt + NO_IMAGE_NOTICE, userContent, temperature, maxTokens, null);
   }
 
   if (!res.ok) console.error(`Erro na chamada ${vendor}:`, res.status, JSON.stringify(data));
@@ -429,7 +437,11 @@ Deno.serve(async (req) => {
     }
 
     // 4. Salvar a mensagem recebida
-    await supabase.from("messages").insert({ lead_id: lead.id, direction: "in", text });
+    const { data: incomingMsg } = await supabase
+      .from("messages")
+      .insert({ lead_id: lead.id, direction: "in", text })
+      .select("id")
+      .single();
 
     // 5. Buscar o catálogo de produtos do dono
     const { data: products } = await supabase
@@ -477,6 +489,15 @@ Você atende um restaurante. Siga estas regras à risca:
 4. Quando o cliente pedir a conta / fechar a mesa, adicione no final: [CONTA]
 Nunca explique essas marcações pro cliente — elas são removidas automaticamente antes de chegar até ele.` : "";
 
+    const imageInstructions = imageUrlForAi ? `
+A mensagem atual do cliente veio com uma IMAGEM anexada, que você consegue ver. Responda com base no que aparece nela
+(ex.: identificar o produto, o ambiente, o problema mostrado). Se a imagem não tiver relação com o atendimento,
+comente de forma natural e leve, sem supor que foi engano.
+Ao final da resposta, em uma linha separada, inclua SEMPRE: [IMAGEM: descrição objetiva do que aparece na imagem, em 1 frase]
+Essa marcação é interna, nunca a explique pro cliente — ela é removida automaticamente e serve pra você lembrar da
+imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como "[Imagem: descrição]".
+` : "";
+
     const systemPrompt = `${basePrompt}
 
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
@@ -496,7 +517,11 @@ Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em um
 [CONTEXTO: motivo do contato em poucas palavras | resumo curto do que já foi conversado até agora, 1-2 frases]
 Atualize esse resumo a cada mensagem, refletindo o estado mais recente da conversa. Essa marcação é interna,
 nunca a explique pro cliente — ela é removida automaticamente antes de chegar até ele.
-${restaurantInstructions}
+
+Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
+histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
+se está falando com um robô ou uma IA, não negue.
+${imageInstructions}${restaurantInstructions}
 
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
@@ -522,6 +547,9 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
     const photoProductNames = photoMatches.map((m) => m[1].trim());
 
+    // Descrição da imagem recebida (salva no histórico no lugar do texto genérico)
+    const imagemMatch = reply.match(/\[IMAGEM:\s*([^\]]+?)\s*\]/i);
+
     // Marcações do fluxo de restaurante
     const mesaMatch = reply.match(/\[MESA:\s*(.+?)\]/i);
     const pedidoMatches = [...reply.matchAll(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi)];
@@ -539,8 +567,9 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       .replace(/\[CONTA\]/gi, "")
       // Remoção tolerante: apaga QUALQUER [CONTEXTO: ...], com ou sem "|", formatado certo ou não
       .replace(/\[CONTEXTO:[^\]]*\]/gi, "")
+      .replace(/\[IMAGEM:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM)[^\]]*\]/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -549,6 +578,16 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     // Alerta: a IA prometeu foto em texto mas esqueceu a marcação [FOTO: ...]
     if (!photoProductNames.length && /segue\s+a[s]?\s+foto|aqui\s+est[áa]\s+a\s+foto|envio\s+a\s+foto/i.test(reply)) {
       console.error("ALERTA: resposta parece prometer foto mas não incluiu a marcação [FOTO: ...]. Resposta:", reply);
+    }
+
+    if (imageUrlForAi && incomingMsg?.id) {
+      const caption = msg.text ? ` Legenda do cliente: ${msg.text}` : "";
+      const description = imagemMatch?.[1]?.trim();
+      const newText = description
+        ? `[Imagem: ${description}]${caption}`
+        : `[Imagem enviada pelo cliente, sem descrição disponível]${caption}`;
+      await supabase.from("messages").update({ text: newText }).eq("id", incomingMsg.id);
+      console.log("Descrição da imagem salva no histórico:", newText);
     }
 
     // 8. Salvar a resposta e atualizar o lead
