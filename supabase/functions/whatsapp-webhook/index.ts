@@ -278,6 +278,18 @@ const NO_IMAGE_NOTICE = `
 ATENÇÃO: a imagem enviada pelo cliente NÃO pôde ser carregada nesta resposta. Não descreva a imagem e não inclua a
 marcação [IMAGEM: ...]. Peça gentilmente para o cliente contar o que mostra a foto.`;
 
+// Marca se a última resposta da IA foi cortada pelo limite de tokens
+let lastReplyTruncated = false;
+const MAX_OUTPUT_CEILING = 8192;
+
+// Se, mesmo assim, a resposta vier cortada, descarta a última linha incompleta
+function trimIncomplete(text: string): string {
+  const lines = text.trimEnd().split("\n");
+  if (lines.length > 1) lines.pop();
+  const kept = lines.join("\n").trim();
+  return kept || text;
+}
+
 async function callAiProvider(
   provider: { vendor: string; api_key: string; model: string } | null,
   systemPrompt: string,
@@ -314,7 +326,7 @@ async function callAiProvider(
           generationConfig: {
             temperature,
             // Os modelos Gemini 3 "pensam" antes de responder e isso consome o limite de saída
-            maxOutputTokens: Math.max(maxTokens, 2048),
+            maxOutputTokens: Math.max(maxTokens, 3072),
             ...(geminiThinking ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
           },
         }),
@@ -335,6 +347,17 @@ async function callAiProvider(
       .filter((p: { text?: string; thought?: boolean }) => p.text && !p.thought)
       .map((p: { text: string }) => p.text).join("").trim();
     if (!out) console.error("Gemini respondeu vazio. Payload completo:", JSON.stringify(data));
+    const finish = data.candidates?.[0]?.finishReason;
+    if (finish === "MAX_TOKENS") {
+      const budget = Math.max(maxTokens, 3072);
+      console.error("Gemini cortou a resposta no limite de tokens:", budget, "| uso:", JSON.stringify(data.usageMetadata));
+      if (budget < MAX_OUTPUT_CEILING) {
+        return callAiProvider(provider, systemPrompt, userContent, temperature, Math.min(budget * 2, MAX_OUTPUT_CEILING), imageUrl, geminiThinking);
+      }
+      lastReplyTruncated = true;
+    } else {
+      lastReplyTruncated = false;
+    }
     return out;
   }
 
@@ -366,7 +389,7 @@ async function callAiProvider(
       model,
       temperature,
       // Modelos de raciocínio (ex.: gpt-oss no Groq) gastam tokens pensando: dá folga e pede raciocínio curto
-      max_tokens: Math.max(maxTokens, 2048),
+      max_tokens: Math.max(maxTokens, 3072),
       ...(reasoningExtras ? { reasoning_effort: "low", include_reasoning: false } : {}),
       messages: [
         { role: "system", content: systemPrompt },
@@ -392,6 +415,16 @@ async function callAiProvider(
   if (!res.ok) console.error(`Erro na chamada ${vendor}:`, res.status, JSON.stringify(data));
   const out = data.choices?.[0]?.message?.content?.trim() || "";
   if (!out) console.error(`${vendor} respondeu vazio. Payload completo:`, JSON.stringify(data));
+  if (data.choices?.[0]?.finish_reason === "length") {
+    const budget = Math.max(maxTokens, 3072);
+    console.error(`${vendor} cortou a resposta no limite de tokens:`, budget, "| uso:", JSON.stringify(data.usage));
+    if (budget < MAX_OUTPUT_CEILING) {
+      return callAiProvider(provider, systemPrompt, userContent, temperature, Math.min(budget * 2, MAX_OUTPUT_CEILING), imageUrl, geminiThinking);
+    }
+    lastReplyTruncated = true;
+  } else {
+    lastReplyTruncated = false;
+  }
   return out;
 }
 
@@ -1006,8 +1039,11 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     // Gera a resposta com redes de segurança:
     // vazia/erro -> tenta a outra IA configurada; raciocínio vazado ou "enrolação" -> uma nova tentativa corrigida
     // deno-lint-ignore no-explicit-any
-    const generate = async (provider: any, extraNote = "") =>
-      sanitizeReply(await callAiProvider(provider, systemPrompt + extraNote, userContent, temperature, maxTokens, imageUrlForAi));
+    const generate = async (provider: any, extraNote = "") => {
+      lastReplyTruncated = false;
+      const raw = await callAiProvider(provider, systemPrompt + extraNote, userContent, temperature, maxTokens, imageUrlForAi);
+      return sanitizeReply(lastReplyTruncated ? trimIncomplete(raw) : raw);
+    };
 
     let reply = await generate(activeProvider);
     if (!reply && otherProvider) {
