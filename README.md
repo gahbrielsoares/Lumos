@@ -596,6 +596,33 @@ alter table public.business_config add constraint business_config_business_type_
   check (business_type in ('geral','materiais_construcao','restaurante','clinica','salao','imobiliaria'));
 ```
 
+## 19. Integrações (pagamento, frete, estoque, nota fiscal, regras de venda)
+
+No **SQL Editor**:
+
+```sql
+create table if not exists public.integrations (
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  kind text not null check (kind in ('vendas','pagamento','frete','estoque','nota_fiscal','api_personalizada')),
+  provider text,
+  enabled boolean default false,
+  config jsonb default '{}'::jsonb,
+  secrets jsonb default '{}'::jsonb,
+  updated_at timestamp with time zone default now(),
+  primary key (owner_id, kind)
+);
+
+alter table public.integrations enable row level security;
+
+create policy "Dono ve/edita integracoes" on public.integrations for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+```
+
+A tela fica em **Integrações** (menu lateral). Os campos são gerados a partir de
+`js/integrations.js` — pra adicionar um fornecedor ou campo novo, basta editar o
+esquema ali. Chaves e tokens ficam na coluna `secrets` e nunca são mostrados de
+volta na tela.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

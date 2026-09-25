@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=26";
+import { supabase } from "./supabaseClient.js?v=27";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, agents, settings, logout.
 // Os demais podem ser desativados via Configurações → Gerenciar Abas.
@@ -38,6 +38,10 @@ export const NAV_ITEMS = [
   {
     key: "cozinha", href: "cozinha.html", label: "Cozinha",
     icon: `<path d="M6 3v6a2 2 0 0 0 4 0V3M8 9v12M16 3v18"/>`,
+  },
+  {
+    key: "integracoes", href: "integracoes.html", label: "Integrações", core: true,
+    icon: `<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/>`,
   },
   {
     key: "agents", href: "agents.html", label: "Agentes", core: true,

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Integrações — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=27" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=27" />
+  <style>
+    .int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 24px; }
+    .int-grid .hub-card { cursor: pointer; transition: border-color .2s ease, transform .2s ease; }
+    .int-grid .hub-card:hover { border-color: var(--panel-accent); transform: translateY(-1px); }
+    .int-grid .pill-badge { white-space: nowrap; }
+    .int-grid .hub-sub { margin-top: 6px; line-height: 1.45; }
+    .field .field-hint { font-size: 12.5px; color: var(--panel-text-muted); margin-top: 6px; line-height: 1.4; }
+    .multi-options { display: flex; flex-wrap: wrap; gap: 8px; }
+    .dash-main .field .multi-options label {
+      display: inline-flex; align-items: center; gap: 8px; margin: 0;
+      padding: 8px 14px; border: 1px solid var(--panel-border); border-radius: 999px;
+      font-size: 13.5px; cursor: pointer; color: var(--panel-text);
+    }
+    .multi-options input { width: auto; margin: 0; padding: 0; accent-color: var(--glow); }
+    .int-table-wrap { overflow-x: auto; }
+    .int-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+    .int-table th { text-align: left; font-size: 12px; font-weight: 500; color: var(--panel-text-muted); padding: 0 6px 6px; }
+    .int-table td { padding: 4px; }
+    .int-table td input { width: 100%; }
+    .int-table .row-del { background: none; border: none; color: #B94040; cursor: pointer; font-size: 18px; padding: 4px 8px; }
+    .secret-saved { font-size: 12px; color: #7FBF8A; margin-top: 6px; }
+  </style>
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+
+      <!-- ===== LISTA ===== -->
+      <div id="view-list">
+        <h1 style="font-size: 28px;">Integrações</h1>
+        <p style="margin-top: 6px;">Conecte pagamento, frete, estoque e nota fiscal para a IA levar o cliente do "oi" até o fechamento.</p>
+        <div id="int-list" class="int-grid"></div>
+      </div>
+
+      <!-- ===== DETALHE ===== -->
+      <div id="view-detail" style="display:none;">
+        <a href="integracoes.html" class="btn btn-ghost" style="margin-bottom: 6px;">← Voltar</a>
+        <div style="display:flex; align-items:center; gap:14px; margin-top:10px;">
+          <div class="hub-icon" id="detail-icon"></div>
+          <div>
+            <h1 style="font-size: 26px;" id="detail-title"></h1>
+            <p style="margin-top: 4px;" id="detail-desc"></p>
+          </div>
+        </div>
+
+        <div class="settings-block" style="max-width: 720px; margin-top: 24px;">
+          <form id="int-form">
+            <div class="field toggle-row">
+              <label for="f-enabled">Integração ativa</label>
+              <input type="checkbox" id="f-enabled" class="toggle-input" />
+            </div>
+            <div class="field" id="provider-field" style="display:none;">
+              <label for="f-provider">Fornecedor</label>
+              <select id="f-provider"></select>
+            </div>
+            <div id="fields"></div>
+            <div id="int-msg" class="form-msg"></div>
+            <button type="submit" class="btn btn-primary">Salvar</button>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=27";
+    import { initThemeToggle } from "./js/theme.js?v=27";
+    import { initMobileNav } from "./js/mobileNav.js?v=27";
+    import { renderSidebar } from "./js/sidebar.js?v=27";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=27";
+    import {
+      INTEGRATIONS, getIntegrationDef, listIntegrations, getIntegration, saveIntegration,
+    } from "./js/integrations.js?v=27";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("integracoes");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${paths}</svg>`;
+
+    // Variáveis do detalhe precisam existir antes de loadDetail rodar
+    let def, saved, businessType, tableRows = {};
+
+    const kind = new URLSearchParams(window.location.search).get("tipo");
+    if (kind && getIntegrationDef(kind)) {
+      document.getElementById("view-list").style.display = "none";
+      document.getElementById("view-detail").style.display = "block";
+      loadDetail(kind);
+    } else {
+      loadList();
+    }
+
+    // ---------- Lista ----------
+    async function loadList() {
+      const saved = await listIntegrations();
+      const byKind = Object.fromEntries(saved.map((s) => [s.kind, s]));
+
+      document.getElementById("int-list").innerHTML = INTEGRATIONS.map((def) => {
+        const s = byKind[def.kind];
+        const providerLabel = def.providers?.find((p) => p.value === s?.provider)?.label;
+        const badge = s?.enabled
+          ? `<span class="pill-badge stage-vendido">Ativa</span>`
+          : s ? `<span class="pill-badge">Configurada, inativa</span>`
+          : `<span class="pill-badge">Não configurada</span>`;
+        return `
+          <div class="hub-card" onclick="window.location.href='integracoes.html?tipo=${def.kind}'">
+            <div class="hub-icon">${svg(def.icon)}</div>
+            <div class="hub-body">
+              <div class="hub-title-row">
+                <div class="hub-title">${def.label}</div>
+                ${badge}
+              </div>
+              <div class="hub-sub">${providerLabel ? `<strong>${esc(providerLabel)}</strong> · ` : ""}${def.description}</div>
+            </div>
+          </div>`;
+      }).join("");
+    }
+
+    // ---------- Detalhe ----------
+
+    async function loadDetail(k) {
+      def = getIntegrationDef(k);
+      [saved, businessType] = await Promise.all([
+        getIntegration(k),
+        getBusinessConfig().then((c) => c?.business_type || "geral"),
+      ]);
+
+      document.getElementById("detail-icon").innerHTML = svg(def.icon);
+      document.getElementById("detail-title").textContent = def.label;
+      document.getElementById("detail-desc").textContent = def.description;
+      document.getElementById("f-enabled").checked = saved?.enabled ?? false;
+
+      const providerSel = document.getElementById("f-provider");
+      if (def.providers) {
+        document.getElementById("provider-field").style.display = "block";
+        providerSel.innerHTML = def.providers.map((p) => `<option value="${p.value}">${p.label}</option>`).join("");
+        providerSel.value = saved?.provider || def.providers[0].value;
+        providerSel.addEventListener("change", applyVisibility);
+      }
+
+      renderFields();
+      applyVisibility();
+    }
+
+    function defaultFor(f) {
+      if (f.defaultByBusiness && businessType in f.defaultByBusiness) return f.defaultByBusiness[businessType];
+      return f.default;
+    }
+
+    function renderFields() {
+      const cfg = saved?.config || {};
+      const secrets = saved?.secrets || {};
+
+      document.getElementById("fields").innerHTML = def.fields.map((f) => {
+        const value = f.key in cfg ? cfg[f.key] : defaultFor(f);
+        const hint = f.hint ? `<div class="field-hint">${f.hint}</div>` : "";
+        const id = `f-${f.key}`;
+        let input = "";
+
+        switch (f.type) {
+          case "toggle":
+            return `<div class="field toggle-row" data-key="${f.key}">
+              <label for="${id}">${f.label}</label>
+              <input type="checkbox" id="${id}" class="toggle-input" ${value ? "checked" : ""} />
+            </div>${hint ? `<div data-hint-for="${f.key}" style="margin:-8px 0 14px;">${hint}</div>` : ""}`;
+          case "select":
+            input = `<select id="${id}">${f.options.map((o) =>
+              `<option value="${o.value}" ${String(value) === o.value ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
+            break;
+          case "textarea":
+            input = `<textarea id="${id}" rows="4">${esc(value)}</textarea>`;
+            break;
+          case "multi": {
+            const list = Array.isArray(value) ? value : [];
+            input = `<div class="multi-options" id="${id}">${f.options.map((o) =>
+              `<label><input type="checkbox" value="${o.value}" ${list.includes(o.value) ? "checked" : ""} /> ${o.label}</label>`).join("")}</div>`;
+            break;
+          }
+          case "password":
+            input = `<input type="password" id="${id}" autocomplete="new-password"
+              placeholder="${secrets[f.key] ? "Já salvo — deixe em branco para manter" : ""}" />
+              ${secrets[f.key] ? `<div class="secret-saved">✓ Chave salva</div>` : ""}`;
+            break;
+          case "table":
+            tableRows[f.key] = Array.isArray(value) && value.length ? value : [{}];
+            input = `<div class="int-table-wrap"><table class="int-table" id="${id}"></table></div>
+              <button type="button" class="btn btn-ghost" data-add-row="${f.key}" style="margin-top:8px;">+ Adicionar linha</button>`;
+            break;
+          default:
+            input = `<input type="${f.type === "number" ? "number" : "text"}" id="${id}" value="${esc(value)}"
+              placeholder="${esc(f.placeholder || "")}" ${f.type === "number" ? 'step="any" min="0"' : ""} />`;
+        }
+        return `<div class="field" data-key="${f.key}"><label for="${id}">${f.label}</label>${input}${hint}</div>`;
+      }).join("");
+
+      def.fields.filter((f) => f.type === "table").forEach((f) => renderTable(f));
+      document.querySelectorAll("[data-add-row]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          const f = def.fields.find((x) => x.key === btn.dataset.addRow);
+          readTable(f);
+          tableRows[f.key].push({});
+          renderTable(f);
+        })
+      );
+    }
+
+    function renderTable(f) {
+      const table = document.getElementById(`f-${f.key}`);
+      table.innerHTML = `
+        <tr>${f.columns.map((c) => `<th>${c.label}</th>`).join("")}<th></th></tr>
+        ${tableRows[f.key].map((row, i) => `
+          <tr data-row="${i}">
+            ${f.columns.map((c) => `<td><input type="${c.type === "number" ? "number" : "text"}" data-col="${c.key}"
+              value="${esc(row[c.key])}" placeholder="${esc(c.placeholder || "")}" ${c.type === "number" ? 'step="any" min="0"' : ""} /></td>`).join("")}
+            <td><button type="button" class="row-del" data-del="${i}" title="Remover">×</button></td>
+          </tr>`).join("")}`;
+      table.querySelectorAll("[data-del]").forEach((b) =>
+        b.addEventListener("click", () => {
+          readTable(f);
+          tableRows[f.key].splice(Number(b.dataset.del), 1);
+          if (!tableRows[f.key].length) tableRows[f.key].push({});
+          renderTable(f);
+        })
+      );
+    }
+
+    function readTable(f) {
+      const rows = [...document.querySelectorAll(`#f-${f.key} tr[data-row]`)].map((tr) => {
+        const row = {};
+        tr.querySelectorAll("input[data-col]").forEach((inp) => {
+          const col = f.columns.find((c) => c.key === inp.dataset.col);
+          const v = inp.value.trim();
+          if (v !== "") row[col.key] = col.type === "number" ? Number(v) : v;
+        });
+        return row;
+      });
+      tableRows[f.key] = rows;
+      return rows.filter((r) => Object.keys(r).length);
+    }
+
+    function isVisible(f) {
+      if (!f.showIf?.provider) return true;
+      return f.showIf.provider.includes(document.getElementById("f-provider").value);
+    }
+
+    function applyVisibility() {
+      def.fields.forEach((f) => {
+        const show = isVisible(f);
+        document.querySelectorAll(`[data-key="${f.key}"], [data-hint-for="${f.key}"]`)
+          .forEach((el) => (el.style.display = show ? "" : "none"));
+      });
+    }
+
+    document.getElementById("int-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("int-msg");
+      const config = {};
+      const secrets = { ...(saved?.secrets || {}) };
+
+      for (const f of def.fields) {
+        const el = document.getElementById(`f-${f.key}`);
+        if (f.type === "toggle") config[f.key] = el.checked;
+        else if (f.type === "multi") config[f.key] = [...el.querySelectorAll("input:checked")].map((i) => i.value);
+        else if (f.type === "table") config[f.key] = readTable(f);
+        else if (f.secret) { if (el.value.trim()) secrets[f.key] = el.value.trim(); }
+        else if (f.type === "number") config[f.key] = el.value === "" ? null : Number(el.value);
+        else config[f.key] = el.value.trim();
+      }
+
+      const provider = def.providers ? document.getElementById("f-provider").value : null;
+      const enabled = document.getElementById("f-enabled").checked;
+
+      // Avisa se a integração foi ativada sem a chave obrigatória do fornecedor escolhido
+      const missing = def.fields.filter((f) => f.secret && !f.optional && isVisible(f) && !secrets[f.key]);
+      if (enabled && missing.length) {
+        msg.textContent = `Preencha: ${missing.map((f) => f.label).join(", ")}.`;
+        msg.className = "form-msg error";
+        return;
+      }
+
+      const { error } = await saveIntegration(def.kind, { provider, enabled, config, secrets });
+      if (error) {
+        msg.textContent = `Erro: ${error.message}`;
+        msg.className = "form-msg error";
+        return;
+      }
+      saved = { ...(saved || {}), provider, enabled, config, secrets };
+      renderFields();
+      applyVisibility();
+      msg.textContent = "Salvo.";
+      msg.className = "form-msg ok";
+    });
+  </script>
+</body>
+</html>

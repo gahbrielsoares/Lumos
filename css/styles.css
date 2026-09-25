@@ -639,6 +639,34 @@ img, svg { display: block; max-width: 100%; }
   border-color: var(--glow);
 }
 
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+}
+
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--glow);
+}
+
+.field select option {
+  background: #FFFFFF;
+  color: #1C2B3A;
+}
+
+:root.dark .field select option {
+  background: #15141A;
+  color: #FFFFFF;
+}
+
 .form-msg {
   font-size: 13.5px;
   margin-top: 4px;
