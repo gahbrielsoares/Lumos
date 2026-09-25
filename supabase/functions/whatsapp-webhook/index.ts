@@ -16,10 +16,26 @@ const FALLBACK_OPENROUTER_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
 function sanitizeReply(text: string): string {
-  return text
-    .replace(/<\/?[A-Za-z_][A-Za-z0-9_]*>/g, "") // remove tags tipo <CPA_DONE>, <|end|> etc.
+  return toWhatsAppFormat(
+    text.replace(/<\/?[A-Za-z_][A-Za-z0-9_]*>/g, "") // remove tags tipo <CPA_DONE>, <|end|> etc.
+  )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+// Converte a formatação Markdown que os modelos costumam usar pro formato do WhatsApp.
+// No WhatsApp: *negrito*, _itálico_, ~tachado~. Markdown usa **negrito**, que no
+// WhatsApp aparece com asteriscos sobrando.
+function toWhatsAppFormat(text: string): string {
+  return text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "*$1*")          // ***negrito itálico*** -> *negrito*
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")                // **negrito** -> *negrito*
+    .replace(/__(.+?)__/g, "_$1_")                   // __itálico__ -> _itálico_
+    .replace(/~~(.+?)~~/g, "~$1~")                   // ~~tachado~~ -> ~tachado~
+    .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")            // # Título -> *Título*
+    .replace(/^(\s*)[*+]\s+/gm, "$1• ")              // "* item" (lista Markdown) -> "• item"
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "$1: $2") // [texto](link) -> texto: link
+    .replace(/\*{2,}/g, "");                         // sobra de asteriscos duplos
 }
 
 // Detecta quando o modelo vazou o "raciocínio interno" em vez da resposta final.
@@ -517,6 +533,9 @@ Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em um
 [CONTEXTO: motivo do contato em poucas palavras | resumo curto do que já foi conversado até agora, 1-2 frases]
 Atualize esse resumo a cada mensagem, refletindo o estado mais recente da conversa. Essa marcação é interna,
 nunca a explique pro cliente — ela é removida automaticamente antes de chegar até ele.
+
+Formatação: você está no WhatsApp. Para negrito use UM asterisco de cada lado (*assim*), nunca dois (**assim**).
+Não use títulos com #, tabelas nem links no formato [texto](link).
 
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
