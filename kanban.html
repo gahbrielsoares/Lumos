@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=28" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=28" />
+  <script src="js/logo.js?v=29" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=29" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -88,15 +88,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=28";
-    import { initThemeToggle } from "./js/theme.js?v=28";
-    import { initMobileNav } from "./js/mobileNav.js?v=28";
-    import { renderSidebar } from "./js/sidebar.js?v=28";
-    import { supabase } from "./js/supabaseClient.js?v=28";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js?v=28";
-    import { listAgents } from "./js/agents.js?v=28";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=28";
-    import { openLeadPanel } from "./js/leadPanel.js?v=28";
+    import { requireSession, signOut } from "./js/auth.js?v=29";
+    import { initThemeToggle } from "./js/theme.js?v=29";
+    import { initMobileNav } from "./js/mobileNav.js?v=29";
+    import { renderSidebar } from "./js/sidebar.js?v=29";
+    import { supabase } from "./js/supabaseClient.js?v=29";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js?v=29";
+    import { listAgents } from "./js/agents.js?v=29";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=29";
+    import { openLeadPanel } from "./js/leadPanel.js?v=29";
 
     await requireSession();
     initThemeToggle();

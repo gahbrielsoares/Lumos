@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=28";
+import { supabase } from "./supabaseClient.js?v=29";
 
 export const STAGES = [
   "novo_contato",
@@ -108,7 +108,7 @@ export function timeAgo(dateString) {
 export async function listMessages(leadId, limit = 200) {
   const { data } = await supabase
     .from("messages")
-    .select("direction, text, created_at")
+    .select("direction, sender, text, created_at")
     .eq("lead_id", leadId)
     .order("created_at", { ascending: true })
     .limit(limit);

@@ -436,6 +436,87 @@ async function sendWhatsAppPhoto(
   return res;
 }
 
+// ---------- Mensagens que o vendedor manda pelo celular ----------
+// fromMe + wasSentByApi = eco de algo que a IA ou o próprio Lumos enviou (já está salvo).
+// fromMe SEM wasSentByApi = alguém digitou direto no WhatsApp da loja: registramos
+// como mensagem do vendedor e, se o agente estiver configurado assim, pausamos a IA.
+// deno-lint-ignore no-explicit-any
+function extractChatNumber(payload: any, msg: any): string {
+  const candidates = [msg?.chatid, payload?.chat?.wa_chatid, payload?.chat?.id, msg?.recipient];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.endsWith("@s.whatsapp.net")) return onlyDigits(c.split("@")[0]);
+  }
+  const phone = onlyDigits(payload?.chat?.phone);
+  return phone || "";
+}
+
+// deno-lint-ignore no-explicit-any
+function describeOwnerMedia(msg: any): string {
+  const caption = msg?.text ? ` ${msg.text}` : "";
+  switch (msg?.messageType) {
+    case "ImageMessage": return `[Vendedor enviou uma imagem]${caption}`;
+    case "AudioMessage": return "[Vendedor enviou um áudio]";
+    case "VideoMessage": return `[Vendedor enviou um vídeo]${caption}`;
+    case "DocumentMessage": return `[Vendedor enviou um documento]${caption}`;
+    case "StickerMessage": return "[Vendedor enviou uma figurinha]";
+    default: return msg?.text || "";
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function handleOwnerMessage(payload: any, msg: any): Promise<Response> {
+  if (msg.wasSentByApi) return new Response("echo from api", { status: 200 });
+  if (msg.isGroup || payload.chat?.wa_isGroup) return new Response("ignored group", { status: 200 });
+
+  const businessNumber = onlyDigits(payload.owner);
+  const customerNumber = extractChatNumber(payload, msg);
+  const text = describeOwnerMedia(msg).trim();
+
+  if (!customerNumber || !text) {
+    console.log("Mensagem do vendedor sem número/texto reconhecível. Payload:", JSON.stringify(payload));
+    return new Response("ignored", { status: 200 });
+  }
+  if (customerNumber === businessNumber) return new Response("self", { status: 200 });
+
+  const { data: agents } = await supabase.from("agents").select("*").not("phone_number", "is", null);
+  const agent = agents?.find((a) => onlyDigits(a.phone_number) === businessNumber);
+  if (!agent) return new Response("no agent", { status: 200 });
+
+  // Não registra os avisos de "pedido aguardando aprovação" que o sistema manda pro vendedor
+  const { data: vendas } = await supabase
+    .from("integrations").select("config").eq("owner_id", agent.owner_id).eq("kind", "vendas").maybeSingle();
+  if (onlyDigits(vendas?.config?.telefone_aprovacao) === customerNumber) return new Response("seller notice", { status: 200 });
+
+  let { data: lead } = await supabase
+    .from("leads").select("*").eq("agent_id", agent.id).eq("phone", customerNumber).maybeSingle();
+
+  if (!lead) {
+    const { data: newLead } = await supabase
+      .from("leads")
+      .insert({ owner_id: agent.owner_id, agent_id: agent.id, phone: customerNumber, name: payload.chat?.wa_name || payload.chat?.name || "", stage: "novo_contato" })
+      .select().single();
+    lead = newLead;
+  }
+  if (!lead) return new Response("no lead", { status: 200 });
+
+  // Anti-duplicata: mesma mensagem de saída nos últimos 2 minutos = eco do que já salvamos
+  const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from("messages").select("id").eq("lead_id", lead.id).eq("direction", "out").eq("text", text).gte("created_at", since).limit(1);
+  if (recent?.length) return new Response("duplicate", { status: 200 });
+
+  await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "vendedor", text });
+
+  const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
+  if (agent.pause_on_human !== false && lead.ai_enabled !== false) {
+    leadUpdate.ai_enabled = false;
+    console.log("Vendedor respondeu pelo celular — IA pausada para o lead:", lead.id);
+  }
+  await supabase.from("leads").update(leadUpdate).eq("id", lead.id);
+
+  return new Response("owner message saved", { status: 200 });
+}
+
 Deno.serve(async (req) => {
   try {
     const payload = await req.json();
@@ -450,6 +531,11 @@ Deno.serve(async (req) => {
     // pra descobrirmos o formato real de áudio/imagem antes de programar em cima disso.
     if (msg && !msg.fromMe && msg.type !== "text") {
       console.log("Mensagem não-texto recebida. Tipo:", msg.type, "| messageType:", msg.messageType, "| Payload completo:", JSON.stringify(payload));
+    }
+
+    // Mensagem enviada PELO número da loja (vendedor no celular / WhatsApp Web)
+    if (msg?.fromMe) {
+      return await handleOwnerMessage(payload, msg);
     }
 
     const isImage = msg?.messageType === "ImageMessage";
@@ -551,7 +637,7 @@ Deno.serve(async (req) => {
     // 4. Salvar a mensagem recebida
     const { data: incomingMsg } = await supabase
       .from("messages")
-      .insert({ lead_id: lead.id, direction: "in", text })
+      .insert({ lead_id: lead.id, direction: "in", sender: "cliente", text })
       .select("id")
       .single();
 
@@ -739,7 +825,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     }
 
     // 8. Salvar a resposta e atualizar o lead
-    await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", text: reply });
+    await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "ia", text: reply });
 
     const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
     if (contextoMatch) {

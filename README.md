@@ -647,6 +647,30 @@ Como funciona:
 - Se "Regras de venda" tiver o WhatsApp do vendedor, ele recebe um aviso na hora.
 - Com a IA desativada no contato, as mensagens continuam salvas, mas ninguém responde automaticamente.
 
+## 21. Mensagens do vendedor e resposta pelo Lumos
+
+No **SQL Editor**:
+
+```sql
+-- Quem mandou cada mensagem: cliente, ia ou vendedor
+alter table public.messages add column if not exists sender text;
+update public.messages set sender = case when direction = 'in' then 'cliente' else 'ia' end where sender is null;
+
+-- Pausar a IA quando um vendedor responde (liga/desliga na página do agente)
+alter table public.agents add column if not exists pause_on_human boolean default true;
+```
+
+### Edge Function `send-message`
+1. **Edge Functions → Deploy a new function → Via Editor**, nome `send-message`.
+2. Cole o código de `supabase/functions/send-message/index.ts`.
+3. Deixe **"Enforce JWT verification" LIGADO** (diferente do webhook).
+4. Deploy.
+
+### UAZAPI
+No painel da UAZAPI, no webhook da instância, as mensagens enviadas pelo próprio
+número (`fromMe`) precisam chegar: **não** marque o filtro `fromMeYes` em
+"excluir mensagens". Pode (e deve) manter `wasSentByApi` e `isGroupYes` excluídos.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

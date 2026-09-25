@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=28";
+import { supabase } from "./supabaseClient.js?v=29";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=28";
-import { getIntegration } from "./integrations.js?v=28";
+} from "./leads.js?v=29";
+import { getIntegration } from "./integrations.js?v=29";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -49,6 +49,18 @@ const CSS = `
 .lp-msg.in { align-self: flex-start; background: rgba(127,127,127,.12); border-bottom-left-radius: 4px; }
 .lp-msg.out { align-self: flex-end; background: rgba(74,124,89,.16); border-bottom-right-radius: 4px; }
 .lp-msg time { display: block; font-size: 11px; color: var(--panel-text-muted); margin-top: 4px; }
+.lp-msg.out.vendedor { background: rgba(74,111,165,.18); }
+.lp-who { display: block; font-size: 11px; font-weight: 600; color: var(--panel-text-muted); margin-bottom: 2px; }
+.lp-composer { border-top: 1px solid var(--panel-border); padding: 12px 16px 16px; display: none; gap: 8px; align-items: flex-end; }
+.lp-composer.show { display: flex; }
+.lp-composer textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; padding: 11px 12px; border-radius: 12px;
+  border: 1px solid var(--panel-border); background: var(--panel-bg); color: var(--panel-text); font-family: var(--panel-font-body); font-size: 14px; }
+.lp-composer textarea:focus { outline: none; border-color: var(--panel-accent); }
+.lp-composer .btn { padding: 11px 16px; }
+.lp-send-msg { font-size: 12.5px; padding: 0 16px 10px; display: none; }
+.lp-send-msg.show { display: block; }
+.lp-send-msg.error { color: #B94040; }
+.lp-send-msg.ok { color: #4A7C59; }
 .lp-empty { color: var(--panel-text-muted); font-size: 13.5px; }
 .lp .panel-select { width: 100%; }
 .lp .btn-ghost { color: var(--panel-text); border-color: var(--panel-border); font-family: var(--panel-font-body); text-decoration: none; }
@@ -91,6 +103,11 @@ function ensureDom() {
         </div>
       </div>
       <div class="lp-body" id="lp-body"></div>
+      <div class="lp-send-msg" id="lp-send-msg"></div>
+      <div class="lp-composer" id="lp-composer">
+        <textarea id="lp-input" rows="1" placeholder="Escreva uma mensagem para o cliente…"></textarea>
+        <button class="btn btn-primary" id="lp-send">Enviar</button>
+      </div>
     </aside>`;
   document.body.appendChild(root);
 
@@ -100,6 +117,52 @@ function ensureDom() {
   root.querySelectorAll("[data-lp-tab]").forEach((b) =>
     b.addEventListener("click", () => { state.tab = b.dataset.lpTab; render(); })
   );
+
+  const input = document.getElementById("lp-input");
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = `${input.scrollHeight}px`; });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById("lp-send").addEventListener("click", sendMessage);
+}
+
+function showSendMsg(text, kind) {
+  const el = document.getElementById("lp-send-msg");
+  el.textContent = text;
+  el.className = `lp-send-msg show ${kind}`;
+  if (kind === "ok") setTimeout(() => (el.className = "lp-send-msg"), 4000);
+}
+
+// Envia pela Edge Function send-message (confere o login e usa o WhatsApp do agente)
+async function sendMessage() {
+  const input = document.getElementById("lp-input");
+  const btn = document.getElementById("lp-send");
+  const text = input.value.trim();
+  if (!text || btn.disabled) return;
+
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
+  const { data, error } = await supabase.functions.invoke("send-message", { body: { lead_id: state.lead.id, text } });
+  btn.disabled = false;
+  btn.textContent = "Enviar";
+
+  if (error || data?.error) {
+    let m = data?.error || error?.message || "Não foi possível enviar.";
+    try { const b = await error?.context?.json(); if (b?.error) m = b.error; } catch (_) { /* resposta sem JSON */ }
+    showSendMsg(m, "error");
+    return;
+  }
+
+  input.value = "";
+  input.style.height = "auto";
+  if (data?.ai_paused) {
+    showSendMsg("Enviado. A IA foi pausada para este contato — reative no interruptor quando quiser.", "ok");
+    state.lead = await getLeadById(state.lead.id);
+    state.onChange?.(state.lead);
+  } else {
+    showSendMsg("Enviado.", "ok");
+  }
+  render();
 }
 
 export async function openLeadPanel(leadId, { tab = "resumo", onChange = null } = {}) {
@@ -136,6 +199,8 @@ function render() {
   document.getElementById("lp-name").textContent = l.name || l.phone;
   document.getElementById("lp-phone").textContent = l.phone;
   root.querySelectorAll("[data-lp-tab]").forEach((b) => b.classList.toggle("active", b.dataset.lpTab === state.tab));
+  document.getElementById("lp-composer").classList.toggle("show", state.tab === "conversa");
+  if (state.tab !== "conversa") document.getElementById("lp-send-msg").className = "lp-send-msg";
   if (state.tab === "conversa") renderChat();
   else renderSummary();
 }
@@ -146,7 +211,7 @@ function aiBlock(l) {
     <div class="lp-ai ${on ? "" : "off"}">
       <div>
         <div class="lp-ai-title">${on ? "IA atendendo este contato" : "IA desativada para este contato"}</div>
-        <div class="lp-ai-sub">${on ? "Desative para um vendedor assumir a conversa." : "As mensagens continuam sendo salvas, mas a IA não responde."}</div>
+        <div class="lp-ai-sub">${on ? "Desative para um vendedor assumir a conversa." : "Um vendedor está no atendimento. As mensagens continuam salvas, mas a IA não responde."}</div>
       </div>
       <input type="checkbox" class="toggle-input" id="lp-ai" ${on ? "checked" : ""} />
     </div>`;
@@ -266,11 +331,11 @@ async function renderChat() {
     body.innerHTML = `
       <div class="lp-section">${aiBlock(l)}</div>
       <div class="lp-section lp-actions">
-        <a class="btn btn-ghost" href="${whatsappLink(l.phone)}" target="_blank" rel="noopener">Responder no WhatsApp</a>
+        <a class="btn btn-ghost" href="${whatsappLink(l.phone)}" target="_blank" rel="noopener">Abrir no WhatsApp</a>
       </div>
       <div class="lp-chat">
         ${msgs.length ? msgs.map((m) => `
-          <div class="lp-msg ${m.direction === "in" ? "in" : "out"}"><span class="lp-text">${waFormat(m.text)}</span><time>${new Date(m.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</time></div>`).join("") : `<div class="lp-empty">Nenhuma mensagem ainda.</div>`}
+          <div class="lp-msg ${m.direction === "in" ? "in" : `out ${m.sender === "vendedor" ? "vendedor" : ""}`}">${m.direction === "out" ? `<span class="lp-who">${m.sender === "vendedor" ? "Vendedor" : "IA"}</span>` : ""}<span class="lp-text">${waFormat(m.text)}</span><time>${new Date(m.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</time></div>`).join("") : `<div class="lp-empty">Nenhuma mensagem ainda.</div>`}
       </div>`;
     document.getElementById("lp-ai").addEventListener("change", (e) => refreshLead({ ai_enabled: e.target.checked }));
     if (atBottom || !draw.done) body.scrollTop = body.scrollHeight;

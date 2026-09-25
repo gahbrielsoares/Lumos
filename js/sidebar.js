@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=28";
+import { supabase } from "./supabaseClient.js?v=29";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, agents, settings, logout.
 // Os demais podem ser desativados via Configurações → Gerenciar Abas.

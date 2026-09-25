@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=28" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=28" />
+  <script src="js/logo.js?v=29" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=29" />
 </head>
 <body>
 
@@ -98,6 +98,10 @@
             <div class="field toggle-row">
               <label for="a-enabled">Agente ativo</label>
               <input type="checkbox" id="a-enabled" class="toggle-input" />
+            </div>
+            <div class="field toggle-row">
+              <label for="a-pause">Pausar a IA no contato quando um vendedor responder (pelo celular ou pelo Lumos)</label>
+              <input type="checkbox" id="a-pause" class="toggle-input" />
             </div>
             <div class="field">
               <label for="a-phones">Telefones permitidos (CSV, vazio = todos)</label>
@@ -196,17 +200,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=28";
-    import { initThemeToggle } from "./js/theme.js?v=28";
-    import { initMobileNav } from "./js/mobileNav.js?v=28";
-    import { renderSidebar } from "./js/sidebar.js?v=28";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=28";
-    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=28";
+    import { requireSession, signOut } from "./js/auth.js?v=29";
+    import { initThemeToggle } from "./js/theme.js?v=29";
+    import { initMobileNav } from "./js/mobileNav.js?v=29";
+    import { renderSidebar } from "./js/sidebar.js?v=29";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=29";
+    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=29";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=28";
+    } from "./js/agents.js?v=29";
 
     await requireSession();
     initThemeToggle();
@@ -288,6 +292,7 @@
       document.getElementById("a-tokens").value = agent.max_tokens;
       document.getElementById("a-history").value = agent.history_limit;
       document.getElementById("a-enabled").checked = agent.enabled;
+      document.getElementById("a-pause").checked = agent.pause_on_human !== false;
       document.getElementById("a-phones").value = agent.allowed_phones || "";
 
       activeSlot = agent.active_ai_slot || "gratis";
@@ -311,6 +316,7 @@
         max_tokens: parseInt(document.getElementById("a-tokens").value),
         history_limit: parseInt(document.getElementById("a-history").value),
         enabled: document.getElementById("a-enabled").checked,
+        pause_on_human: document.getElementById("a-pause").checked,
         allowed_phones: document.getElementById("a-phones").value.trim(),
       });
       msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
