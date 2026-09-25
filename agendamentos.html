@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agendamentos — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=34" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=34" />
+  <script src="js/logo.js?v=36" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=36" />
 </head>
 <body>
 
@@ -44,9 +44,11 @@
       </div>
 
       <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-range="proximos">Próximos 30 dias</button>
         <button class="filter-btn" data-range="hoje">Hoje</button>
+        <button class="filter-btn" data-range="amanha">Amanhã</button>
         <button class="filter-btn" data-range="ontem">Ontem</button>
-        <button class="filter-btn active" data-range="7d">Últimos 7 dias</button>
+        <button class="filter-btn" data-range="7d">Últimos 7 dias</button>
         <button class="filter-btn" data-range="14d">Últimos 14 dias</button>
         <button class="filter-btn" data-range="mes">Este mês</button>
         <button class="filter-btn" data-range="mes_passado">Mês passado</button>
@@ -56,7 +58,7 @@
       <div class="panel-table-wrap">
         <table class="panel-table">
           <thead>
-            <tr><th>Nome</th><th>WhatsApp</th><th>Data do Agendamento</th><th>Motivo do Contato</th><th>Status</th><th></th></tr>
+            <tr><th>Nome</th><th>WhatsApp</th><th>Data do Agendamento</th><th>Motivo / Reserva</th><th>Status</th><th></th></tr>
           </thead>
           <tbody id="table-body"></tbody>
         </table>
@@ -101,16 +103,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=34";
-    import { initThemeToggle } from "./js/theme.js?v=34";
-    import { initMobileNav } from "./js/mobileNav.js?v=34";
-    import { renderSidebar } from "./js/sidebar.js?v=34";
-    import { getRange } from "./js/dateRange.js?v=34";
-    import { supabase } from "./js/supabaseClient.js?v=34";
-    import { updateLeadStage } from "./js/leads.js?v=34";
+    import { requireSession, signOut } from "./js/auth.js?v=36";
+    import { initThemeToggle } from "./js/theme.js?v=36";
+    import { initMobileNav } from "./js/mobileNav.js?v=36";
+    import { renderSidebar } from "./js/sidebar.js?v=36";
+    import { getRange } from "./js/dateRange.js?v=36";
+    import { supabase } from "./js/supabaseClient.js?v=36";
+    import { updateLeadStage } from "./js/leads.js?v=36";
     import {
       listAppointmentsInRange, createAppointment, updateAppointmentStatus, APPOINTMENT_STATUS_LABELS,
-    } from "./js/agendamentos.js?v=34";
+    } from "./js/agendamentos.js?v=36";
 
     await requireSession();
     initThemeToggle();
@@ -139,10 +141,12 @@
 
       body.innerHTML = list.map((a) => `
         <tr>
-          <td>${a.leads?.name || "—"}</td>
+          <td>${a.nome || a.leads?.name || "—"}</td>
           <td>${a.leads?.phone || "—"}</td>
           <td>${new Date(a.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-          <td>${a.leads?.motivo_contato || "—"}</td>
+          <td>${a.tipo === "reserva"
+            ? `🍽️ Reserva${a.pessoas ? ` · ${a.pessoas} pessoa${a.pessoas > 1 ? "s" : ""}` : ""}${a.ocasiao ? ` · 🎉 ${a.ocasiao}` : ""}${a.observacao ? `<br><span style="opacity:.75;">${a.observacao}</span>` : ""}`
+            : a.leads?.motivo_contato || "—"}</td>
           <td><span class="panel-badge ${a.status}">${APPOINTMENT_STATUS_LABELS[a.status]}</span></td>
           <td>
             <select class="panel-select status-select" data-id="${a.id}" data-lead="${a.lead_id}">
@@ -169,7 +173,7 @@
       });
     }
 
-    let currentRange = "7d";
+    let currentRange = "proximos";
     document.querySelectorAll(".filter-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
@@ -228,7 +232,7 @@
       loadList(currentRange);
     });
 
-    loadList("7d");
+    loadList(currentRange);
   </script>
 
 </body>

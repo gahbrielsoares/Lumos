@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=34";
+import { supabase } from "./supabaseClient.js?v=36";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -29,6 +29,34 @@ export const INTEGRATIONS = [
       { key: "pedido_minimo", label: "Valor mínimo do pedido (R$)", type: "number", default: 0 },
       { key: "mensagem_pos_pagamento", label: "Mensagem enviada após o pagamento", type: "textarea",
         default: "Pagamento confirmado! ✅ Obrigado pela compra. Já estamos separando seu pedido e avisamos assim que sair para entrega." },
+    ],
+  },
+  {
+    kind: "restaurante",
+    label: "Restaurante e bar",
+    description: "Modalidades (mesa, delivery, retirada, reservas), horários, taxa de serviço, couvert, tempos e eventos.",
+    icon: `<path d="M4 3v8a3 3 0 0 0 3 3v7M7 3v8M10 3v8a3 3 0 0 1-3 3M17 21V3c-2 1-3 4-3 7h3"/>`,
+    providers: null,
+    fields: [
+      { key: "modalidades", label: "O que a casa oferece pelo WhatsApp", type: "multi", default: ["mesa", "delivery", "retirada", "reservas"],
+        options: [
+          { value: "mesa", label: "Pedido na mesa" }, { value: "delivery", label: "Delivery" },
+          { value: "retirada", label: "Retirada no balcão" }, { value: "reservas", label: "Reservas" },
+        ] },
+      { key: "horarios", label: "Horário de funcionamento", type: "textarea",
+        default: "Seg: fechado\nTer a Qui: 18h às 23h30\nSex e Sáb: 18h às 2h\nDom: 12h às 17h (almoço)" },
+      { key: "taxa_servico", label: "Taxa de serviço na mesa (%)", type: "number", default: 10 },
+      { key: "couvert", label: "Couvert artístico por pessoa (R$) — 0 = sem couvert", type: "number", default: 0 },
+      { key: "couvert_info", label: "Quando tem couvert / música ao vivo", type: "text", placeholder: "Ex.: música ao vivo sex e sáb a partir das 21h" },
+      { key: "tempo_preparo", label: "Tempo médio de preparo (min)", type: "number", default: 25 },
+      { key: "tempo_entrega", label: "Tempo médio de entrega no delivery (min)", type: "number", default: 40 },
+      { key: "pedido_minimo_delivery", label: "Pedido mínimo no delivery (R$)", type: "number", default: 0 },
+      { key: "pagamento_na_entrega", label: "Aceita pagamento na entrega (dinheiro ou maquininha)", type: "toggle", default: true },
+      { key: "reserva_max_pessoas", label: "Reserva: máximo de pessoas", type: "number", default: 20 },
+      { key: "reserva_antecedencia_h", label: "Reserva: antecedência mínima (horas)", type: "number", default: 2 },
+      { key: "reserva_tolerancia_min", label: "Reserva: tolerância de atraso (min)", type: "number", default: 15 },
+      { key: "eventos", label: "Promoções, happy hour e eventos (a IA divulga)", type: "textarea",
+        placeholder: "Ex.: Happy hour ter a sex, 18h às 20h: chope em dobro. Quinta: samba ao vivo." },
     ],
   },
   {

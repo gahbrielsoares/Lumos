@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=34";
+import { supabase } from "./supabaseClient.js?v=36";
 
 async function getUserId() {
   const { data } = await supabase.auth.getUser();
@@ -8,7 +8,7 @@ async function getUserId() {
 export async function listOrders() {
   const { data } = await supabase
     .from("orders")
-    .select("*, order_items(*), leads(name, phone, table_session_id, restaurant_tables:table_session_id(table_id))")
+    .select("*, order_items(*), leads(name, phone, dados_cliente), sales_orders(numero, entrega, pagamento, total), table_sessions(restaurant_tables(label))")
     .order("created_at", { ascending: true });
   return data || [];
 }
@@ -54,5 +54,19 @@ export async function createOrder({ table_session_id, lead_id, items }) {
 
 export const ORDER_STATUS_LABELS = {
   novo_pedido: "Novo pedido",
+  em_preparo: "Em preparo",
+  pronto: "Pronto",
+  saiu_entrega: "Saiu p/ entrega",
   entregue: "Entregue",
 };
+
+// Muda o status pela função de pedidos: no delivery/retirada o cliente é avisado no WhatsApp
+export async function setKitchenStatus(ticket_id, status) {
+  const { data, error } = await supabase.functions.invoke("orders", { body: { action: "kitchen_status", ticket_id, status } });
+  if (error || data?.error) {
+    // Função indisponível: ao menos atualiza o status no painel
+    if (!data?.error) return updateOrderStatus(ticket_id, status);
+    return { error: new Error(data.error) };
+  }
+  return { data };
+}

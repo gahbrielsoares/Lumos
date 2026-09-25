@@ -92,6 +92,42 @@ function enderecoTxt(e: any): string {
   return [partes.join("\n"), extras.join("\n")].filter(Boolean).join("\n") || e?.local || "";
 }
 
+// Horário previsto (Brasília) daqui a N minutos
+function horaPrevista(min: number) {
+  const d = new Date(Date.now() + min * 60000);
+  return d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+}
+
+// Pedido de restaurante (delivery/retirada) vai pra tela da Cozinha
+// deno-lint-ignore no-explicit-any
+async function sendToKitchen(ctx: any) {
+  const { order } = ctx;
+  const { data: exists } = await supabase.from("orders").select("id").eq("sales_order_id", order.id).maybeSingle();
+  if (exists) return exists.id;
+  const tipo = order.entrega?.tipo === "retirada" ? "retirada" : "delivery";
+  const itens = (order.itens || []).filter((i: { taxa?: boolean }) => !i.taxa);
+  const { data: ticket, error } = await supabase.from("orders").insert({
+    owner_id: order.owner_id, lead_id: order.lead_id, table_session_id: null, tipo, sales_order_id: order.id,
+    status: "novo_pedido", total: order.subtotal,
+    observacao: [order.cliente?.nome, tipo === "delivery" ? order.entrega?.endereco?.bairro || order.entrega?.local : "Retirada"].filter(Boolean).join(" · "),
+  }).select().single();
+  if (error) { console.error("Erro ao mandar pra cozinha:", error.message); return null; }
+  await supabase.from("order_items").insert(itens.map((i: { product_id: string | null; nome: string; quantidade: number; preco_unitario: number; observacao?: string }) => ({
+    order_id: ticket.id, product_id: i.product_id, product_name: i.nome, quantity: Math.round(Number(i.quantidade)),
+    unit_price: i.preco_unitario ?? 0, observacao: i.observacao || null,
+  })));
+  return ticket.id;
+}
+
+// deno-lint-ignore no-explicit-any
+function previsaoCozinha(order: any) {
+  const e = order.entrega || {};
+  const total = Number(e.tempo_preparo || 25) + (e.tipo === "retirada" ? 0 : Number(e.tempo_entrega || 40));
+  return e.tipo === "retirada"
+    ? `🥡 Fica pronto por volta das *${horaPrevista(total)}* — é só retirar no balcão informando o pedido *#${order.numero}*.`
+    : `🛵 Previsão de entrega: por volta das *${horaPrevista(total)}*. Te aviso por aqui quando sair!`;
+}
+
 const DEFAULT_THANKS = "Obrigado pela preferência! 💛 Qualquer dúvida sobre o pedido ou a instalação, é só chamar aqui. Boa obra!";
 
 // ---------- WhatsApp ----------
@@ -142,11 +178,13 @@ async function loadContext(orderId: string) {
 function orderSummary(order: any) {
   const linhas = (order.itens || []).map((i: any) => {
     const qtd = i.caixas ? `${i.caixas} cx (${qtyTxt(i.quantidade)} m²)` : `${qtyTxt(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`;
-    return `• ${qtd} — ${i.nome} — ${brl(i.subtotal)}`;
+    return `• ${qtd} — ${i.nome} — ${brl(i.subtotal)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`;
   });
   const e = order.entrega || {};
+  if (e.tipo === "mesa") return `${linhas.join("\n")}\n\n*Total: ${brl(order.total)}*`;
   const freteLinha = e.tipo === "retirada"
-    ? "Retirada na loja: sem custo"
+    ? (e.cozinha ? "Retirada no balcão: sem taxa" : "Retirada na loja: sem custo")
+    : e.cozinha ? `Taxa de entrega${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}`
     : `Frete${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}${e.prazo ? ` — ${e.prazo}` : ""}`;
   const end = e.tipo === "retirada" ? "" : enderecoTxt(e);
   const c = order.cliente || {};
@@ -172,14 +210,27 @@ async function approve(ctx: any, freteManual: number | null) {
 
   const pag = ctx.pagamento;
   const token = crypto.randomUUID().replace(/-/g, "");
-  let pagamento: Record<string, unknown> = { provider: pag?.provider || null };
+  const pref = order.pagamento?.preferencia;
+  let pagamento: Record<string, unknown> = { ...(order.pagamento || {}), provider: pag?.provider || null };
   let payText = "";
+  const isMesa = order.entrega?.tipo === "mesa";
 
-  if (pag?.provider === "simulado") {
+  if (order.entrega?.cozinha && pref === "na_entrega") {
+    // Restaurante, pagamento na entrega: sem link; o pedido já vai pra cozinha
+    pagamento = { ...pagamento, provider: "na_entrega" };
+    const det = order.pagamento?.detalhe ? ` (${order.pagamento.detalhe})` : "";
+    const troco = order.pagamento?.troco && !/sem/i.test(order.pagamento.troco) ? `\nTroco para: *${/^\d/.test(order.pagamento.troco) ? brl(Number(String(order.pagamento.troco).replace(",", "."))) : order.pagamento.troco}*` : "";
+    payText = `💵 Pagamento na ${order.entrega?.tipo === "retirada" ? "retirada" : "entrega"}${det}.${troco}`;
+  } else if (pag?.provider === "simulado") {
     const link = `${SITE_URL}/pagamento-simulado.html?p=${order.id}&t=${token}`;
     const c = pag.config;
     pagamento = { provider: "simulado", token, link };
-    payText = `💳 Pague com Pix, cartão (até ${c.max_parcelas}x, ${c.parcelas_sem_juros}x sem juros) ou boleto:\n${link}\n\nO link vale ${c.validade_link_horas} horas.`;
+    pagamento = { ...(order.pagamento || {}), ...pagamento };
+    payText = isMesa
+      ? `💳 Pague por Pix ou cartão pelo link:\n${link}\n\nSe preferir, é só pedir a maquininha ao garçom. 😉`
+      : order.entrega?.cozinha
+        ? `💳 Pague com Pix ou cartão pelo link:\n${link}\n\nAssim que o pagamento cair, seu pedido vai direto pra cozinha. 👨‍🍳`
+        : `💳 Pague com Pix, cartão (até ${c.max_parcelas}x, ${c.parcelas_sem_juros}x sem juros) ou boleto:\n${link}\n\nO link vale ${c.validade_link_horas} horas.`;
   } else if (pag?.provider === "pix_manual") {
     pagamento = { provider: "pix_manual" };
     payText = `💠 Pagamento via Pix:\nChave: *${pag.config?.pix_chave || "—"}*${pag.config?.pix_titular ? `\nTitular: ${pag.config.pix_titular}` : ""}\n\nAssim que fizer o Pix, é só mandar o comprovante aqui que a gente confirma. 😉`;
@@ -194,7 +245,17 @@ async function approve(ctx: any, freteManual: number | null) {
   }).eq("id", order.id);
   const updated = { ...order, frete, total };
 
-  await sendToCustomer(ctx, `🧾 *Pedido #${order.numero}* conferido e aprovado!\n\n${orderSummary(updated)}\n\n${payText}`);
+  const head = isMesa
+    ? `🧾 *Conta — ${order.entrega?.local || "Mesa"}*`
+    : order.entrega?.cozinha ? `🧾 *Pedido #${order.numero}* registrado!` : `🧾 *Pedido #${order.numero}* conferido e aprovado!`;
+  await sendToCustomer(ctx, `${head}\n\n${orderSummary(updated)}\n\n${payText}`);
+
+  // Pagamento na entrega: o pedido vai pra cozinha agora
+  if (order.entrega?.cozinha && pref === "na_entrega") {
+    await sendToKitchen({ ...ctx, order: updated });
+    await sleep(1000);
+    await sendToCustomer(ctx, `👨‍🍳 Seu pedido já foi pra cozinha!\n${previsaoCozinha(updated)}`);
+  }
   await supabase.from("leads").update({
     last_message_at: new Date().toISOString(),
     orcamento: { ...(ctx.lead.orcamento || {}), frete, aprovado_em: new Date().toISOString(), status: "aguardando_pagamento" },
@@ -226,11 +287,45 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
 
   const semJuros = Number(ctx.pagamento?.config?.parcelas_sem_juros || 1);
   const cobrado = metodo === "cartao" && parcelas ? valorCartao(Number(order.total), parcelas, semJuros) : Number(order.total);
+  // Conta da mesa: agradece e libera a mesa
+  if (order.entrega?.tipo === "mesa") {
+    const forma = METODO[metodo] || metodo;
+    await supabase.from("sales_orders").update({ pagamento: { ...(order.pagamento || {}), metodo, parcelas, valor_cobrado: order.total } }).eq("id", order.id);
+    await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n${order.entrega.local || "Mesa"} — *${brl(order.total)}* (${forma})${nf && ctx.simulated ? `\n🧾 Cupom fiscal (NFC-e) nº ${nf} _(demonstração)_` : ""}\n\nObrigado pela visita! Foi um prazer receber você. 🍻 Volte sempre!`);
+    await releaseTable(order, ctx.lead.id);
+    const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
+    if (seller) await sendText(ctx.wa, seller, `💰 Conta paga — ${order.entrega.local}: ${brl(order.total)} (${forma})`);
+    return json({ ok: true, numero: order.numero });
+  }
+
+  // Restaurante com pagamento na entrega: o pedido já estava na cozinha, só confirma o recebimento
+  if (order.entrega?.cozinha && order.pagamento?.preferencia === "na_entrega") {
+    await sendToCustomer(ctx, `✅ Pagamento do pedido *#${order.numero}* recebido. Obrigado!`);
+    await sleep(1000);
+    await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
+    return json({ ok: true, numero: order.numero });
+  }
+
   const formaTxt = metodo === "cartao" && parcelas
     ? `${METODO.cartao} em ${parcelas}x de ${brl(cobrado / parcelas)}${cobrado > Number(order.total) ? " (com juros do cartão)" : " sem juros"}`
     : METODO[metodo] || metodo;
   await supabase.from("sales_orders").update({ pagamento: { ...(order.pagamento || {}), metodo, parcelas, valor_cobrado: cobrado } }).eq("id", order.id);
   await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n\nPedido *#${order.numero}*\nValor: *${brl(cobrado)}*\nForma: ${formaTxt}\n\nJá estamos separando seus produtos. 📦`);
+
+  if (order.entrega?.cozinha) {
+    await sendToKitchen(ctx);
+    if (ctx.simulated && nf) {
+      await sleep(1200);
+      await sendToCustomer(ctx, `🧾 Cupom fiscal (NFC-e) nº *${nf}* emitido. _(demonstração)_`);
+    }
+    await sleep(1200);
+    await sendToCustomer(ctx, `👨‍🍳 Seu pedido já está na cozinha!\n${previsaoCozinha(order)}`);
+    await sleep(1200);
+    await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
+    const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
+    if (seller) await sendText(ctx.wa, seller, `💰 Pedido #${order.numero} pago (${formaTxt}) — já na cozinha.`);
+    return json({ ok: true, numero: order.numero, nf });
+  }
 
   if (ctx.simulated && nf) {
     await sleep(1200);
@@ -257,6 +352,58 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado* — pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(cobrado)} (${formaTxt})`);
 
   return json({ ok: true, numero: order.numero, nf });
+}
+
+// Conta paga: desvincula o cliente da mesa; se ninguém mais estiver nela, fecha a sessão e libera a mesa
+// deno-lint-ignore no-explicit-any
+async function releaseTable(order: any, leadId: string) {
+  const sessionId = order.table_session_id;
+  await supabase.from("leads").update({ table_session_id: null, visit_status: "iniciado" }).eq("id", leadId);
+  if (!sessionId) return;
+  const { data: others } = await supabase.from("leads").select("id").eq("table_session_id", sessionId);
+  if (!others?.length) {
+    const { data: sess } = await supabase.from("table_sessions").update({ status: "fechada", closed_at: new Date().toISOString() })
+      .eq("id", sessionId).select("table_id").maybeSingle();
+    if (sess?.table_id) await supabase.from("restaurant_tables").update({ status: "livre" }).eq("id", sess.table_id);
+  }
+}
+
+// Cozinha mudou o status do pedido: avisa o cliente (delivery e retirada)
+async function kitchenStatus(ticketId: string, status: string, userId: string | null, trusted: boolean) {
+  const valid = ["novo_pedido", "em_preparo", "pronto", "saiu_entrega", "entregue", "cancelado"];
+  if (!valid.includes(status)) return json({ error: "Status inválido." }, 400);
+  const { data: t } = await supabase.from("orders").select("*").eq("id", ticketId).maybeSingle();
+  if (!t) return json({ error: "Pedido da cozinha não encontrado." }, 404);
+  if (!trusted && t.owner_id !== userId) return json({ error: "Sem permissão." }, 403);
+  if (t.status === status) return json({ ok: true });
+
+  await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", ticketId);
+  if (t.tipo === "mesa" || !t.lead_id) return json({ ok: true });
+
+  const { data: lead } = await supabase.from("leads").select("*").eq("id", t.lead_id).maybeSingle();
+  if (!lead) return json({ ok: true });
+  const { data: wa } = await supabase.from("whatsapp_provider_config").select("*").eq("agent_id", lead.agent_id).maybeSingle();
+  const { data: so } = t.sales_order_id ? await supabase.from("sales_orders").select("numero, entrega, pagamento, total").eq("id", t.sales_order_id).maybeSingle() : { data: null };
+  const num = so?.numero ? `#${so.numero}` : "";
+  const nome = String(lead.dados_cliente?.nome || lead.name || "").split(" ")[0];
+  const aPagar = so?.pagamento?.preferencia === "na_entrega" ? `\n💵 Valor a pagar na ${t.tipo === "retirada" ? "retirada" : "entrega"}: *${brl(so.total)}*` : "";
+  const msgs: Record<string, string> = {
+    em_preparo: `👨‍🍳 ${nome ? `${nome}, s` : "S"}eu pedido ${num} já está sendo preparado!`,
+    pronto: t.tipo === "retirada" ? `✅ Seu pedido ${num} está pronto! Pode retirar no balcão.${aPagar}` : "",
+    saiu_entrega: `🛵 Seu pedido ${num} saiu para entrega! Chega em poucos minutos.${aPagar}`,
+    entregue: `😋 Pedido ${num} ${t.tipo === "retirada" ? "retirado" : "entregue"}. Bom apetite${nome ? `, ${nome}` : ""}! Se puder, conta pra gente depois o que achou. 💛`,
+    cancelado: `Seu pedido ${num} foi cancelado. Se tiver alguma dúvida, é só chamar aqui.`,
+  };
+  const text = msgs[status];
+  if (text) {
+    await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "sistema", text });
+    await sendText(wa, onlyDigits(lead.phone), text);
+  }
+  if (so && t.sales_order_id) {
+    const log = { em_preparo: "em_preparo", pronto: "pronto_para_retirada", saiu_entrega: "saiu_para_entrega", entregue: "entregue" }[status];
+    if (log) await supabase.from("sales_orders").update({ logistica: { status: log, em: new Date().toISOString() } }).eq("id", t.sales_order_id);
+  }
+  return json({ ok: true, notified: !!text });
 }
 
 // ---------- Pós-venda: separação, saída para entrega, retirada e entrega ----------
@@ -296,6 +443,15 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action, order_id } = body;
+
+    if (action === "kitchen_status") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const trusted = jwt === SERVICE_KEY;
+      const { data } = trusted ? { data: null } : await supabase.auth.getUser(jwt);
+      if (!trusted && !data?.user) return json({ error: "Sessão expirada." }, 401);
+      return await kitchenStatus(body.ticket_id, body.status, data?.user?.id || null, trusted);
+    }
+
     if (!order_id) return json({ error: "Pedido não informado." }, 400);
 
     const ctx = await loadContext(order_id);

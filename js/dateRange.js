@@ -14,6 +14,8 @@ export function getRange(key) {
       const e = new Date(now.getFullYear(), now.getMonth(), 1);
       return [s, e];
     }
+    case "proximos": { const s = startOfDay(now); return [s, addDays(s, 31)]; }
+    case "amanha": { const s = addDays(startOfDay(now), 1); return [s, addDays(s, 1)]; }
     case "ano": { const s = new Date(now.getFullYear(), 0, 1); return [s, addDays(startOfDay(now), 1)]; }
     default: return [addDays(startOfDay(now), -6), addDays(startOfDay(now), 1)];
   }

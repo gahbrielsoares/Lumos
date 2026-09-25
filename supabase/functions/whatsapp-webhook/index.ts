@@ -44,7 +44,7 @@ function toWhatsAppFormat(text: string): string {
 // de reserva do que arriscar mandar isso pro cliente.
 function looksLikeLeakedReasoning(text: string): boolean {
   // Avalia só o texto que vai pro cliente (sem as marcações internas, que podem ser longas num fechamento)
-  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)[^\]]*\]?/gi, "").trim();
+  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)[^\]]*\]?/gi, "").trim();
   const markers = [
     "here's a thinking process",
     "let me think",
@@ -227,7 +227,8 @@ function buildStoreInfo(integrations: any[]): string {
       if ((c.metodos || []).includes("cartao") && c.max_parcelas > 1) {
         t += ` (cartão em até ${c.max_parcelas}x${c.parcelas_sem_juros > 1 ? `, sem juros até ${c.parcelas_sem_juros}x` : ""})`;
       }
-      out.push(`${t}. O link de pagamento é enviado depois que a equipe confere o pedido.`);
+      const auto = get("vendas")?.config?.aprovacao_humana === false;
+      out.push(`${t}. ${auto ? "O resumo com o link de pagamento chega logo depois que o pedido é fechado." : "O link de pagamento é enviado depois que a equipe confere o pedido."}`);
     }
   }
 
@@ -529,6 +530,28 @@ const SIM_DEFAULTS: Record<string, { kind: string; provider: string | null; enab
   nota_fiscal: { kind: "nota_fiscal", provider: "simulado", enabled: true, config: { ia_consulta: true, emitir_quando: "apos_pagamento" } },
 };
 
+// Simulador de restaurante: taxa de entrega por região, casa configurada e aprovação automática
+const SIM_RESTAURANTE = {
+  restaurante: { kind: "restaurante", provider: null, enabled: true, config: {
+    ia_consulta: true, modalidades: ["mesa", "delivery", "retirada", "reservas"],
+    horarios: "Seg: fechado\nTer a Qui: 18h às 23h30\nSex e Sáb: 18h às 2h\nDom: 12h às 17h (almoço)",
+    taxa_servico: 10, couvert: 12, couvert_info: "música ao vivo sex e sáb a partir das 21h",
+    tempo_preparo: 25, tempo_entrega: 35, pedido_minimo_delivery: 40, pagamento_na_entrega: true,
+    reserva_max_pessoas: 20, reserva_antecedencia_h: 2, reserva_tolerancia_min: 15,
+    eventos: "Happy hour de ter a sex, 18h às 20h: chope Pilsen em dobro. Sexta e sábado: música ao vivo (couvert R$ 12). Aniversariante com reserva ganha um petit gâteau.",
+  } },
+  frete: { kind: "frete", provider: "proprio", enabled: true, config: {
+    ia_consulta: true, permite_retirada: true, endereco_retirada: "Rua das Palmeiras, 250 — balcão do bar (demonstração)",
+    frete_gratis_acima: 150, fora_da_tabela: "humano",
+    observacao_entrega: "",
+    faixas: [
+      { regiao: "Centro", valor: 6, prazo: "30 a 45 min" },
+      { regiao: "Demais bairros da cidade", valor: 10, prazo: "40 a 60 min" },
+      { regiao: "Cidades vizinhas (até 15 km)", valor: 18, prazo: "60 a 80 min" },
+    ],
+  } },
+};
+
 // No simulador tudo está "integrado": usa as regras de venda/frete do dono se estiverem ativas,
 // e pagamento + nota fiscal sempre simulados.
 // deno-lint-ignore no-explicit-any
@@ -536,13 +559,19 @@ function effectiveIntegrations(agent: any, integrations: any[]): any[] {
   if (!agent?.is_simulator) return integrations;
   // deno-lint-ignore no-explicit-any
   const own = (kind: string) => integrations.find((i: any) => i.kind === kind && i.enabled);
+  const isResto = agent.sim_business_type === "restaurante";
   const vendas = own("vendas") ? { ...own("vendas"), config: { ...own("vendas").config } } : structuredClone(SIM_DEFAULTS.vendas);
-  if (agent.sim_auto_approve) vendas.config.aprovacao_humana = false;
+  // Restaurante não espera aprovação: pedido vai direto (é assim que delivery funciona)
+  if (agent.sim_auto_approve || isResto) vendas.config.aprovacao_humana = false;
+  if (isResto) {
+    vendas.config.perda_padrao = 0;
+    vendas.config.mensagem_pos_pagamento = "Obrigado pela preferência! 🍻 Bom apetite — e quando quiser, é só chamar aqui.";
+  }
   return [
     vendas,
     SIM_DEFAULTS.pagamento,
-    own("frete") || SIM_DEFAULTS.frete,
-    SIM_DEFAULTS.estoque,
+    own("frete") || (isResto ? SIM_RESTAURANTE.frete : SIM_DEFAULTS.frete),
+    ...(isResto ? [own("restaurante") || SIM_RESTAURANTE.restaurante] : [SIM_DEFAULTS.estoque]),
     SIM_DEFAULTS.nota_fiscal,
   ];
 }
@@ -668,6 +697,7 @@ const DADOS_KEYS: Record<string, string> = {
   cep: "CEP", referencia: "ponto de referência", recebedor: "quem vai receber a entrega",
   janela: "melhor período para receber (manhã ou tarde)",
   razao_social: "razão social da empresa (nota no CNPJ)", ie: "inscrição estadual (ou \"isento\")",
+  pagamento: "forma de pagamento (online pelo link, ou na entrega em dinheiro/maquininha)", troco: "troco para quanto (se for pagar em dinheiro)",
 };
 const DADOS_ALIASES: Record<string, string> = {
   cnpj: "cpf", documento: "cpf", "cpf/cnpj": "cpf", "e-mail": "email", endereco: "rua", logradouro: "rua",
@@ -675,6 +705,7 @@ const DADOS_ALIASES: Record<string, string> = {
   ponto_referencia: "referencia", quem_recebe: "recebedor",
   periodo: "janela", horario: "janela", "horário": "janela", turno: "janela", janela_entrega: "janela",
   inscricao_estadual: "ie", "inscrição_estadual": "ie", razao: "razao_social", empresa: "razao_social",
+  forma_pagamento: "pagamento", pagto: "pagamento",
 };
 
 function parseDados(reply: string): Record<string, string> {
@@ -688,6 +719,7 @@ function parseDados(reply: string): Record<string, string> {
       const val = pair.slice(idx + 1).trim();
       if (!DADOS_KEYS[key] || !val) continue;
       if (NEGATIVE_RE.test(val)) {
+        if (key === "troco") { out.troco = "sem troco"; continue; }
         if (key === "cpf" || key === "email" || key === "referencia" || key === "recebedor" || key === "janela" || key === "ie") out[`${key}_recusado`] = "sim";
         continue;
       }
@@ -718,9 +750,20 @@ function cleanDados(d: Record<string, string>) {
 
 // O que ainda falta pra fechar (obrigatório) e o que vale pedir (recomendado)
 // deno-lint-ignore no-explicit-any
-function missingDados(d: Record<string, string>, entregaTipo: string | null, nfAtiva: boolean) {
+function missingDados(d: Record<string, string>, entregaTipo: string | null, nfAtiva: boolean, resto = false) {
   const req: string[] = ["nome"];
   const rec: string[] = [];
+  // Restaurante (delivery/retirada): endereço sem tipo de imóvel, e a forma de pagamento é obrigatória
+  if (resto) {
+    req.push("pagamento");
+    if (entregaTipo !== "retirada") {
+      req.push("rua", "numero", "bairro");
+      if (/apart|apto|condom|bloco|predio|prédio/i.test(`${d.tipo_imovel || ""} ${d.complemento || ""}`) && !d.complemento) req.push("complemento");
+      rec.push("referencia", "complemento");
+      if (/entrega|dinheiro|maquin/i.test(d.pagamento || "") && !d.troco) rec.push("troco");
+    }
+    return { required: req.filter((k) => !d[k]), recommended: rec.filter((k) => !d[k] && !d[`${k}_recusado`]) };
+  }
   if (entregaTipo !== "retirada") {
     req.push("rua", "numero", "tipo_imovel", "bairro");
     if (/apart|apto|condom|bloco|predio|prédio/i.test(d.tipo_imovel || "") && !d.complemento) req.push("complemento");
@@ -794,8 +837,46 @@ function buildOrderItems(matches: RegExpMatchArray[], products: any[]) {
       preco_unitario: preco,
       subtotal: preco != null ? Math.round(preco * quantidade * 100) / 100 : 0,
       sem_estoque: product?.estoque != null && quantidade > Number(product.estoque),
+      observacao: (m[3] || "").trim() || null,
     };
   });
+}
+
+// ---------- Reservas ----------
+function parseReserva(reply: string): Record<string, string> | null {
+  const m = reply.match(/\[RESERVA:\s*([^\]]+)\]/i);
+  if (!m) return null;
+  const out: Record<string, string> = {};
+  for (const pair of m[1].split(";")) {
+    const i = pair.indexOf("=");
+    if (i > 0) out[norm(pair.slice(0, i)).replace(/ /g, "_")] = pair.slice(i + 1).trim();
+  }
+  return out;
+}
+
+// Data/hora da reserva em horário de Brasília -> Date
+function reservaDate(r: Record<string, string>): Date | null {
+  const d = (r.data || "").match(/(\d{4})-(\d{2})-(\d{2})/) || (r.data || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const h = (r.hora || "").match(/(\d{1,2})[:h]?(\d{2})?/);
+  if (!d || !h) return null;
+  const [y, mo, da] = d[1].length === 4 ? [d[1], d[2], d[3]] : [d[3], d[2], d[1]];
+  const hh = String(h[1]).padStart(2, "0"), mm = String(h[2] || "00").padStart(2, "0");
+  const dt = new Date(`${y}-${mo}-${da}T${hh}:${mm}:00-03:00`);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+// deno-lint-ignore no-explicit-any
+function checkReserva(r: Record<string, string> | null, cfg: any): string | null {
+  if (!r) return null;
+  const dt = reservaDate(r);
+  if (!dt) return "a data ou o horário não ficaram claros";
+  const pessoas = parseInt(r.pessoas || "0");
+  if (!pessoas) return "falta o número de pessoas";
+  const antecedencia = Number(cfg?.reserva_antecedencia_h ?? 2);
+  if (dt.getTime() < Date.now() + antecedencia * 3600 * 1000) return `precisa de pelo menos ${antecedencia}h de antecedência (ou a data já passou)`;
+  const max = Number(cfg?.reserva_max_pessoas || 0);
+  if (max && pessoas > max) return `o máximo por reserva é de ${max} pessoas`;
+  return null;
 }
 
 // ---------- Mensagens que o vendedor manda pelo celular ----------
@@ -1011,14 +1092,19 @@ Deno.serve(async (req) => {
     }
 
     // 5. Buscar o catálogo de produtos do dono
-    const { data: products } = await supabase
+    const { data: productsRaw } = await supabase
       .from("products")
-      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque")
+      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque, segmento")
       .eq("owner_id", owner_id)
       .eq("active", true)
       // O simulador só mostra os produtos vinculados a ele; os outros agentes veem também os "de todos"
       .or(agent.is_simulator ? `agent_ids.cs.{${agent_id}}` : `agent_ids.is.null,agent_ids.eq.{},agent_ids.cs.{${agent_id}}`)
       .limit(120);
+
+    // Simulador: só o cardápio/catálogo do nicho que ele está simulando
+    const products = agent.is_simulator
+      ? (productsRaw || []).filter((p) => (p.segmento || "materiais_construcao") === (agent.sim_business_type || "materiais_construcao"))
+      : productsRaw;
 
     const catalogText = (products || [])
       .map((p) => {
@@ -1071,15 +1157,23 @@ Deno.serve(async (req) => {
     const freteInt = effIntegrations.find((i: any) => i.kind === "frete" && i.enabled && i.config?.ia_consulta !== false);
     const autoApprove = vendasCfg.aprovacao_humana === false;
 
+    // Restaurante: o que a casa oferece. Sem configuração, mantém o comportamento antigo (só pedido na mesa).
+    // deno-lint-ignore no-explicit-any
+    const restCfg = effIntegrations.find((i: any) => i.kind === "restaurante" && i.enabled)?.config || null;
+    const modalidades: string[] = isRestaurant ? (restCfg?.modalidades?.length ? restCfg.modalidades : ["mesa"]) : [];
+    // Fluxo de venda (orçamento -> pedido -> pagamento): lojas sempre; restaurante no delivery/retirada (não na mesa)
+    const salesFlow = !isRestaurant || ((modalidades.includes("delivery") || modalidades.includes("retirada")) && !lead.table_session_id);
+
     // Entrega/frete: o código descobre na conversa (CEP -> bairro pelo ViaCEP) e passa pronto pra IA
     // (o histórico já foi invertido pra ordem cronológica; aqui queremos o mais recente primeiro)
     const customerTexts = [...(history || [])].reverse().filter((m) => m.direction === "in").map((m) => m.text);
-    const knownDelivery = !isRestaurant && freteInt ? await resolveDelivery(customerTexts, freteInt) : null;
+    const knownDelivery = salesFlow && freteInt ? await resolveDelivery(customerTexts, freteInt) : null;
     const deliveryInfo = describeDelivery(knownDelivery, freteInt);
     const isFirstReply = !(history || []).some((m) => m.direction === "out");
 
     // Dados do cliente: o que já sabemos (CEP preenche rua/bairro/cidade) e o que falta pra fechar
-    const nfAtiva = (effIntegrations as { kind: string; enabled: boolean; provider: string | null }[])
+    // No restaurante a nota é cupom (NFC-e): não precisa pedir CPF/e-mail
+    const nfAtiva = !isRestaurant && (effIntegrations as { kind: string; enabled: boolean; provider: string | null }[])
       .some((i) => i.kind === "nota_fiscal" && i.enabled && i.provider && i.provider !== "nenhum");
     const dadosCliente: Record<string, string> = cleanDados({ ...(lead.dados_cliente || {}) });
     if (!dadosCliente.nome && lead.name) dadosCliente.nome_whatsapp = lead.name;
@@ -1095,11 +1189,11 @@ Deno.serve(async (req) => {
     if (place?.rua && !dadosCliente.rua) dadosCliente.rua = place.rua;
     if (knownDelivery?.faixa && !/^demais|vizinh/i.test(knownDelivery.faixa) && !dadosCliente.bairro) dadosCliente.bairro = knownDelivery.faixa;
     const entregaTipo = knownDelivery?.tipo || null;
-    const missingBefore = missingDados(dadosCliente, entregaTipo, nfAtiva);
-    const dadosInfo = isRestaurant || !freteInt ? "" : describeDados(dadosCliente, missingBefore, entregaTipo);
+    const missingBefore = missingDados(dadosCliente, entregaTipo, nfAtiva, isRestaurant);
+    const dadosInfo = salesFlow && (freteInt || isRestaurant) ? describeDados(dadosCliente, missingBefore, entregaTipo) : "";
     const canStage = (st: string) => !disabledStages.includes(st);
 
-    const stageInstructions = isRestaurant ? "" : `
+    const stageInstructions = !salesFlow ? "" : `
 
 Condução da venda:
 - Colete tudo o que VOCÊ consegue resolver: produtos, quantidades${freteInt ? ", entrega ou retirada (e o bairro ou CEP)" : ""} e a confirmação do cliente.
@@ -1108,8 +1202,9 @@ Condução da venda:
 - Você não consegue consultar ninguém nem "voltar depois". Nunca diga "vou verificar com a equipe", "já te respondo",
   "só um instante", e nunca diga que recebeu confirmação da equipe. Resolva sempre na própria mensagem.
 - Nunca invente preço, frete, prazo ou estoque. Use só o catálogo e as informações da loja.
-- Pisos são vendidos em caixas fechadas: fale da metragem em m², mas NÃO informe número de caixas nem valores totais —
-  o resumo oficial, com caixas, valores e frete calculados pelo sistema, chega logo depois do fechamento.
+${isRestaurant ? `- Não some o total nem a taxa de entrega: o resumo oficial, com valores calculados pelo sistema, chega logo depois do fechamento.
+- Observações do cliente sobre um item (sem cebola, ao ponto, sem gelo...) vão como 3º campo: [ORCAMENTO: Item | 1 | sem cebola]` : `- Pisos são vendidos em caixas fechadas: fale da metragem em m², mas NÃO informe número de caixas nem valores totais —
+  o resumo oficial, com caixas, valores e frete calculados pelo sistema, chega logo depois do fechamento.`}
 
 Etapas do atendimento (marcações internas, removidas antes de chegar ao cliente, uma por linha no FINAL):
 ${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}- FECHAMENTO: assim que o cliente confirmar a compra ("pode fechar", "sim", "ok", "fechado", "pode mandar"), feche NESSA MESMA
@@ -1125,14 +1220,30 @@ ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
 - Só feche quando os dados OBRIGATÓRIOS abaixo estiverem completos. Se faltar algo, peça antes de fechar.
 - Depois que o pedido foi pago, agradeça e ajude no que precisar (instalação, prazo, dúvidas).${deliveryInfo}${dadosInfo}`;
 
-    const restaurantInstructions = isRestaurant ? `
+    const modTxt = { mesa: "pedido na mesa (cliente já está no local)", delivery: "delivery", retirada: "retirada no balcão", reservas: "reserva de mesa" } as Record<string, string>;
+    const restaurantInstructions = !isRestaurant ? "" : `
 
-Você atende um restaurante. Siga estas regras à risca:
-1. Se ainda não sabe em qual mesa o cliente está NESTA conversa, sua PRIMEIRA pergunta deve ser "Qual é o número da sua mesa?" — não fale de cardápio antes disso.
-2. Assim que o cliente informar o número da mesa, confirme normalmente e adicione no final da mensagem, em uma linha própria: [MESA: número]
-3. Quando o cliente confirmar um pedido de itens do catálogo, adicione no final da mensagem, um item por linha: [PEDIDO: Nome Exato do Item | quantidade]
-4. Quando o cliente pedir a conta / fechar a mesa, adicione no final: [CONTA]
-Nunca explique essas marcações pro cliente — elas são removidas automaticamente antes de chegar até ele.` : "";
+Você atende um restaurante/bar. A casa oferece pelo WhatsApp: ${modalidades.map((m) => modTxt[m] || m).join(", ")}.
+${modalidades.length > 1 && !lead.table_session_id ? "Se ainda não estiver claro, descubra de forma natural o que o cliente quer (está no local, delivery, retirada ou reserva) — sem parecer menu de opções." : ""}
+${restCfg ? `Informações da casa (use exatamente):
+- Horário de funcionamento:\n${String(restCfg.horarios || "").split("\n").map((l: string) => `  ${l}`).join("\n")}
+- Tempo médio de preparo: ${restCfg.tempo_preparo || 25} min${modalidades.includes("delivery") ? `; tempo médio de entrega: ${restCfg.tempo_entrega || 40} min (além do preparo)` : ""}
+${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico}% (opcional, entra na conta da mesa)\n` : ""}${restCfg.couvert > 0 ? `- Couvert artístico: ${brl(restCfg.couvert)} por pessoa${restCfg.couvert_info ? ` (${restCfg.couvert_info})` : ""}\n` : ""}${restCfg.pedido_minimo_delivery > 0 && modalidades.includes("delivery") ? `- Pedido mínimo no delivery: ${brl(restCfg.pedido_minimo_delivery)} (sem contar a taxa de entrega)\n` : ""}${modalidades.includes("delivery") ? `- Pagamento do delivery: online pelo link (Pix ou cartão)${restCfg.pagamento_na_entrega ? " ou na entrega (dinheiro com troco, ou cartão/Pix na maquininha)" : ""}\n` : ""}${restCfg.eventos ? `- Promoções e eventos: ${restCfg.eventos}\n` : ""}Se a casa estiver fechada agora, avise com simpatia e diga quando abre (reservas podem ser feitas a qualquer hora).` : ""}
+${modalidades.includes("mesa") ? `
+NA MESA (cliente no local):
+- Se o cliente está no local e você ainda não sabe a mesa NESTA visita, pergunte o número da mesa. Quando ele disser, inclua no final: [MESA: número]
+- A cada rodada confirmada, inclua um item por linha: [PEDIDO: Nome Exato do Item | quantidade | observação (opcional)]
+  Confirme a rodada em poucas palavras e diga que já foi pra cozinha/bar. Não use [ORCAMENTO] na mesa.
+- Quando o cliente pedir a conta, inclua: [CONTA] e diga que já está fechando a conta — o sistema manda o resumo com taxa de serviço e o link de pagamento.` : ""}
+${modalidades.includes("delivery") || modalidades.includes("retirada") ? `
+DELIVERY / RETIRADA: siga a "Condução da venda" — anote itens e observações, sugira bebida/sobremesa com naturalidade,
+colete os dados obrigatórios (incluindo a forma de pagamento), recapitule e feche com [ORCAMENTO], [ENTREGA] e [ETAPA: aguardando_link].
+Pagamento: pergunte se prefere pagar online (link) ou na entrega; registre [DADOS: pagamento=online] ou [DADOS: pagamento=na entrega - dinheiro; troco=100].` : ""}
+${modalidades.includes("reservas") ? `
+RESERVA: colete data, horário, número de pessoas, nome e se há comemoração. Quando o cliente confirmar, inclua:
+[RESERVA: data=AAAA-MM-DD; hora=HH:MM; pessoas=N; nome=Nome; ocasiao=aniversário (ou vazio); obs=pedidos especiais]
+Converta "sábado", "amanhã" etc. para a data certa usando a data de hoje informada acima.${restCfg?.reserva_tolerancia_min ? ` Avise que a tolerância de atraso é de ${restCfg.reserva_tolerancia_min} minutos.` : ""}` : ""}
+Nunca explique essas marcações pro cliente — elas são removidas automaticamente antes de chegar até ele.`;
 
     const imageInstructions = imageUrlForAi ? `
 A mensagem atual do cliente veio com uma IMAGEM anexada, que você consegue ver. Responda com base no que aparece nela
@@ -1143,7 +1254,12 @@ Essa marcação é interna, nunca a explique pro cliente — ela é removida aut
 imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como "[Imagem: descrição]".
 ` : "";
 
+    const agoraBR = new Date().toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
     const systemPrompt = `${basePrompt}
+
+Agora é ${agoraBR} (horário de Brasília).
 
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
 Se o cliente perguntar algo fora do catálogo ou que exija um humano, diga que vai chamar alguém da equipe.
@@ -1210,7 +1326,7 @@ Você não tem como fazer isso. Resolva nesta mensagem com as informações disp
       if (retry && !looksLikeLeakedReasoning(retry)) reply = retry;
     }
     // Registrou CPF/CNPJ, e-mail ou CEP inválido? Pede pro cliente conferir, em vez de "anotar"
-    if (reply && !isRestaurant) {
+    if (reply && salesFlow) {
       const invalid = checkDados(parseDados(reply));
       if (invalid.length) {
         console.log("Dados inválidos na resposta, pedindo para conferir:", invalid.join(" | "));
@@ -1220,12 +1336,23 @@ Não diga que anotou esses dados e não os registre em [DADOS]. Registre só os 
       }
     }
 
+    // Reserva com dados impossíveis (data passada, antecedência, lotação)? Pede pra IA corrigir com o cliente
+    if (reply && isRestaurant && /\[RESERVA:/i.test(reply)) {
+      const problem = checkReserva(parseReserva(reply), restCfg);
+      if (problem) {
+        console.log("Reserva inválida, corrigindo:", problem);
+        const retry = await generate(activeProvider, `\n\nCORREÇÃO: a reserva não pode ser feita assim: ${problem}.
+NÃO use a marcação [RESERVA] nesta mensagem. Explique com simpatia e ofereça uma alternativa (outro horário/data ou dividir o grupo).`);
+        if (retry && !looksLikeLeakedReasoning(retry) && !/\[RESERVA:/i.test(retry)) reply = retry;
+      }
+    }
+
     // Tentou fechar sem os dados obrigatórios? Pede de novo, agora coletando o que falta
     const isClosing = (r: string) => /\[ORCAMENTO:/i.test(r) && /\[ETAPA:\s*aguardando_link/i.test(r);
-    if (reply && !isRestaurant && freteInt && isClosing(reply)) {
+    if (reply && salesFlow && (freteInt || isRestaurant) && isClosing(reply)) {
       const merged = { ...dadosCliente, ...parseDados(reply) };
       const entregaNoFechamento = /\[ENTREGA:\s*retir/i.test(reply) ? "retirada" : entregaTipo;
-      const stillMissing = missingDados(merged, entregaNoFechamento, nfAtiva).required;
+      const stillMissing = missingDados(merged, entregaNoFechamento, nfAtiva, isRestaurant).required;
       if (stillMissing.length) {
         console.log("Fechamento sem dados obrigatórios, pedindo antes:", stillMissing.join(", "));
         const retry = await generate(activeProvider, `\n\nCORREÇÃO: você tentou fechar o pedido, mas ainda faltam dados obrigatórios: ${stillMissing.map((k) => DADOS_KEYS[k]).join(", ")}.
@@ -1248,14 +1375,15 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     // Etapa do funil e itens do orçamento
     const etapaMatch = reply.match(/\[ETAPA:\s*([a-z_]+)\s*\]/i);
     const entregaMatch = reply.match(/\[ENTREGA:\s*([^\]]+?)\s*\]/i);
-    const orcamentoMatches = [...reply.matchAll(/\[ORCAMENTO:\s*(.+?)\s*\|\s*([\d.,]+)[^\]]*\]/gi)];
+    const orcamentoMatches = [...reply.matchAll(/\[ORCAMENTO:\s*(.+?)\s*\|\s*([\d.,]+)[^|\]]*(?:\|\s*([^\]]*?))?\s*\]/gi)];
+    const reservaMatch = reply.match(/\[RESERVA:\s*([^\]]+)\]/i);
 
     // Descrição da imagem recebida (salva no histórico no lugar do texto genérico)
     const imagemMatch = reply.match(/\[IMAGEM:\s*([^\]]+?)\s*\]/i);
 
     // Marcações do fluxo de restaurante
     const mesaMatch = reply.match(/\[MESA:\s*(.+?)\]/i);
-    const pedidoMatches = [...reply.matchAll(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*\]/gi)];
+    const pedidoMatches = [...reply.matchAll(/\[PEDIDO:\s*(.+?)\s*\|\s*(\d+)\s*(?:\|\s*([^\]]*?))?\s*\]/gi)];
     const contaMatch = /\[CONTA\]/i.test(reply);
 
     // Motivo do contato + resumo da conversa (usado em qualquer tipo de negócio)
@@ -1275,10 +1403,11 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       .replace(/\[ORCAMENTO:[^\]]*\]/gi, "")
       .replace(/\[ENTREGA:[^\]]*\]/gi, "")
       .replace(/\[DADOS:[^\]]*\]/gi, "")
+      .replace(/\[RESERVA:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)[^\]]*\]/gi, "")
       // Marcação cortada (a resposta terminou antes do "]"): remove até o fim da linha
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)\b[^\]\n]*$/gim, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)\b[^\]\n]*$/gim, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -1319,8 +1448,8 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     let enteredAwaiting = false;
     // deno-lint-ignore no-explicit-any
     let newOrder: any = null;
-    const closing = !isRestaurant && orcamentoMatches.length > 0 && etapaMatch?.[1]?.toLowerCase() === "aguardando_link";
-    if (!isRestaurant && orcamentoMatches.length) {
+    const closing = salesFlow && orcamentoMatches.length > 0 && etapaMatch?.[1]?.toLowerCase() === "aguardando_link";
+    if (salesFlow && orcamentoMatches.length) {
       const itens = buildOrderItems(orcamentoMatches, products || []);
       const subtotal = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
       const fromMarker = entregaMatch?.[1] ? await resolveDelivery([entregaMatch[1]], freteInt, subtotal) : null;
@@ -1334,7 +1463,10 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
           owner_id, agent_id, lead_id: lead.id, itens, subtotal,
           frete: entrega.valor,
           total: Math.round((subtotal + (entrega.valor || 0)) * 100) / 100,
-          entrega: { ...entrega, place: undefined, endereco: entrega.tipo === "retirada" ? null : {
+          entrega: { ...entrega, place: undefined, cozinha: isRestaurant || undefined,
+            tempo_preparo: isRestaurant ? Number(restCfg?.tempo_preparo || 25) : undefined,
+            tempo_entrega: isRestaurant && entrega.tipo !== "retirada" ? Number(restCfg?.tempo_entrega || 40) : undefined,
+            endereco: entrega.tipo === "retirada" ? null : {
             rua: dadosFinal.rua || null, numero: dadosFinal.numero || null, complemento: dadosFinal.complemento || null,
             tipo_imovel: dadosFinal.tipo_imovel || null, bairro: dadosFinal.bairro || null, cidade: dadosFinal.cidade || null,
             cep: dadosFinal.cep || entrega.cep || null, referencia: dadosFinal.referencia || null, recebedor: dadosFinal.recebedor || null,
@@ -1344,6 +1476,12 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
             razao_social: dadosFinal.razao_social || null, ie: dadosFinal.ie || null,
           },
           simulado: !!agent.is_simulator, status: "aguardando_aprovacao",
+          ...(isRestaurant ? {
+            pagamento: {
+              preferencia: /entrega|dinheiro|maquin|cart[aã]o na/i.test(dadosFinal.pagamento || "") ? "na_entrega" : "online",
+              detalhe: dadosFinal.pagamento || null, troco: dadosFinal.troco || null,
+            },
+          } : {}),
         };
         // Se o cliente mudou o pedido antes da aprovação, atualiza o mesmo pedido em vez de criar outro
         const { data: open } = await supabase
@@ -1364,7 +1502,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     }
 
     // Etapa: só avança (nunca volta) e só entre as etapas automáticas e ativas
-    if (!isRestaurant && etapaMatch && !leadUpdate.stage) {
+    if (etapaMatch && !leadUpdate.stage) {
       const target = etapaMatch[1].toLowerCase();
       const currentRank = AUTO_STAGE_RANK[lead.stage];
       const targetRank = AUTO_STAGE_RANK[target];
@@ -1472,6 +1610,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
             product_name: product?.name || itemName,
             quantity,
             unit_price: product?.price || 0,
+            observacao: (m[3] || "").trim() || null,
           };
         });
 
@@ -1479,7 +1618,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
         const { data: order } = await supabase
           .from("orders")
-          .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total })
+          .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" })
           .select()
           .single();
 
@@ -1491,10 +1630,87 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         }
       }
 
-      // [CONTA] — cliente pediu a conta
-      if (contaMatch) {
+      // [CONTA] — cliente pediu a conta: o sistema monta o fechamento (itens + taxa de serviço + couvert)
+      // e envia o resumo com o link de pagamento pela função de pedidos
+      if (contaMatch && lead.table_session_id) {
         await supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead.id);
-        console.log("Lead marcado como aguardando pagamento.");
+
+        const { data: tickets } = await supabase
+          .from("orders").select("id, status, order_items(product_id, product_name, quantity, unit_price)")
+          .eq("table_session_id", lead.table_session_id).eq("lead_id", lead.id).neq("status", "cancelado");
+        const agg: Record<string, { product_id: string | null; nome: string; quantidade: number; preco_unitario: number }> = {};
+        for (const t of tickets || []) {
+          for (const it of t.order_items || []) {
+            const k = `${it.product_name}|${it.unit_price}`;
+            agg[k] = agg[k] || { product_id: it.product_id, nome: it.product_name, quantidade: 0, preco_unitario: Number(it.unit_price) };
+            agg[k].quantidade += Number(it.quantity);
+          }
+        }
+        const itens: Record<string, unknown>[] = Object.values(agg).map((i) => ({
+          ...i, unidade: "unidade", subtotal: Math.round(i.preco_unitario * i.quantidade * 100) / 100,
+        }));
+        const consumo = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
+
+        if (consumo > 0) {
+          const taxa = Number(restCfg?.taxa_servico || 0);
+          if (taxa > 0) itens.push({ product_id: null, taxa: true, nome: `Taxa de serviço (${taxa}%)`, quantidade: 1, unidade: "unidade", preco_unitario: Math.round(consumo * taxa) / 100, subtotal: Math.round(consumo * taxa) / 100 });
+          const couvert = Number(restCfg?.couvert || 0);
+          if (couvert > 0) itens.push({ product_id: null, taxa: true, nome: "Couvert artístico", quantidade: 1, unidade: "unidade", preco_unitario: couvert, subtotal: couvert });
+          const subtotal = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
+
+          const { data: sess } = await supabase.from("table_sessions").select("table_id").eq("id", lead.table_session_id).maybeSingle();
+          const { data: tbl } = sess ? await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle() : { data: null };
+
+          // Conta já aberta e não paga? Atualiza em vez de duplicar
+          const { data: openBill } = await supabase.from("sales_orders").select("id, status")
+            .eq("lead_id", lead.id).eq("table_session_id", lead.table_session_id).in("status", ["aguardando_aprovacao", "aguardando_pagamento"]).maybeSingle();
+          if (openBill?.status === "aguardando_pagamento") await supabase.from("sales_orders").update({ status: "cancelado" }).eq("id", openBill.id);
+
+          const billRow = {
+            owner_id, agent_id, lead_id: lead.id, table_session_id: lead.table_session_id,
+            itens, subtotal, frete: 0, total: subtotal, status: "aguardando_aprovacao", simulado: !!agent.is_simulator,
+            entrega: { tipo: "mesa", valor: 0, local: tbl?.label || "Mesa" },
+            cliente: { nome: (lead.dados_cliente?.nome || lead.name || null), telefone: customerNumber },
+          };
+          const { data: bill } = openBill?.status === "aguardando_aprovacao"
+            ? await supabase.from("sales_orders").update(billRow).eq("id", openBill.id).select().single()
+            : await supabase.from("sales_orders").insert(billRow).select().single();
+
+          if (bill) {
+            await supabase.from("leads").update({
+              stage: canStage("aguardando_link") ? "aguardando_link" : lead.stage,
+              orcamento: { itens, total: subtotal, frete: 0, order_id: bill.id, numero: bill.numero, criado_em: new Date().toISOString() },
+            }).eq("id", lead.id);
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/orders`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+              body: JSON.stringify({ action: "approve", order_id: bill.id }),
+            });
+            if (!res.ok) console.error("Falha ao enviar a conta:", res.status, await res.text());
+            console.log("Conta da mesa enviada:", tbl?.label, "total", subtotal);
+          }
+        }
+      }
+
+      // [RESERVA: ...] — registra a reserva na agenda (aparece em Agendamentos)
+      const reserva = parseReserva(rawReplyForMarkers);
+      if (reserva && !checkReserva(reserva, restCfg)) {
+        const dt = reservaDate(reserva)!;
+        const { data: dup } = await supabase.from("agendamentos").select("id")
+          .eq("lead_id", lead.id).eq("data_hora_inicio", dt.toISOString()).neq("status", "cancelado").maybeSingle();
+        if (!dup) {
+          const { error: resErr } = await supabase.from("agendamentos").insert({
+            owner_id, lead_id: lead.id, data_hora_inicio: dt.toISOString(), status: "agendado", tipo: "reserva",
+            pessoas: parseInt(reserva.pessoas || "0") || null, nome: reserva.nome || lead.name || null,
+            ocasiao: reserva.ocasiao || null, observacao: reserva.obs || reserva.observacao || null,
+          });
+          if (resErr) console.error("Erro ao salvar reserva:", resErr.message);
+          await supabase.from("leads").update({
+            stage: canStage("consulta_agendada") && ["novo_contato", "conversando"].includes(lead.stage) ? "consulta_agendada" : lead.stage,
+            data_agendamento: dt.toISOString(),
+          }).eq("id", lead.id);
+          console.log("Reserva registrada:", dt.toISOString(), reserva.pessoas, "pessoas");
+        }
       }
     }
 

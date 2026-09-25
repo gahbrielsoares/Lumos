@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=34";
+import { supabase } from "./supabaseClient.js?v=36";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
@@ -9,13 +9,26 @@ import { supabase } from "./supabaseClient.js?v=34";
 export const SIM_BUSINESS_TYPES = [
   { value: "materiais_construcao", label: "Materiais de construção e acabamentos (pisos)", available: true },
   { value: "roupas", label: "Loja de roupas", available: false },
-  { value: "restaurante", label: "Restaurante", available: false },
+  { value: "restaurante", label: "Restaurante e bar (mesa, delivery, retirada e reservas)", available: true },
   { value: "clinica", label: "Clínica / consultório", available: false },
 ];
 
 const STORE_NAME = "Lumos Pisos & Acabamentos";
+const BAR_NAME = "Lumos Bar & Cozinha";
 
 export const SIM_PROMPTS = {
+  restaurante: `Você é a Luma, do ${BAR_NAME} — bar e restaurante com cozinha de boteco caprichada, drinks autorais, chope gelado e música ao vivo no fim de semana. Você atende pelo WhatsApp com o jeito de quem trabalha no salão: animada, acolhedora, rápida e sem enrolação. Mensagens curtas, uma pergunta por vez, emojis com moderação.
+
+Como atender:
+1. Na primeira mensagem, cumprimente e pergunte como pode ajudar, citando só o que a casa oferece (pedido na mesa, delivery, retirada ou reserva).
+2. Na MESA: descubra o número da mesa, anote os pedidos e confirme cada rodada. Sugira acompanhamentos e bebidas de forma natural (ex.: "vai uma porção de batata pra acompanhar o chope?"). Quando pedirem a conta, feche a conta.
+3. No DELIVERY ou RETIRADA: ajude a escolher, anote itens e observações (sem cebola, ponto da carne, gelo e limão...), sugira bebida e sobremesa, colete os dados de entrega e a forma de pagamento, recapitule e feche.
+4. Na RESERVA: pegue data, horário, número de pessoas, nome e se é alguma comemoração (aniversário ganha sobremesa cortesia). Avise a tolerância de atraso.
+5. Informe horários, promoções e eventos quando fizer sentido — sem forçar.
+6. Tempo de preparo e de entrega vêm das informações da casa: use os valores de lá.
+
+Se pedirem algo que não está no cardápio, diga com simpatia que não tem hoje e sugira a opção mais parecida.
+Nunca invente item, preço, horário ou promoção além do que está nas informações abaixo.`,
   materiais_construcao: `Você é a Luma, vendedora da ${STORE_NAME}, loja especializada em pisos, porcelanatos, revestimentos e materiais de assentamento. Você atende pelo WhatsApp como uma vendedora experiente de balcão: simpática, objetiva e consultiva. Mensagens curtas, uma pergunta por vez, linguagem natural (nada de parecer formulário).
 
 Como conduzir o atendimento, do "oi" até o fechamento:
@@ -34,8 +47,32 @@ Nunca invente produto, preço, prazo ou estoque além do que está nas informaç
 
 const IMG = (file) => new URL(`img/simulador/${file}.jpg`, window.location.href).href;
 
-// Produtos de demonstração (nicho: pisos e acabamentos)
+const IMG_R = (file) => new URL(`img/simulador/restaurante/${file}.jpg`, window.location.href).href;
+
+// Produtos de demonstração por nicho
 export const SIM_PRODUCTS = {
+  restaurante: [
+    { name: "Batata Frita com Cheddar e Bacon", categoria: "Petiscos", price: 42.9, img: "batata-cheddar-bacon", description: "Porção generosa (serve 2 a 3 pessoas) com cheddar cremoso e bacon crocante." },
+    { name: "Isca de Peixe", categoria: "Petiscos", price: 58.9, img: "isca-de-peixe", description: "Tilápia empanada, crocante, com molho tártaro e limão. Serve 2 a 3 pessoas." },
+    { name: "Bolinho de Costela (6 un.)", categoria: "Petiscos", price: 39.9, img: "bolinho-de-costela", description: "Costela desfiada com catupiry, acompanha maionese da casa." },
+    { name: "Tábua de Frios", categoria: "Petiscos", price: 69.9, img: "tabua-de-frios", description: "Queijos, salame, presunto parma, azeitonas e torradinhas. Serve 3 a 4 pessoas." },
+    { name: "Picanha na Chapa", categoria: "Pratos", price: 119.9, img: "picanha-na-chapa", description: "500 g de picanha fatiada na chapa com arroz, farofa, vinagrete e fritas. Serve 2 pessoas." },
+    { name: "Filé à Parmegiana", categoria: "Pratos", price: 64.9, img: "parmegiana", description: "Filé empanado com molho de tomate e muçarela gratinada, arroz e fritas. Individual." },
+    { name: "Risoto de Cogumelos", categoria: "Pratos", price: 58.9, img: "risoto-de-cogumelos", description: "Arroz arbóreo, mix de cogumelos e parmesão. Opção vegetariana." },
+    { name: "Burger Lumos", categoria: "Lanches", price: 39.9, img: "burger-lumos", description: "Blend de 180 g, cheddar, bacon, cebola caramelizada e maionese da casa, com fritas." },
+    { name: "Pizza Margherita (8 fatias)", categoria: "Lanches", price: 62.9, img: "pizza-margherita", description: "Molho de tomate, muçarela de búfala e manjericão fresco." },
+    { name: "Salada Caesar", categoria: "Pratos", price: 36.9, img: "salada-caesar", description: "Alface americana, frango grelhado, croutons, parmesão e molho caesar." },
+    { name: "Chope Pilsen 500 ml", categoria: "Cervejas e chope", price: 14.9, img: "chope-pilsen", description: "Chope artesanal estilo pilsen, bem gelado. Happy hour: em dobro." },
+    { name: "Balde de Long Neck (6 un.)", categoria: "Cervejas e chope", price: 59.9, img: "balde-long-neck", description: "6 long necks geladas no balde com gelo." },
+    { name: "Caipirinha de Limão", categoria: "Drinks", price: 24.9, img: "caipirinha", description: "Cachaça artesanal, limão e açúcar. Também com vodka (+R$ 4)." },
+    { name: "Gin Tônica", categoria: "Drinks", price: 32.9, img: "gin-tonica", description: "Gin, água tônica, pepino e zimbro." },
+    { name: "Drink da Casa — Luz Vermelha", categoria: "Drinks", price: 34.9, img: "drink-da-casa", description: "Vodka, morango, limão siciliano e espuma de gengibre. O mais pedido da casa." },
+    { name: "Refrigerante Lata", categoria: "Sem álcool", price: 7.9, img: "refrigerante", description: "Coca-Cola, Coca Zero, Guaraná ou Sprite." },
+    { name: "Água Mineral 500 ml", categoria: "Sem álcool", price: 5.9, img: "agua-mineral", description: "Com ou sem gás." },
+    { name: "Suco Natural 400 ml", categoria: "Sem álcool", price: 12.9, img: "suco-natural", description: "Laranja, limão, maracujá ou abacaxi com hortelã." },
+    { name: "Petit Gâteau", categoria: "Sobremesas", price: 29.9, img: "petit-gateau", description: "Bolinho de chocolate com recheio cremoso e sorvete de creme." },
+    { name: "Pudim da Casa", categoria: "Sobremesas", price: 16.9, img: "pudim", description: "Pudim de leite condensado, receita da vó." },
+  ],
   materiais_construcao: [
     { name: "Porcelanato Calacata Branco Polido 90x90", categoria: "Pisos e porcelanatos", price: 139.9, unit: "m2", m2_por_caixa: 1.62, estoque: 380, img: "porcelanato-calacata",
       description: "Porcelanato retificado, efeito mármore branco com veios cinza. Brilho polido, ideal para salas e ambientes internos sofisticados. PEI 4." },
@@ -76,14 +113,14 @@ export async function seedSimulatorProducts(agentId, businessType = "materiais_c
   const owner_id = await userId();
   const items = SIM_PRODUCTS[businessType] || [];
 
-  const { data: existing } = await supabase.from("products").select("id, name, agent_ids").eq("owner_id", owner_id);
+  const { data: existing } = await supabase.from("products").select("id, name, agent_ids, segmento").eq("owner_id", owner_id);
   const { data: cats } = await supabase.from("categories").select("id, name").eq("owner_id", owner_id);
   const catId = {};
   for (const c of cats || []) catId[c.name] = c.id;
 
   let created = 0;
   for (const it of items) {
-    const already = (existing || []).find((p) => p.name === it.name && (p.agent_ids || []).includes(agentId));
+    const already = (existing || []).find((p) => p.name === it.name && (p.agent_ids || []).includes(agentId) && (p.segmento || "materiais_construcao") === businessType);
     if (already) continue;
 
     if (!catId[it.categoria]) {
@@ -91,15 +128,34 @@ export async function seedSimulatorProducts(agentId, businessType = "materiais_c
       if (c) catId[it.categoria] = c.id;
     }
     const { data: prod, error } = await supabase.from("products").insert({
-      owner_id, name: it.name, description: it.description, price: it.price, unit: it.unit,
+      owner_id, name: it.name, description: it.description, price: it.price, unit: it.unit || "unidade",
       m2_por_caixa: it.m2_por_caixa ?? null, estoque: it.estoque ?? null,
-      photo_urls: [IMG(it.img)], active: true, agent_ids: [agentId],
+      photo_urls: [businessType === "restaurante" ? IMG_R(it.img) : IMG(it.img)], active: true, agent_ids: [agentId],
+      segmento: businessType,
     }).select().single();
     if (error) throw error;
     if (catId[it.categoria]) await supabase.from("product_categories").insert({ product_id: prod.id, category_id: catId[it.categoria] });
     created++;
   }
   return created;
+}
+
+// Mesas de demonstração (Mesa 1 a 12) pro fluxo de pedido na mesa
+export async function seedSimulatorTables(agentId, total = 12) {
+  const owner_id = await userId();
+  const { data: tables } = await supabase.from("restaurant_tables").select("label").eq("owner_id", owner_id);
+  const have = new Set((tables || []).map((t) => String(t.label).replace(/\D/g, "")));
+  const rows = [];
+  for (let n = 1; n <= total; n++) if (!have.has(String(n))) rows.push({ owner_id, agent_id: agentId, label: `Mesa ${n}`, status: "livre" });
+  if (rows.length) await supabase.from("restaurant_tables").insert(rows);
+  return rows.length;
+}
+
+// Garante tudo o que o nicho precisa (produtos e, no restaurante, as mesas)
+export async function prepareSimulator(agentId, businessType) {
+  const products = await seedSimulatorProducts(agentId, businessType);
+  const tables = businessType === "restaurante" ? await seedSimulatorTables(agentId) : 0;
+  return { products, tables };
 }
 
 // Cria o simulador copiando o WhatsApp e as chaves de IA de um agente que já funciona.
@@ -110,7 +166,7 @@ export async function createSimulator(baseAgentId, businessType = "materiais_con
 
   const { data: sim, error } = await supabase.from("agents").insert({
     owner_id,
-    name: "Simulador — Pisos e Acabamentos",
+    name: businessType === "restaurante" ? "Simulador — Bar e Restaurante" : "Simulador — Pisos e Acabamentos",
     phone_number: base.phone_number,
     system_prompt: SIM_PROMPTS[businessType],
     temperature: 0.6,
@@ -142,7 +198,7 @@ export async function createSimulator(baseAgentId, businessType = "materiais_con
   }
 
   await supabase.from("agents").update({ enabled: false }).eq("id", baseAgentId);
-  await seedSimulatorProducts(sim.id, businessType);
+  await prepareSimulator(sim.id, businessType);
   return sim;
 }
 

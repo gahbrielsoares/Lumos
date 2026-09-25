@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=34" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=34" />
+  <script src="js/logo.js?v=36" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=36" />
+  <style>
+    .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+    .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
+  </style>
 </head>
 <body>
 
@@ -38,7 +42,7 @@
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
         <div>
           <h1 style="font-size: 28px;">Cozinha</h1>
-          <p style="margin-top: 6px;">Cada card é um pedido. Arraste pra "Entregue" quando sair da cozinha.</p>
+          <p style="margin-top: 6px;">Pedidos da mesa, do delivery e da retirada. Arraste entre as etapas — no delivery e na retirada o cliente é avisado no WhatsApp.</p>
         </div>
         <button class="btn btn-primary" id="new-order-btn">+ Novo pedido</button>
       </div>
@@ -72,13 +76,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=34";
-    import { initThemeToggle } from "./js/theme.js?v=34";
-    import { initMobileNav } from "./js/mobileNav.js?v=34";
-    import { renderSidebar } from "./js/sidebar.js?v=34";
-    import { supabase } from "./js/supabaseClient.js?v=34";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS } from "./js/orders.js?v=34";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=34";
+    import { requireSession, signOut } from "./js/auth.js?v=36";
+    import { initThemeToggle } from "./js/theme.js?v=36";
+    import { initMobileNav } from "./js/mobileNav.js?v=36";
+    import { renderSidebar } from "./js/sidebar.js?v=36";
+    import { supabase } from "./js/supabaseClient.js?v=36";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=36";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=36";
 
     await requireSession();
     initThemeToggle();
@@ -89,14 +93,20 @@
       signOut();
     });
 
-    const STATUSES = ["novo_pedido", "entregue"];
+    const STATUSES = ["novo_pedido", "em_preparo", "pronto", "saiu_entrega", "entregue"];
     const board = document.getElementById("orders-board");
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const TIPO = { mesa: "🍽️ Mesa", delivery: "🛵 Delivery", retirada: "🥡 Retirada" };
+    const minutesAgo = (d) => Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
+
+    // Esconde da coluna "Entregue" o que é de dias anteriores (a cozinha olha o turno de hoje)
+    const today = new Date(); today.setHours(0, 0, 0, 0);
 
     async function loadBoard() {
-      const orders = await listOrders();
+      const orders = (await listOrders()).filter((o) => o.status !== "cancelado" && (o.status !== "entregue" || new Date(o.updated_at || o.created_at) >= today));
 
       board.innerHTML = STATUSES.map((status) => `
-        <div class="kanban-col" style="width:320px;" data-status="${status}">
+        <div class="kanban-col" style="width:290px;" data-status="${status}">
           <div class="kanban-col-header">
             <h4>${ORDER_STATUS_LABELS[status]} <span class="kanban-count">${orders.filter((o) => o.status === status).length}</span></h4>
           </div>
@@ -112,13 +122,24 @@
         card.draggable = true;
         card.dataset.id = order.id;
         card.dataset.status = order.status;
+        const tipo = order.tipo || "mesa";
+        const mesa = order.table_sessions?.restaurant_tables?.label;
+        const num = order.sales_orders?.numero ? `#${order.sales_orders.numero}` : `#${order.numero || ""}`;
+        const cliente = order.leads?.dados_cliente?.nome || order.leads?.name || order.leads?.phone || "Cliente";
+        const where = tipo === "mesa" ? (mesa || "Mesa") : tipo === "delivery" ? (order.sales_orders?.entrega?.endereco?.bairro || order.sales_orders?.entrega?.local || "") : "Balcão";
+        const pagarNa = order.sales_orders?.pagamento?.preferencia === "na_entrega" ? `<div class="kc-tag kc-off" style="display:inline-block; margin-top:6px;">💵 Cobrar na ${tipo === "retirada" ? "retirada" : "entrega"}</div>` : "";
         const itemsHtml = (order.order_items || [])
-          .map((it) => `${it.quantity}x ${it.product_name} — R$ ${Number(it.unit_price * it.quantity).toFixed(2)}`)
+          .map((it) => `<strong>${it.quantity}x</strong> ${esc(it.product_name)}${it.observacao ? `<br><span style="color:#D4834A;">↳ ${esc(it.observacao)}</span>` : ""}`)
           .join("<br>");
+        const age = minutesAgo(order.created_at);
         card.innerHTML = `
-          <div class="name">${order.leads?.name || order.leads?.phone || "Cliente"}</div>
-          <div class="reason">${itemsHtml}</div>
-          <div class="date">Total: R$ ${Number(order.total).toFixed(2)}</div>
+          <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px; margin-bottom:4px;">
+            <span>${TIPO[tipo] || tipo} · <strong>${esc(where)}</strong></span><span>${num}</span>
+          </div>
+          <div class="name">${esc(cliente)}</div>
+          <div class="reason" style="line-height:1.55;">${itemsHtml}</div>
+          ${pagarNa}
+          <div class="date" style="${order.status !== "entregue" && age >= 30 ? "color:#B94040; font-weight:600;" : ""}">há ${age} min · R$ ${Number(order.total).toFixed(2)}</div>
         `;
         card.addEventListener("dragstart", () => card.classList.add("dragging"));
         card.addEventListener("dragend", () => card.classList.remove("dragging"));
@@ -135,11 +156,15 @@
           if (!dragging) return;
           const newStatus = colBody.dataset.status;
           if (dragging.dataset.status === newStatus) return;
-          await updateOrderStatus(dragging.dataset.id, newStatus);
+          const { error } = await setKitchenStatus(dragging.dataset.id, newStatus);
+          if (error) alert(error.message);
           loadBoard();
         });
       });
     }
+
+    // Atualiza sozinho a cada 20s (pedidos novos chegando pelo WhatsApp)
+    setInterval(() => { if (!document.querySelector(".dragging")) loadBoard(); }, 20000);
 
     // ---------- Novo pedido manual ----------
     let productsCache = [];

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=34" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=34" />
+  <script src="js/logo.js?v=36" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=36" />
 </head>
 <body>
 
@@ -247,20 +247,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=34";
-    import { initThemeToggle } from "./js/theme.js?v=34";
-    import { initMobileNav } from "./js/mobileNav.js?v=34";
-    import { renderSidebar } from "./js/sidebar.js?v=34";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=34";
-    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=34";
+    import { requireSession, signOut } from "./js/auth.js?v=36";
+    import { initThemeToggle } from "./js/theme.js?v=36";
+    import { initMobileNav } from "./js/mobileNav.js?v=36";
+    import { renderSidebar } from "./js/sidebar.js?v=36";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=36";
+    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=36";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=34";
+    } from "./js/agents.js?v=36";
     import {
-      SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, seedSimulatorProducts, activateAgentForNumber,
-    } from "./js/simulator.js?v=34";
+      SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
+    } from "./js/simulator.js?v=36";
 
     await requireSession();
     initThemeToggle();
@@ -439,8 +439,10 @@
         document.getElementById("a-prompt").value = SIM_PROMPTS[type];
       }
       const { error } = await saveAgent(currentAgentId, fields);
-      msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
-      msg.className = error ? "form-msg error" : "form-msg ok";
+      if (error) { msg.textContent = `Erro: ${error.message}`; msg.className = "form-msg error"; return; }
+      const r = await prepareSimulator(currentAgentId, type);
+      msg.textContent = `Salvo.${r.products ? ` ${r.products} produto(s) de demonstração cadastrado(s).` : ""}${r.tables ? ` ${r.tables} mesa(s) criada(s).` : ""}`;
+      msg.className = "form-msg ok";
     });
 
     document.getElementById("sim-prompt-reset").addEventListener("click", async () => {
@@ -459,8 +461,10 @@
       msg.textContent = "Cadastrando…";
       msg.className = "form-msg";
       try {
-        const n = await seedSimulatorProducts(currentAgentId, document.getElementById("sim-type-detail").value);
-        msg.textContent = n ? `${n} produto(s) de demonstração cadastrado(s).` : "Todos os produtos de demonstração já estão cadastrados.";
+        const r = await prepareSimulator(currentAgentId, document.getElementById("sim-type-detail").value);
+        msg.textContent = r.products || r.tables
+          ? `${r.products} produto(s)${r.tables ? ` e ${r.tables} mesa(s)` : ""} de demonstração cadastrado(s).`
+          : "Tudo já estava cadastrado.";
         msg.className = "form-msg ok";
       } catch (err) {
         msg.textContent = `Erro: ${err.message}`;
