@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=32";
+import { supabase } from "./supabaseClient.js?v=33";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=32";
-import { getIntegration } from "./integrations.js?v=32";
+} from "./leads.js?v=33";
+import { getIntegration } from "./integrations.js?v=33";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -278,12 +278,31 @@ function quoteBlock(l) {
         </tr>
         <tr><td colspan="3" class="total">Total</td><td class="num total">${brl(subtotal + Number(frete || 0))}</td></tr>
       </table>
+      ${clienteBlock(o)}
       ${missing ? `<div class="lp-warn">⚠️ Item não encontrado no catálogo — confira o nome e o preço antes de aprovar.</div>` : ""}
       ${noStock ? `<div class="lp-warn">📦 Quantidade maior que o estoque cadastrado — confirme a disponibilidade.</div>` : ""}
       ${o?.pagamento?.link ? `<div class="lp-k" style="margin-top:8px;">Link de pagamento: <a href="${o.pagamento.link}" target="_blank" rel="noopener">abrir</a>${o.simulado ? " (simulado)" : ""}</div>` : ""}
       ${o?.status === "pago" ? `<div class="lp-k" style="margin-top:8px; color:#4A7C59;">✅ Pago em ${new Date(o.paid_at).toLocaleString("pt-BR")}${o.nf_numero ? ` · NF-e nº ${o.nf_numero}` : ""}</div>` : ""}
       <div class="lp-k" style="margin-top:8px;">Montado em ${new Date(o?.created_at || q.criado_em).toLocaleString("pt-BR")}</div>
     </div>`;
+}
+
+// Cliente e endereço de entrega do pedido (coletados pela IA)
+function clienteBlock(o) {
+  if (!o) return "";
+  const c = o.cliente || {};
+  const a = o.entrega?.endereco;
+  const rows = [
+    c.nome && `👤 ${esc(c.nome)}${c.cpf ? ` · ${esc(c.cpf)}` : ""}${c.email ? ` · ${esc(c.email)}` : ""}`,
+    a && `📍 ${esc([[a.rua, a.numero].filter(Boolean).join(", "), a.complemento, a.bairro, a.cidade, a.cep && `CEP ${a.cep}`].filter(Boolean).join(" · "))}`,
+    a?.tipo_imovel && `🏠 ${esc(a.tipo_imovel)}`,
+    a?.referencia && `🧭 ${esc(a.referencia)}`,
+    a?.recebedor && `🙋 Recebe: ${esc(a.recebedor)}`,
+    o.entrega?.tipo === "retirada" && "🏬 Retirada na loja",
+  ].filter(Boolean);
+  const faltando = o.entrega?.tipo !== "retirada" && (!a?.rua || !a?.numero);
+  return `<div style="margin-top:10px; font-size:13px; line-height:1.6;">${rows.join("<br>")}</div>
+    ${faltando ? `<div class="lp-warn">📍 Endereço incompleto — confirme com o cliente antes de aprovar.</div>` : ""}`;
 }
 
 function orderActions() {

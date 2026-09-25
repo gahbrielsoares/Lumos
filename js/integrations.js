@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=32";
+import { supabase } from "./supabaseClient.js?v=33";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -93,6 +93,9 @@ export const INTEGRATIONS = [
           { key: "valor", label: "Valor (R$)", type: "number", placeholder: "30" },
           { key: "prazo", label: "Prazo", type: "text", placeholder: "1 dia útil" },
         ] },
+      { key: "observacao_entrega", label: "Regras da entrega (enviadas ao cliente na confirmação)", type: "textarea",
+        default: "A descarga é feita no térreo, na calçada ou na garagem. Em condomínio, deixe a portaria avisada e confira se o caminhão tem acesso.",
+        showIf: { provider: ["proprio", "melhorenvio"] } },
       { key: "fora_da_tabela", label: "Endereço fora da tabela", type: "select", default: "humano",
         options: [{ value: "humano", label: "Chamar um vendedor" }, { value: "recusar", label: "Informar que não entrega na região" }],
         showIf: { provider: ["proprio"] } },

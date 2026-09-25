@@ -34,6 +34,58 @@ const UNIT: Record<string, string> = { m2: "m²", saco: "saco(s)", unidade: "un.
 const METODO: Record<string, string> = { pix: "Pix", cartao: "Cartão de crédito", boleto: "Boleto", manual: "Pagamento confirmado pela loja" };
 
 const SIM_PAGAMENTO = { provider: "simulado", config: { metodos: ["pix", "cartao", "boleto"], max_parcelas: 10, parcelas_sem_juros: 3, validade_link_horas: 24 } };
+const SIM_OBS_ENTREGA = "A descarga é feita no térreo, na calçada ou na garagem. Em condomínio, deixe a portaria avisada e confira se o caminhão tem acesso.";
+const JUROS_MES = 0.0199; // mesma regra da página de pagamento simulado
+
+// Valor cobrado no cartão (com juros acima das parcelas sem juros)
+function valorCartao(total: number, parcelas: number, semJuros: number) {
+  const t = parcelas > semJuros ? total * (1 + JUROS_MES * parcelas) : total;
+  return Math.round(t * 100) / 100;
+}
+
+const maskDoc = (doc: string) => {
+  const d = onlyDigits(doc);
+  if (d.length === 11) return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
+  if (d.length === 14) return `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-**`;
+  return doc;
+};
+
+// "2 dias úteis" -> data prevista (dias úteis, fuso de Brasília)
+function previsao(prazo: string | null): string | null {
+  if (!prazo) return null;
+  const m = String(prazo).match(/(\d+)\s*dias?\s*(úteis|uteis|útil|util)?/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  const uteis = !!m[2];
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  let left = n;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    const wd = d.getDay();
+    if (!uteis || (wd !== 0 && wd !== 6)) left--;
+  }
+  const dia = d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+  return `${dia}, ${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
+}
+
+// deno-lint-ignore no-explicit-any
+function enderecoTxt(e: any): string {
+  const a = e?.endereco;
+  if (!a) return e?.local || "";
+  const linha1 = [a.rua, a.numero].filter(Boolean).join(", ");
+  const partes = [
+    [linha1, a.complemento].filter(Boolean).join(" — "),
+    [a.bairro, a.cidade].filter(Boolean).join(", "),
+    a.cep ? `CEP ${String(a.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2")}` : "",
+  ].filter(Boolean);
+  const extras = [
+    a.tipo_imovel ? `Imóvel: ${a.tipo_imovel}` : "",
+    a.referencia ? `Referência: ${a.referencia}` : "",
+    a.recebedor ? `Quem recebe: ${a.recebedor}` : "",
+  ].filter(Boolean);
+  return [partes.join("\n"), extras.join("\n")].filter(Boolean).join("\n") || e?.local || "";
+}
+
 const DEFAULT_THANKS = "Obrigado pela preferência! 💛 Qualquer dúvida sobre o pedido ou a instalação, é só chamar aqui. Boa obra!";
 
 // ---------- WhatsApp ----------
@@ -76,6 +128,7 @@ async function loadContext(orderId: string) {
     vendas: get("vendas")?.config || {},
     pagamento: simulated ? SIM_PAGAMENTO : get("pagamento") || null,
     notaFiscal: simulated ? { provider: "simulado" } : get("nota_fiscal") || null,
+    obsEntrega: get("frete")?.config?.observacao_entrega || (simulated ? SIM_OBS_ENTREGA : ""),
   };
 }
 
@@ -89,7 +142,9 @@ function orderSummary(order: any) {
   const freteLinha = e.tipo === "retirada"
     ? "Retirada na loja: sem custo"
     : `Frete${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}${e.prazo ? ` — ${e.prazo}` : ""}`;
-  return `${linhas.join("\n")}\n\nSubtotal: ${brl(order.subtotal)}\n${freteLinha}\n*Total: ${brl(order.total)}*`;
+  const end = e.tipo === "retirada" ? "" : enderecoTxt(e);
+  const cli = order.cliente?.nome ? `\n\n👤 ${order.cliente.nome}${order.cliente.cpf ? ` · CPF/CNPJ ${maskDoc(order.cliente.cpf)}` : ""}` : "";
+  return `${linhas.join("\n")}\n\nSubtotal: ${brl(order.subtotal)}\n${freteLinha}\n*Total: ${brl(order.total)}*${cli}${end ? `\n\n📍 *Entrega em:*\n${end}` : ""}\n\nSe algo estiver errado, é só me avisar antes de pagar. 😉`;
 }
 
 // ---------- Ações ----------
@@ -160,26 +215,35 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     orcamento: { ...(ctx.lead.orcamento || {}), status: "pago", pago_em: paidAt },
   }).eq("id", ctx.lead.id);
 
-  const formaTxt = metodo === "cartao" && parcelas ? `${METODO.cartao} em ${parcelas}x` : METODO[metodo] || metodo;
-  await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n\nPedido *#${order.numero}*\nValor: *${brl(order.total)}*\nForma: ${formaTxt}\n\nJá estamos separando seus produtos. 📦`);
+  const semJuros = Number(ctx.pagamento?.config?.parcelas_sem_juros || 1);
+  const cobrado = metodo === "cartao" && parcelas ? valorCartao(Number(order.total), parcelas, semJuros) : Number(order.total);
+  const formaTxt = metodo === "cartao" && parcelas
+    ? `${METODO.cartao} em ${parcelas}x de ${brl(cobrado / parcelas)}${cobrado > Number(order.total) ? " (com juros do cartão)" : " sem juros"}`
+    : METODO[metodo] || metodo;
+  await supabase.from("sales_orders").update({ pagamento: { ...(order.pagamento || {}), metodo, parcelas, valor_cobrado: cobrado } }).eq("id", order.id);
+  await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n\nPedido *#${order.numero}*\nValor: *${brl(cobrado)}*\nForma: ${formaTxt}\n\nJá estamos separando seus produtos. 📦`);
 
   if (ctx.simulated && nf) {
     await sleep(1200);
-    await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*\nEla também vai para o seu e-mail cadastrado.\n_(ambiente de demonstração — nota sem valor fiscal)_`);
+    const c = order.cliente || {};
+    const emNome = c.nome ? `\nEm nome de: ${c.nome}${c.cpf ? ` (${maskDoc(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
+    const envio = c.email ? `Enviamos o PDF para *${c.email}*.` : "Se quiser o PDF, é só pedir que eu te mando por aqui.";
+    await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*${emNome}\n${envio}\n_(ambiente de demonstração — nota sem valor fiscal)_`);
   }
 
   await sleep(1200);
   const e = order.entrega || {};
+  const quando = previsao(e.prazo);
   const entregaTxt = e.tipo === "retirada"
-    ? `📍 *Retirada na loja*${e.local ? `\n${e.local}` : ""}\nAvisamos por aqui assim que o pedido estiver separado. É só informar o número *#${order.numero}* no balcão.`
-    : `🚚 *Entrega*${e.local ? `: ${e.local}` : ""}${e.prazo ? `\nPrevisão: ${e.prazo}` : ""}\nAvisamos por aqui quando o pedido sair para entrega.`;
+    ? `📍 *Retirada na loja*${e.local ? `\n${e.local}` : ""}\nAvisamos por aqui assim que o pedido estiver separado. É só informar o número *#${order.numero}* no balcão${order.cliente?.nome ? ` e o nome ${order.cliente.nome}` : ""}.`
+    : `🚚 *Entrega agendada*\n${enderecoTxt(e)}${e.prazo ? `\n\nPrevisão: ${quando ? `*${quando}*` : e.prazo}${quando ? ` (${e.prazo})` : ""}` : ""}\nAvisamos por aqui quando o pedido sair para entrega.${ctx.obsEntrega ? `\n\nℹ️ ${ctx.obsEntrega}` : ""}`;
   await sendToCustomer(ctx, entregaTxt);
 
   await sleep(1200);
   await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
 
   const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
-  if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado* — pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(order.total)} (${formaTxt})`);
+  if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado* — pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(cobrado)} (${formaTxt})`);
 
   return json({ ok: true, numero: order.numero, nf });
 }
@@ -205,7 +269,8 @@ Deno.serve(async (req) => {
         const o = ctx.order;
         return json({
           numero: o.numero, status: o.status, itens: o.itens, subtotal: o.subtotal, frete: o.frete, total: o.total,
-          entrega: o.entrega, loja: ctx.agent?.name || "Loja", cliente: ctx.lead.name || "",
+          entrega: { ...o.entrega, endereco_txt: o.entrega?.tipo === "retirada" ? "" : enderecoTxt(o.entrega) },
+          loja: ctx.agent?.name || "Loja", cliente: o.cliente?.nome || ctx.lead.name || "",
           pagamento: ctx.pagamento?.config || {}, simulado: ctx.simulated,
         });
       }

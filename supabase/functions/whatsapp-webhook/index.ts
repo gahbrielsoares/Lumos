@@ -44,7 +44,7 @@ function toWhatsAppFormat(text: string): string {
 // de reserva do que arriscar mandar isso pro cliente.
 function looksLikeLeakedReasoning(text: string): boolean {
   // Avalia só o texto que vai pro cliente (sem as marcações internas, que podem ser longas num fechamento)
-  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)[^\]]*\]?/gi, "").trim();
+  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)[^\]]*\]?/gi, "").trim();
   const markers = [
     "here's a thinking process",
     "let me think",
@@ -552,7 +552,7 @@ function norm(s: string) {
 }
 
 // Frete calculado pelo código a partir da tabela (nunca pela IA)
-type Place = { cep?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null };
+type Place = { cep?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null; rua?: string | null };
 // deno-lint-ignore no-explicit-any
 function computeFreight(entrega: string | null, frete: any, subtotal: number, place: Place = {}) {
   if (!entrega && !place.cep && !place.bairro) return { tipo: null, valor: null, prazo: null, local: null };
@@ -563,7 +563,7 @@ function computeFreight(entrega: string | null, frete: any, subtotal: number, pl
   const cepDigits = place.cep || (entrega?.match(/\d{5}-?\d{3}/)?.[0] || "").replace(/\D/g, "") || null;
   const local = [place.bairro, place.cidade && `${place.cidade}${place.uf ? "/" + place.uf : ""}`].filter(Boolean).join(", ")
     || entrega || (cepDigits ? `CEP ${cepDigits}` : null);
-  if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits };
+  if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits, place };
 
   const faixas = frete.config?.faixas || [];
   // deno-lint-ignore no-explicit-any
@@ -589,10 +589,10 @@ function computeFreight(entrega: string | null, frete: any, subtotal: number, pl
     // deno-lint-ignore no-explicit-any
     hit = faixas.find((f: any) => /vizinh|outras cidades/i.test(f.regiao || ""));
   }
-  if (!hit) return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits };
+  if (!hit) return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits, place };
 
   const gratis = frete.config?.frete_gratis_acima > 0 && subtotal >= frete.config.frete_gratis_acima;
-  return { tipo: "entrega", valor: gratis ? 0 : Number(hit.valor || 0), prazo: hit.prazo || null, local, cep: cepDigits, faixa: hit.regiao || null, gratis };
+  return { tipo: "entrega", valor: gratis ? 0 : Number(hit.valor || 0), prazo: hit.prazo || null, local, cep: cepDigits, faixa: hit.regiao || null, gratis, place };
 }
 
 async function lookupCep(cep: string): Promise<Place | null> {
@@ -600,7 +600,7 @@ async function lookupCep(cep: string): Promise<Place | null> {
     const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: AbortSignal.timeout(3500) });
     const d = await res.json();
     if (!res.ok || d.erro) return null;
-    return { cep, bairro: d.bairro || null, cidade: d.localidade || null, uf: d.uf || null };
+    return { cep, bairro: d.bairro || null, cidade: d.localidade || null, uf: d.uf || null, rua: d.logradouro || null };
   } catch (_) {
     return null;
   }
@@ -626,6 +626,64 @@ async function resolveDelivery(customerTexts: string[], frete: any, subtotal = 0
     if (faixa) return computeFreight(t, frete, subtotal, { bairro: faixa.regiao });
   }
   return null;
+}
+
+// ---------- Dados do cliente e endereço de entrega ----------
+// A IA registra o que o cliente informa com [DADOS: campo=valor; ...]; o código guarda e controla o que falta.
+const DADOS_KEYS: Record<string, string> = {
+  nome: "nome completo", cpf: "CPF ou CNPJ (para a nota fiscal)", email: "e-mail (para enviar a nota)",
+  rua: "rua/avenida", numero: "número", complemento: "complemento (apto, bloco, casa dos fundos...)",
+  tipo_imovel: "tipo de imóvel (casa, apartamento, condomínio, comercial)", bairro: "bairro", cidade: "cidade",
+  cep: "CEP", referencia: "ponto de referência", recebedor: "quem vai receber a entrega",
+};
+const DADOS_ALIASES: Record<string, string> = {
+  cnpj: "cpf", documento: "cpf", "cpf/cnpj": "cpf", "e-mail": "email", endereco: "rua", logradouro: "rua",
+  avenida: "rua", "número": "numero", n: "numero", tipo: "tipo_imovel", imovel: "tipo_imovel", "referência": "referencia",
+  ponto_referencia: "referencia", quem_recebe: "recebedor",
+};
+
+function parseDados(reply: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of reply.matchAll(/\[DADOS:\s*([^\]]+)\]/gi)) {
+    for (const pair of m[1].split(/;|\|/)) {
+      const idx = pair.indexOf("=");
+      if (idx < 0) continue;
+      let key = norm(pair.slice(0, idx)).replace(/ /g, "_");
+      key = DADOS_ALIASES[key] || key;
+      const val = pair.slice(idx + 1).trim();
+      if (DADOS_KEYS[key] && val && !/^(\?|-|n\/a|nao informado|não informado)$/i.test(val)) out[key] = val.slice(0, 160);
+    }
+  }
+  return out;
+}
+
+// O que ainda falta pra fechar (obrigatório) e o que vale pedir (recomendado)
+// deno-lint-ignore no-explicit-any
+function missingDados(d: Record<string, string>, entregaTipo: string | null, nfAtiva: boolean) {
+  const req: string[] = ["nome"];
+  const rec: string[] = [];
+  if (entregaTipo !== "retirada") {
+    req.push("rua", "numero", "tipo_imovel");
+    if (!d.bairro && !d.cep) req.push("bairro");
+    if (/apart|apto|condom|bloco|predio|prédio/i.test(d.tipo_imovel || "") && !d.complemento) req.push("complemento");
+    rec.push("referencia", "recebedor");
+  }
+  if (nfAtiva) rec.push("cpf", "email");
+  return { required: req.filter((k) => !d[k]), recommended: rec.filter((k) => !d[k]) };
+}
+
+function describeDados(d: Record<string, string>, missing: { required: string[]; recommended: string[] }, entregaTipo: string | null): string {
+  const have = Object.entries(d).filter(([k]) => DADOS_KEYS[k]).map(([k, v]) => `${k}=${v}`).join("; ");
+  const lines = [`\n\nDados do cliente já registrados: ${have || "(nenhum ainda)"}`];
+  if (missing.required.length) {
+    lines.push(`OBRIGATÓRIO antes de fechar o pedido${entregaTipo === "retirada" ? "" : " (entrega)"}: ${missing.required.map((k) => DADOS_KEYS[k]).join(", ")}.`);
+  }
+  if (missing.recommended.length) lines.push(`Peça também, se ainda não pediu: ${missing.recommended.map((k) => DADOS_KEYS[k]).join(", ")} (se o cliente não quiser informar, tudo bem).`);
+  lines.push(`Peça esses dados de forma natural, no máximo 2 ou 3 por mensagem, de preferência quando o cliente já decidiu os produtos.
+Quando o cliente informar qualquer um deles, registre no FINAL da resposta: [DADOS: campo=valor; campo=valor]
+Campos: ${Object.keys(DADOS_KEYS).join(", ")}. Ex.: [DADOS: nome=Ana Souza; rua=Rua 3; numero=450; tipo_imovel=apartamento; complemento=Apto 21 bloco B]
+Se a rua já veio pelo CEP, só confirme com o cliente e peça o número.`);
+  return lines.join("\n");
 }
 
 // deno-lint-ignore no-explicit-any
@@ -951,6 +1009,21 @@ Deno.serve(async (req) => {
     const knownDelivery = !isRestaurant && freteInt ? await resolveDelivery(customerTexts, freteInt) : null;
     const deliveryInfo = describeDelivery(knownDelivery, freteInt);
     const isFirstReply = !(history || []).some((m) => m.direction === "out");
+
+    // Dados do cliente: o que já sabemos (CEP preenche rua/bairro/cidade) e o que falta pra fechar
+    const nfAtiva = (effIntegrations as { kind: string; enabled: boolean; provider: string | null }[])
+      .some((i) => i.kind === "nota_fiscal" && i.enabled && i.provider && i.provider !== "nenhum");
+    const dadosCliente: Record<string, string> = { ...(lead.dados_cliente || {}) };
+    if (!dadosCliente.nome && lead.name) dadosCliente.nome_whatsapp = lead.name;
+    const place = knownDelivery?.place;
+    if (place?.cep && !dadosCliente.cep) dadosCliente.cep = place.cep;
+    if (place?.bairro && !dadosCliente.bairro) dadosCliente.bairro = place.bairro;
+    if (place?.cidade && !dadosCliente.cidade) dadosCliente.cidade = `${place.cidade}${place.uf ? "/" + place.uf : ""}`;
+    if (place?.rua && !dadosCliente.rua) dadosCliente.rua = place.rua;
+    if (knownDelivery?.faixa && !/^demais|vizinh/i.test(knownDelivery.faixa) && !dadosCliente.bairro) dadosCliente.bairro = knownDelivery.faixa;
+    const entregaTipo = knownDelivery?.tipo || null;
+    const missingBefore = missingDados(dadosCliente, entregaTipo, nfAtiva);
+    const dadosInfo = isRestaurant || !freteInt ? "" : describeDados(dadosCliente, missingBefore, entregaTipo);
     const canStage = (st: string) => !disabledStages.includes(st);
 
     const stageInstructions = isRestaurant ? "" : `
@@ -976,7 +1049,8 @@ ${freteInt ? "  e a entrega: [ENTREGA: retirada] ou [ENTREGA: bairro e/ou CEP qu
   [ORCAMENTO: Argamassa Y | 2]
 ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
 - Se o cliente ainda não confirmou, recapitule o pedido em poucas linhas e pergunte se pode fechar.
-- Depois que o pedido foi pago, agradeça e ajude no que precisar (instalação, prazo, dúvidas).${deliveryInfo}`;
+- Só feche quando os dados OBRIGATÓRIOS abaixo estiverem completos. Se faltar algo, peça antes de fechar.
+- Depois que o pedido foi pago, agradeça e ajude no que precisar (instalação, prazo, dúvidas).${deliveryInfo}${dadosInfo}`;
 
     const restaurantInstructions = isRestaurant ? `
 
@@ -1061,9 +1135,26 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 Você não tem como fazer isso. Resolva nesta mensagem com as informações disponíveis. Se algo depende da equipe, trate como pendência que vem no resumo do pedido e siga coletando o que falta. Se o cliente já confirmou a compra, feche agora com as marcações.`);
       if (retry && !looksLikeLeakedReasoning(retry)) reply = retry;
     }
+    // Tentou fechar sem os dados obrigatórios? Pede de novo, agora coletando o que falta
+    const isClosing = (r: string) => /\[ORCAMENTO:/i.test(r) && /\[ETAPA:\s*aguardando_link/i.test(r);
+    if (reply && !isRestaurant && freteInt && isClosing(reply)) {
+      const merged = { ...dadosCliente, ...parseDados(reply) };
+      const entregaNoFechamento = /\[ENTREGA:\s*retir/i.test(reply) ? "retirada" : entregaTipo;
+      const stillMissing = missingDados(merged, entregaNoFechamento, nfAtiva).required;
+      if (stillMissing.length) {
+        console.log("Fechamento sem dados obrigatórios, pedindo antes:", stillMissing.join(", "));
+        const retry = await generate(activeProvider, `\n\nCORREÇÃO: você tentou fechar o pedido, mas ainda faltam dados obrigatórios: ${stillMissing.map((k) => DADOS_KEYS[k]).join(", ")}.
+NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que está quase tudo pronto e peça esses dados de forma natural e simpática.`);
+        if (retry && !looksLikeLeakedReasoning(retry) && !isClosing(retry)) reply = retry;
+      }
+    }
+
     if (!reply || looksLikeLeakedReasoning(reply)) {
       reply = "Só um segundinho que minha conexão falhou aqui — pode repetir sua última mensagem, por favor?";
     }
+
+    // Guarda a resposta com as marcações (antes de limpá-las) pra ler os dados do cliente
+    const rawReplyForMarkers = reply;
 
     // Extrai TODAS as marcações [FOTO: nome do produto] — o cliente pode pedir mais de uma foto de uma vez
     const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
@@ -1098,10 +1189,11 @@ Você não tem como fazer isso. Resolva nesta mensagem com as informações disp
       .replace(/\[ETAPA:[^\]]*\]/gi, "")
       .replace(/\[ORCAMENTO:[^\]]*\]/gi, "")
       .replace(/\[ENTREGA:[^\]]*\]/gi, "")
+      .replace(/\[DADOS:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)[^\]]*\]/gi, "")
       // Marcação cortada (a resposta terminou antes do "]"): remove até o fim da linha
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)\b[^\]\n]*$/gim, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS)\b[^\]\n]*$/gim, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -1126,6 +1218,10 @@ Você não tem como fazer isso. Resolva nesta mensagem com as informações disp
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "ia", text: reply });
 
     const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
+    const novosDados = parseDados(rawReplyForMarkers);
+    const dadosFinal: Record<string, string> = { ...dadosCliente, ...novosDados };
+    delete dadosFinal.nome_whatsapp;
+    if (JSON.stringify(dadosFinal) !== JSON.stringify(lead.dados_cliente || {})) leadUpdate.dados_cliente = dadosFinal;
     // O motivo do contato é definido uma vez (o primeiro); o resumo acompanha a conversa
     const motivoAtual = String(lead.motivo_contato || "").trim();
     if (contextoMatch) {
@@ -1153,7 +1249,13 @@ Você não tem como fazer isso. Resolva nesta mensagem com as informações disp
           owner_id, agent_id, lead_id: lead.id, itens, subtotal,
           frete: entrega.valor,
           total: Math.round((subtotal + (entrega.valor || 0)) * 100) / 100,
-          entrega, simulado: !!agent.is_simulator, status: "aguardando_aprovacao",
+          entrega: { ...entrega, place: undefined, endereco: entrega.tipo === "retirada" ? null : {
+            rua: dadosFinal.rua || null, numero: dadosFinal.numero || null, complemento: dadosFinal.complemento || null,
+            tipo_imovel: dadosFinal.tipo_imovel || null, bairro: dadosFinal.bairro || null, cidade: dadosFinal.cidade || null,
+            cep: dadosFinal.cep || entrega.cep || null, referencia: dadosFinal.referencia || null, recebedor: dadosFinal.recebedor || null,
+          } },
+          cliente: { nome: dadosFinal.nome || lead.name || null, cpf: dadosFinal.cpf || null, email: dadosFinal.email || null, telefone: customerNumber },
+          simulado: !!agent.is_simulator, status: "aguardando_aprovacao",
         };
         // Se o cliente mudou o pedido antes da aprovação, atualiza o mesmo pedido em vez de criar outro
         const { data: open } = await supabase

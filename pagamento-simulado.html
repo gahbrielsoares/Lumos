@@ -44,7 +44,7 @@
   <div class="wrap" id="app"><div class="spin"></div></div>
 
   <script type="module">
-    import { supabase } from "./js/supabaseClient.js?v=32";
+    import { supabase } from "./js/supabaseClient.js?v=33";
 
     const app = document.getElementById("app");
     const q = new URLSearchParams(location.search);
@@ -101,6 +101,7 @@
             <tr><td>${e.tipo === "retirada" ? "Retirada na loja" : `Frete${e.local ? ` · ${esc(e.local)}` : ""}`}${e.prazo ? `<div class="muted">${esc(e.prazo)}</div>` : ""}</td><td class="num">${Number(o.frete) === 0 ? "Grátis" : brl(o.frete)}</td></tr>
             <tr class="total"><td>Total</td><td class="num">${brl(o.total)}</td></tr>
           </table>
+          ${e.endereco_txt ? `<div class="muted" style="margin-top:12px; white-space:pre-line;"><strong>Entrega em:</strong>\n${esc(e.endereco_txt)}</div>` : ""}
         </div>
 
         <div class="card">

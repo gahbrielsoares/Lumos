@@ -726,6 +726,20 @@ create policy "Dono ve seus pedidos" on public.sales_orders for select using (au
   confirmação, número do pedido, nota fiscal (no simulador), entrega/retirada e o agradecimento.
 - Agentes que usam o mesmo número: responde o que estiver ativo ("Ativar neste número" na lista de agentes).
 
+## 23. Dados do cliente e endereço de entrega
+
+No **SQL Editor**:
+
+```sql
+alter table public.leads add column if not exists dados_cliente jsonb default '{}'::jsonb;
+alter table public.sales_orders add column if not exists cliente jsonb default '{}'::jsonb;
+```
+
+A IA registra o que o cliente informa com `[DADOS: campo=valor; ...]` (nome, CPF/CNPJ, e-mail, rua,
+número, complemento, tipo de imóvel, bairro, cidade, CEP, referência, quem recebe). O CEP preenche
+rua/bairro/cidade automaticamente (ViaCEP). O código só deixa fechar o pedido de entrega com nome,
+rua, número, tipo de imóvel e bairro (e complemento, se for apartamento/condomínio).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
