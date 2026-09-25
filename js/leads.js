@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=29";
+import { supabase } from "./supabaseClient.js?v=30";
 
 export const STAGES = [
   "novo_contato",
@@ -65,6 +65,26 @@ export async function listLeadsInRange(start, end, { isClient, agentId } = {}) {
 
   const { data } = await query;
   return data || [];
+}
+
+// Leads com atividade no período: entraram OU conversaram (última mensagem) dentro dele.
+// Assim quem já era lead e voltou a falar hoje também aparece no "Hoje".
+export async function listLeadsActiveInRange(start, end, { agentId } = {}) {
+  const s = start.toISOString(), e = end.toISOString();
+  let query = supabase
+    .from("leads")
+    .select("*")
+    .or(`and(created_at.gte.${s},created_at.lt.${e}),and(last_message_at.gte.${s},last_message_at.lt.${e})`)
+    .order("last_message_at", { ascending: false });
+  if (agentId) query = query.eq("agent_id", agentId);
+  const { data } = await query;
+  return data || [];
+}
+
+// Data que representa a atividade do lead dentro do período (pra gráficos)
+export function activityDate(lead, start, end) {
+  const last = lead.last_message_at ? new Date(lead.last_message_at) : null;
+  return last && last >= start && last < end ? last : new Date(lead.created_at);
 }
 
 export async function getLeadById(id) {

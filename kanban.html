@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=29" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=29" />
+  <script src="js/logo.js?v=30" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=30" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -88,15 +88,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=29";
-    import { initThemeToggle } from "./js/theme.js?v=29";
-    import { initMobileNav } from "./js/mobileNav.js?v=29";
-    import { renderSidebar } from "./js/sidebar.js?v=29";
-    import { supabase } from "./js/supabaseClient.js?v=29";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js?v=29";
-    import { listAgents } from "./js/agents.js?v=29";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=29";
-    import { openLeadPanel } from "./js/leadPanel.js?v=29";
+    import { requireSession, signOut } from "./js/auth.js?v=30";
+    import { initThemeToggle } from "./js/theme.js?v=30";
+    import { initMobileNav } from "./js/mobileNav.js?v=30";
+    import { renderSidebar } from "./js/sidebar.js?v=30";
+    import { supabase } from "./js/supabaseClient.js?v=30";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=30";
+    import { listAgents } from "./js/agents.js?v=30";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=30";
+    import { openLeadPanel } from "./js/leadPanel.js?v=30";
 
     await requireSession();
     initThemeToggle();
@@ -114,7 +114,7 @@
 
     async function loadBoard() {
       const agentId = document.getElementById("agent-filter").value;
-      let query = supabase.from("leads").select("*").order("created_at", { ascending: false });
+      let query = supabase.from("leads").select("*").order("last_message_at", { ascending: false, nullsFirst: false });
       if (agentId) query = query.eq("agent_id", agentId);
       const { data: leads } = await query;
       const visibleStages = STAGES.filter((s) => !disabledStages.includes(s));
@@ -130,7 +130,9 @@
       `).join("");
 
       (leads || []).forEach((lead) => {
-        const body = board.querySelector(`.kanban-col-body[data-stage="${lead.stage}"]`);
+        // Etapa desconhecida (valor antigo no banco) cai na primeira coluna, pra nenhum lead sumir
+        const knownStage = STAGES.includes(lead.stage);
+        const body = board.querySelector(`.kanban-col-body[data-stage="${knownStage ? lead.stage : visibleStages[0]}"]`);
         if (!body) return;
         const card = document.createElement("div");
         card.className = "kanban-card";
@@ -147,7 +149,7 @@
           <div class="name">${esc(lead.name || lead.phone)}</div>
           <div class="reason">${esc(lead.motivo_contato || "Sem motivo registrado")}</div>
           ${aiOff || quoteTotal || approved ? `<div class="kc-tags">${aiOff}${quoteTotal}${approved}</div>` : ""}
-          <div class="date">${new Date(lead.created_at).toLocaleDateString("pt-BR")}</div>
+          <div class="date">${lead.last_message_at ? `Última mensagem ${timeAgo(lead.last_message_at)}` : new Date(lead.created_at).toLocaleDateString("pt-BR")}</div>
         `;
         card.addEventListener("dragstart", () => card.classList.add("dragging"));
         card.addEventListener("dragend", () => card.classList.remove("dragging"));

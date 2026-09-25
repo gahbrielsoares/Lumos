@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=29" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=29" />
+  <script src="js/logo.js?v=30" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=30" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -66,7 +66,7 @@
       <div class="panel-stat-grid">
         <div class="panel-stat-card" id="card-stat_leads">
           <div>
-            <div class="label">Total de Leads</div>
+            <div class="label">Leads atendidos</div>
             <div class="value" id="stat-leads">–</div>
           </div>
           <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><circle cx="18" cy="8.5" r="2.5"/><path d="M16 20v-1a5 5 0 0 1 6.5-4.8"/></svg></div>
@@ -90,7 +90,7 @@
 
       <div class="panel-card" style="margin-top:20px;" id="card-chart_volume">
         <h3 style="font-family:var(--panel-font-display); font-size:16px; margin-bottom:4px;">Volume de Leads por Dia</h3>
-        <p style="font-size:13px; color:var(--panel-text-muted); margin-bottom:16px;">Quantidade de leads que entraram em contato a cada dia no período selecionado.</p>
+        <p style="font-size:13px; color:var(--panel-text-muted); margin-bottom:16px;">Quantidade de leads que conversaram a cada dia no período selecionado (novos e retornos).</p>
         <canvas id="chart-volume" height="80"></canvas>
       </div>
 
@@ -115,7 +115,7 @@
         </div>
         <table class="panel-table">
           <thead>
-            <tr><th>Início do Atendimento</th><th>Nome</th><th>WhatsApp</th><th>Motivo do Contato</th><th>Status</th></tr>
+            <tr><th>Última atividade</th><th>Nome</th><th>WhatsApp</th><th>Motivo do Contato</th><th>Status</th></tr>
           </thead>
           <tbody id="leads-table-body"></tbody>
         </table>
@@ -141,15 +141,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=29";
-    import { listLeadsInRange, STAGE_LABELS } from "./js/leads.js?v=29";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=29";
-    import { listAgents } from "./js/agents.js?v=29";
-    import { initThemeToggle } from "./js/theme.js?v=29";
-    import { initMobileNav } from "./js/mobileNav.js?v=29";
-    import { renderSidebar } from "./js/sidebar.js?v=29";
-    import { getRange } from "./js/dateRange.js?v=29";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=29";
+    import { requireSession, signOut } from "./js/auth.js?v=30";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=30";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=30";
+    import { listAgents } from "./js/agents.js?v=30";
+    import { initThemeToggle } from "./js/theme.js?v=30";
+    import { initMobileNav } from "./js/mobileNav.js?v=30";
+    import { renderSidebar } from "./js/sidebar.js?v=30";
+    import { getRange } from "./js/dateRange.js?v=30";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=30";
 
     await requireSession();
     initThemeToggle();
@@ -167,7 +167,8 @@
       currentRange = rangeKey;
       const agentId = document.getElementById("agent-filter").value;
       const [start, end] = getRange(rangeKey);
-      const leads = await listLeadsInRange(start, end, { agentId });
+      const leads = (await listLeadsActiveInRange(start, end, { agentId }))
+        .map((l) => ({ ...l, _activity: activityDate(l, start, end) }));
 
       document.getElementById("stat-leads").textContent = leads.length;
       document.getElementById("stat-clientes").textContent = leads.filter((l) => l.is_client).length;
@@ -189,7 +190,7 @@
       empty.style.display = "none";
       body.innerHTML = leads.slice(0, 30).map((l) => `
         <tr onclick="window.location.href='${l.is_client ? "clientes.html" : "leads.html"}?id=${l.id}'">
-          <td>${new Date(l.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+          <td>${l._activity.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
           <td>${l.name || "—"}</td>
           <td>${l.phone}</td>
           <td>${l.motivo_contato || "—"}</td>
@@ -203,7 +204,7 @@
     function renderVolumeChart(leads, start, end) {
       const days = [];
       for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) days.push(new Date(d));
-      const counts = days.map((d) => leads.filter((l) => dateKey(l.created_at) === dateKey(d)).length);
+      const counts = days.map((d) => leads.filter((l) => dateKey(l._activity) === dateKey(d)).length);
       const labels = days.map((d) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }));
 
       if (volumeChart) volumeChart.destroy();
@@ -217,7 +218,7 @@
     function renderWeekdayChart(leads) {
       const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
       const counts = new Array(7).fill(0);
-      leads.forEach((l) => counts[new Date(l.created_at).getDay()]++);
+      leads.forEach((l) => counts[l._activity.getDay()]++);
 
       if (weekdayChart) weekdayChart.destroy();
       weekdayChart = new Chart(document.getElementById("chart-weekday"), {
@@ -241,7 +242,7 @@
 
       let dentro = 0, fora = 0;
       leads.forEach((l) => {
-        const d = new Date(l.created_at);
+        const d = l._activity;
         const dayHours = hours.find((h) => h.weekday === d.getDay());
         if (!dayHours || !dayHours.is_open) { fora++; return; }
         const [hi, mi] = dayHours.hora_inicio.split(":").map(Number);
