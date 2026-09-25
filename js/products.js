@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=30";
+import { supabase } from "./supabaseClient.js?v=31";
 
 async function getUserId() {
   const { data } = await supabase.auth.getUser();
@@ -42,12 +42,12 @@ export async function listProducts() {
     .order("created_at", { ascending: false });
 }
 
-export async function addProduct({ name, description, price, unit, photo_urls, category_ids }) {
+export async function addProduct({ category_ids, ...fields }) {
   const owner_id = await getUserId();
 
   const { data: product, error } = await supabase
     .from("products")
-    .insert({ owner_id, name, description, price, unit, photo_urls })
+    .insert({ owner_id, ...fields })
     .select()
     .single();
 

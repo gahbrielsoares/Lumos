@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=30" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=30" />
+  <script src="js/logo.js?v=31" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=31" />
 </head>
 <body>
 
@@ -43,7 +43,29 @@
             <h1 style="font-size: 28px;">Agentes de IA</h1>
             <p style="margin-top: 6px;">Cada agente tem seu próprio número de WhatsApp, prompt e provedores. Crie quantos precisar.</p>
           </div>
-          <button class="btn btn-primary" id="new-agent-btn">+ Novo agente</button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="new-sim-btn">🧪 Criar agente simulador</button>
+            <button class="btn btn-primary" id="new-agent-btn">+ Novo agente</button>
+          </div>
+        </div>
+
+        <div class="settings-block" id="sim-create" style="display:none; margin-top:20px; max-width:640px;">
+          <h3 style="margin-bottom:6px;">Agente simulador</h3>
+          <p class="settings-hint">Cria um agente que demonstra o atendimento completo — do "oi" ao pagamento confirmado, nota fiscal e "obrigado pela preferência" — como se a loja estivesse integrada com tudo. Ele usa o mesmo WhatsApp e as mesmas chaves de IA do agente escolhido (dando preferência à IA grátis) e já vem com produtos de demonstração, que aparecem só nele.</p>
+          <div class="field" style="margin-top:12px;">
+            <label for="sim-base">Copiar WhatsApp e chaves de IA de</label>
+            <select id="sim-base"></select>
+          </div>
+          <div class="field">
+            <label for="sim-type">Tipo de negócio simulado</label>
+            <select id="sim-type"></select>
+          </div>
+          <p class="settings-hint">O agente de origem é desativado, porque os dois usam o mesmo número. Para voltar, é só clicar em "Ativar neste número" no card dele.</p>
+          <div id="sim-msg" class="form-msg"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" id="sim-confirm">Criar simulador</button>
+            <button class="btn btn-ghost" id="sim-cancel">Cancelar</button>
+          </div>
         </div>
 
         <div id="agents-list" class="hub-list" style="margin-top:24px;"></div>
@@ -60,6 +82,30 @@
         <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:10px; flex-wrap:wrap;">
           <h1 style="font-size: 26px;" id="detail-title">Agente</h1>
           <button class="btn btn-ghost" id="delete-agent-btn" style="color:#B94040; border-color:#B94040;">Excluir agente</button>
+        </div>
+
+        <!-- Simulação (só para o agente simulador) -->
+        <div id="sim-block" style="display:none;">
+          <div class="section-heading-row" style="margin-top:24px;">
+            <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6M10 3v6L4.5 18.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7 15h10"/></svg></div>
+            <h3>Simulação</h3>
+          </div>
+          <div class="settings-block" style="max-width: 640px;">
+            <p class="settings-hint">Este agente simula pagamento, frete, estoque e nota fiscal. O cliente recebe um link de pagamento de demonstração e, ao "pagar", recebe a confirmação, o número do pedido e a nota — sem nenhuma cobrança real.</p>
+            <div class="field" style="margin-top:12px;">
+              <label for="sim-type-detail">Tipo de negócio simulado</label>
+              <select id="sim-type-detail"></select>
+            </div>
+            <div class="field toggle-row">
+              <label for="sim-auto">Aprovar pedidos automaticamente (sem passar pelo vendedor)</label>
+              <input type="checkbox" id="sim-auto" class="toggle-input" />
+            </div>
+            <div id="sim-detail-msg" class="form-msg"></div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="sim-save">Salvar simulação</button>
+              <button class="btn btn-ghost" id="sim-reseed">Recadastrar produtos de demonstração</button>
+            </div>
+          </div>
         </div>
 
         <!-- Geral -->
@@ -200,17 +246,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=30";
-    import { initThemeToggle } from "./js/theme.js?v=30";
-    import { initMobileNav } from "./js/mobileNav.js?v=30";
-    import { renderSidebar } from "./js/sidebar.js?v=30";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=30";
-    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=30";
+    import { requireSession, signOut } from "./js/auth.js?v=31";
+    import { initThemeToggle } from "./js/theme.js?v=31";
+    import { initMobileNav } from "./js/mobileNav.js?v=31";
+    import { renderSidebar } from "./js/sidebar.js?v=31";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=31";
+    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=31";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=30";
+    } from "./js/agents.js?v=31";
+    import {
+      SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, seedSimulatorProducts, activateAgentForNumber,
+    } from "./js/simulator.js?v=31";
 
     await requireSession();
     initThemeToggle();
@@ -260,12 +309,54 @@
                 <div class="hub-title">${a.name || "Sem nome"}</div>
                 <div class="hub-sub">${a.phone_number || "Número não cadastrado"}</div>
               </div>
-              <span class="pill-badge ${a.enabled ? "stage-vendido" : ""}">${a.enabled ? "Ativo" : "Inativo"}</span>
+              <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+                ${a.is_simulator ? `<span class="pill-badge">🧪 Simulador</span>` : ""}
+                <span class="pill-badge ${a.enabled ? "stage-vendido" : ""}">${a.enabled ? "Ativo" : "Inativo"}</span>
+                ${!a.enabled && a.phone_number ? `<button class="btn btn-ghost btn-sm" data-activate="${a.id}" onclick="event.stopPropagation()">Ativar neste número</button>` : ""}
+              </div>
             </div>
           </div>
         </div>
       `).join("");
     }
+
+    // Ativar um agente desliga os outros que usam o mesmo número
+    document.getElementById("agents-list").addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-activate]");
+      if (!btn) return;
+      e.stopPropagation();
+      btn.disabled = true;
+      await activateAgentForNumber(btn.dataset.activate);
+      loadList();
+    });
+
+    // ---------- Criar simulador ----------
+    document.getElementById("new-sim-btn").addEventListener("click", async () => {
+      const agents = (await listAgents()).filter((a) => a.phone_number && !a.is_simulator);
+      const box = document.getElementById("sim-create");
+      if (!agents.length) return alert("Cadastre primeiro um agente com número de WhatsApp funcionando — o simulador copia a conexão dele.");
+      document.getElementById("sim-base").innerHTML = agents.map((a) => `<option value="${a.id}">${a.name} — ${a.phone_number}</option>`).join("");
+      document.getElementById("sim-type").innerHTML = SIM_BUSINESS_TYPES.map((t) =>
+        `<option value="${t.value}" ${t.available ? "" : "disabled"}>${t.label}${t.available ? "" : " (em breve)"}</option>`).join("");
+      box.style.display = "block";
+      box.scrollIntoView({ behavior: "smooth" });
+    });
+    document.getElementById("sim-cancel").addEventListener("click", () => (document.getElementById("sim-create").style.display = "none"));
+    document.getElementById("sim-confirm").addEventListener("click", async () => {
+      const msg = document.getElementById("sim-msg");
+      const btn = document.getElementById("sim-confirm");
+      btn.disabled = true;
+      msg.textContent = "Criando o simulador e cadastrando os produtos de demonstração…";
+      msg.className = "form-msg";
+      try {
+        const sim = await createSimulator(document.getElementById("sim-base").value, document.getElementById("sim-type").value);
+        window.location.href = `agents.html?id=${sim.id}`;
+      } catch (err) {
+        btn.disabled = false;
+        msg.textContent = `Erro: ${err.message}`;
+        msg.className = "form-msg error";
+      }
+    });
 
     document.getElementById("new-agent-btn").addEventListener("click", async () => {
       const cfg = await getBusinessConfig();
@@ -295,6 +386,15 @@
       document.getElementById("a-pause").checked = agent.pause_on_human !== false;
       document.getElementById("a-phones").value = agent.allowed_phones || "";
 
+      if (agent.is_simulator) {
+        document.getElementById("sim-block").style.display = "block";
+        const sel = document.getElementById("sim-type-detail");
+        sel.innerHTML = SIM_BUSINESS_TYPES.map((t) =>
+          `<option value="${t.value}" ${t.available ? "" : "disabled"}>${t.label}${t.available ? "" : " (em breve)"}</option>`).join("");
+        sel.value = agent.sim_business_type || "materiais_construcao";
+        document.getElementById("sim-auto").checked = !!agent.sim_auto_approve;
+      }
+
       activeSlot = agent.active_ai_slot || "gratis";
       currentEditSlot = activeSlot;
 
@@ -319,9 +419,41 @@
         pause_on_human: document.getElementById("a-pause").checked,
         allowed_phones: document.getElementById("a-phones").value.trim(),
       });
+      if (!error && document.getElementById("a-enabled").checked && document.getElementById("a-phone").value.trim()) {
+        await activateAgentForNumber(currentAgentId);
+      }
       msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
       msg.className = error ? "form-msg error" : "form-msg ok";
       document.getElementById("detail-title").textContent = document.getElementById("a-name").value || "Agente";
+    });
+
+    document.getElementById("sim-save").addEventListener("click", async () => {
+      const msg = document.getElementById("sim-detail-msg");
+      const type = document.getElementById("sim-type-detail").value;
+      const agent = await getAgent(currentAgentId);
+      const fields = { sim_business_type: type, sim_auto_approve: document.getElementById("sim-auto").checked };
+      // Trocou o nicho: o prompt do simulador acompanha
+      if (type !== agent.sim_business_type && SIM_PROMPTS[type]) {
+        fields.system_prompt = SIM_PROMPTS[type];
+        document.getElementById("a-prompt").value = SIM_PROMPTS[type];
+      }
+      const { error } = await saveAgent(currentAgentId, fields);
+      msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
+      msg.className = error ? "form-msg error" : "form-msg ok";
+    });
+
+    document.getElementById("sim-reseed").addEventListener("click", async () => {
+      const msg = document.getElementById("sim-detail-msg");
+      msg.textContent = "Cadastrando…";
+      msg.className = "form-msg";
+      try {
+        const n = await seedSimulatorProducts(currentAgentId, document.getElementById("sim-type-detail").value);
+        msg.textContent = n ? `${n} produto(s) de demonstração cadastrado(s).` : "Todos os produtos de demonstração já estão cadastrados.";
+        msg.className = "form-msg ok";
+      } catch (err) {
+        msg.textContent = `Erro: ${err.message}`;
+        msg.className = "form-msg error";
+      }
     });
 
     document.getElementById("delete-agent-btn").addEventListener("click", async () => {

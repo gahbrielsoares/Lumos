@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=30";
+import { supabase } from "./supabaseClient.js?v=31";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=30";
-import { getIntegration } from "./integrations.js?v=30";
+} from "./leads.js?v=31";
+import { getIntegration } from "./integrations.js?v=31";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -72,7 +72,33 @@ const CSS = `
 .lp .toggle-input:checked { background: var(--panel-accent); }
 `;
 
-let root, state = { lead: null, tab: "resumo", onChange: null, timer: null };
+let root, state = { lead: null, order: null, tab: "resumo", onChange: null, timer: null };
+
+const ORDER_STATUS = {
+  aguardando_aprovacao: "Aguardando aprovação",
+  aguardando_pagamento: "Link enviado — aguardando pagamento",
+  pago: "Pago",
+  cancelado: "Cancelado",
+};
+const UNIT = { m2: "m²", saco: "saco(s)", unidade: "un.", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rolo(s)" };
+const qty = (n) => String(Math.round(Number(n) * 1000) / 1000).replace(".", ",");
+
+async function loadOrder(leadId) {
+  const { data } = await supabase
+    .from("sales_orders").select("*").eq("lead_id", leadId)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return data || null;
+}
+
+async function orderAction(action, extra = {}) {
+  const { data, error } = await supabase.functions.invoke("orders", { body: { action, order_id: state.order.id, ...extra } });
+  if (error || data?.error) {
+    let m = data?.error || error?.message || "Erro";
+    try { const b = await error?.context?.json(); if (b?.error) m = b.error; } catch (_) { /* sem JSON */ }
+    throw new Error(m);
+  }
+  return data;
+}
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // Mostra a formatação do WhatsApp (*negrito*, ~tachado~) como no celular
@@ -172,6 +198,7 @@ export async function openLeadPanel(leadId, { tab = "resumo", onChange = null } 
   const lead = await getLeadById(leadId);
   if (!lead) return;
   state.lead = lead;
+  state.order = await loadOrder(leadId);
   document.getElementById("lp-backdrop").classList.add("open");
   document.getElementById("lp").classList.add("open");
   document.getElementById("lp").setAttribute("aria-hidden", "false");
@@ -189,6 +216,7 @@ export function closeLeadPanel() {
 async function refreshLead(fields) {
   if (fields) await updateLeadFields(state.lead.id, fields);
   state.lead = await getLeadById(state.lead.id);
+  state.order = await loadOrder(state.lead.id);
   state.onChange?.(state.lead);
   render();
 }
@@ -217,35 +245,69 @@ function aiBlock(l) {
     </div>`;
 }
 
+// Tabela do pedido (pedido real em sales_orders; se não houver, o orçamento salvo no lead)
 function quoteBlock(l) {
-  const q = l.orcamento;
+  const o = state.order;
+  const q = o || l.orcamento;
   if (!q?.itens?.length) {
     return `<div class="lp-empty">Nenhum orçamento montado pela IA ainda.${l.resumo_conversa ? " Veja o resumo acima." : ""}</div>`;
   }
+  const subtotal = o ? Number(o.subtotal) : Number(q.total || 0);
+  const frete = q.frete;
+  const e = q.entrega || {};
+  const editableFrete = o?.status === "aguardando_aprovacao";
   const missing = q.itens.some((i) => !i.product_id);
+  const noStock = q.itens.some((i) => i.sem_estoque);
   return `
     <div class="lp-quote">
+      ${o ? `<div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:8px;"><strong>Pedido #${o.numero}</strong><span class="lp-k" style="margin:0;">${ORDER_STATUS[o.status] || o.status}</span></div>` : ""}
       <table>
         <tr><th>Item</th><th class="num">Qtd</th><th class="num">Unit.</th><th class="num">Subtotal</th></tr>
         ${q.itens.map((i) => `
           <tr>
-            <td>${esc(i.nome)}${i.product_id ? "" : " ⚠️"}</td>
-            <td class="num">${esc(String(i.quantidade).replace(".", ","))} ${esc(i.unidade || "")}</td>
+            <td>${esc(i.nome)}${i.product_id ? "" : " ⚠️"}${i.sem_estoque ? " 📦" : ""}</td>
+            <td class="num">${i.caixas ? `${i.caixas} cx<br><span class="lp-k">${qty(i.quantidade)} m²</span>` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade || ""}`}</td>
             <td class="num">${i.preco_unitario != null ? brl(i.preco_unitario) : "—"}</td>
             <td class="num">${brl(i.subtotal)}</td>
           </tr>`).join("")}
-        <tr><td colspan="3">Frete</td><td class="num">${q.frete != null ? brl(q.frete) : "a calcular"}</td></tr>
-        <tr><td colspan="3" class="total">Total</td><td class="num total">${brl((q.total || 0) + (q.frete || 0))}</td></tr>
+        <tr>
+          <td colspan="3">${e.tipo === "retirada" ? "Retirada na loja" : `Frete${e.local ? ` <span class="lp-k">(${esc(e.local)}${e.prazo ? ` · ${esc(e.prazo)}` : ""})</span>` : ""}`}</td>
+          <td class="num">${editableFrete && e.tipo !== "retirada"
+            ? `<input type="number" id="lp-frete" min="0" step="0.01" value="${frete ?? ""}" placeholder="R$" style="width:90px; text-align:right; padding:4px 6px; border-radius:8px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text);" />`
+            : frete != null ? (Number(frete) === 0 ? "Grátis" : brl(frete)) : "a calcular"}</td>
+        </tr>
+        <tr><td colspan="3" class="total">Total</td><td class="num total">${brl(subtotal + Number(frete || 0))}</td></tr>
       </table>
       ${missing ? `<div class="lp-warn">⚠️ Item não encontrado no catálogo — confira o nome e o preço antes de aprovar.</div>` : ""}
-      <div class="lp-k" style="margin-top:8px;">Montado em ${new Date(q.criado_em).toLocaleString("pt-BR")}</div>
+      ${noStock ? `<div class="lp-warn">📦 Quantidade maior que o estoque cadastrado — confirme a disponibilidade.</div>` : ""}
+      ${o?.pagamento?.link ? `<div class="lp-k" style="margin-top:8px;">Link de pagamento: <a href="${o.pagamento.link}" target="_blank" rel="noopener">abrir</a>${o.simulado ? " (simulado)" : ""}</div>` : ""}
+      ${o?.status === "pago" ? `<div class="lp-k" style="margin-top:8px; color:#4A7C59;">✅ Pago em ${new Date(o.paid_at).toLocaleString("pt-BR")}${o.nf_numero ? ` · NF-e nº ${o.nf_numero}` : ""}</div>` : ""}
+      <div class="lp-k" style="margin-top:8px;">Montado em ${new Date(o?.created_at || q.criado_em).toLocaleString("pt-BR")}</div>
     </div>`;
+}
+
+function orderActions() {
+  const o = state.order;
+  if (!o) return `
+    <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
+    <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Encerrar atendimento</button>`;
+  if (o.status === "aguardando_aprovacao") return `
+    <button class="btn btn-primary" id="lp-approve">Aprovar e enviar link</button>
+    <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
+    <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Encerrar atendimento</button>`;
+  if (o.status === "aguardando_pagamento") return `
+    ${o.simulado && o.pagamento?.link ? `<a class="btn btn-primary" href="${o.pagamento.link}" target="_blank" rel="noopener">Abrir pagamento (simular)</a>` : ""}
+    <button class="btn ${o.simulado ? "btn-ghost" : "btn-primary"}" id="lp-paid">Confirmar pagamento recebido</button>
+    <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
+    <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Cancelar pedido</button>`;
+  return "";
 }
 
 async function renderSummary() {
   const l = state.lead;
   const body = document.getElementById("lp-body");
-  const waiting = l.stage === "aguardando_link";
+  const o = state.order;
+  const waiting = (o && ["aguardando_aprovacao", "aguardando_pagamento"].includes(o.status)) || l.stage === "aguardando_link";
 
   body.innerHTML = `
     <div class="lp-section">${aiBlock(l)}</div>
@@ -258,13 +320,9 @@ async function renderSummary() {
 
     ${waiting ? `
       <div class="lp-section">
-        <div class="lp-k">Orçamento para aprovação</div>
+        <div class="lp-k">${o?.status === "aguardando_pagamento" ? "Pedido aguardando pagamento" : "Orçamento para aprovação"}</div>
         ${quoteBlock(l)}
-        <div class="lp-actions" style="margin-top:12px;">
-          <button class="btn btn-primary" id="lp-approve">Aprovar e enviar link</button>
-          <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
-          <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Encerrar atendimento</button>
-        </div>
+        <div class="lp-actions" style="margin-top:12px;">${orderActions()}</div>
         <div class="lp-warn" id="lp-approve-msg" style="display:none;"></div>
       </div>` : ""}
 
@@ -276,7 +334,7 @@ async function renderSummary() {
     </div>
     <div class="lp-section"><div class="lp-k">Motivo do contato</div><div class="lp-v">${esc(l.motivo_contato || "—")}</div></div>
     <div class="lp-section"><div class="lp-k">Resumo da conversa</div><div class="lp-v">${esc(l.resumo_conversa || "—")}</div></div>
-    ${!waiting && l.orcamento?.itens?.length ? `<div class="lp-section"><div class="lp-k">Último orçamento</div>${quoteBlock(l)}</div>` : ""}
+    ${!waiting && (o?.itens?.length || l.orcamento?.itens?.length) ? `<div class="lp-section"><div class="lp-k">${o?.status === "pago" ? "Último pedido" : "Último orçamento"}</div>${quoteBlock(l)}</div>` : ""}
   `;
 
   document.getElementById("lp-ai").addEventListener("change", (e) => refreshLead({ ai_enabled: e.target.checked }));
@@ -287,14 +345,32 @@ async function renderSummary() {
   });
 
   if (waiting) {
-    document.getElementById("lp-approve").addEventListener("click", approve);
-    document.getElementById("lp-talk").addEventListener("click", async () => {
+    const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);
+    const run = async (btnId, fn) => {
+      const btn = document.getElementById(btnId);
+      const msg = document.getElementById("lp-approve-msg");
+      btn.disabled = true;
+      msg.style.display = "none";
+      try { await fn(); await refreshLead(); }
+      catch (err) { btn.disabled = false; msg.textContent = err.message; msg.style.display = "block"; }
+    };
+    on("lp-approve", () => run("lp-approve", async () => {
+      if (!state.order) return approveLegacy();
+      const freteEl = document.getElementById("lp-frete");
+      await orderAction("approve", freteEl && freteEl.value !== "" ? { frete: Number(freteEl.value) } : {});
+    }));
+    on("lp-paid", () => {
+      if (!confirm("Confirmar que o pagamento deste pedido foi recebido? O cliente vai receber a confirmação no WhatsApp.")) return;
+      run("lp-paid", () => orderAction("mark_paid"));
+    });
+    on("lp-talk", async () => {
       window.open(whatsappLink(l.phone), "_blank", "noopener");
       await refreshLead({ ai_enabled: false });
     });
-    document.getElementById("lp-close-deal").addEventListener("click", async () => {
-      if (!confirm("Encerrar este atendimento? O lead vai para \"Perdido\".")) return;
-      await updateLeadStage(l.id, "perdido");
+    on("lp-close-deal", async () => {
+      if (!confirm(state.order ? "Cancelar este pedido? O lead vai para \"Perdido\"." : "Encerrar este atendimento? O lead vai para \"Perdido\".")) return;
+      if (state.order) await orderAction("cancel");
+      else await updateLeadStage(l.id, "perdido");
       refreshLead();
     });
   }
@@ -302,7 +378,7 @@ async function renderSummary() {
 
 // Aprovação: registra quem/quando aprovou. O envio automático do link entra
 // quando a integração de pagamento for conectada de verdade.
-async function approve() {
+async function approveLegacy() {
   const msg = document.getElementById("lp-approve-msg");
   const pay = await getIntegration("pagamento");
   const { data: userData } = await supabase.auth.getUser();
@@ -335,7 +411,7 @@ async function renderChat() {
       </div>
       <div class="lp-chat">
         ${msgs.length ? msgs.map((m) => `
-          <div class="lp-msg ${m.direction === "in" ? "in" : `out ${m.sender === "vendedor" ? "vendedor" : ""}`}">${m.direction === "out" ? `<span class="lp-who">${m.sender === "vendedor" ? "Vendedor" : "IA"}</span>` : ""}<span class="lp-text">${waFormat(m.text)}</span><time>${new Date(m.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</time></div>`).join("") : `<div class="lp-empty">Nenhuma mensagem ainda.</div>`}
+          <div class="lp-msg ${m.direction === "in" ? "in" : `out ${m.sender === "vendedor" ? "vendedor" : ""}`}">${m.direction === "out" ? `<span class="lp-who">${m.sender === "vendedor" ? "Vendedor" : m.sender === "sistema" ? "Sistema" : "IA"}</span>` : ""}<span class="lp-text">${waFormat(m.text)}</span><time>${new Date(m.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</time></div>`).join("") : `<div class="lp-empty">Nenhuma mensagem ainda.</div>`}
       </div>`;
     document.getElementById("lp-ai").addEventListener("change", (e) => refreshLead({ ai_enabled: e.target.checked }));
     if (atBottom || !draw.done) body.scrollTop = body.scrollHeight;

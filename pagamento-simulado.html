@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pagamento do pedido</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <style>
+    :root { --bg:#F6F4EF; --card:#FFFFFF; --text:#1C2B3A; --muted:#7A7060; --border:#E8E2D9; --accent:#C9A84C; --ok:#2F7D4F; --danger:#B94040; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      padding: env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0); }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 18px 16px 40px; }
+    .demo { background:#FFF7E0; border:1px solid #F0D68A; color:#7A5A00; border-radius:12px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px; margin-bottom:14px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    .muted { color:var(--muted); font-size:13.5px; }
+    .items { width:100%; border-collapse:collapse; font-size:14px; margin-top:10px; }
+    .items td { padding:8px 0; border-top:1px solid var(--border); vertical-align:top; }
+    .items td.num { text-align:right; white-space:nowrap; padding-left:10px; }
+    .total td { font-weight:700; font-size:17px; }
+    .methods { display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-top:12px; }
+    .method { border:1.5px solid var(--border); border-radius:12px; padding:12px 6px; text-align:center; font-size:14px; font-weight:600; cursor:pointer; background:#fff; color:var(--text); }
+    .method.active { border-color:var(--accent); background:#FBF6E6; }
+    .pane { margin-top:14px; display:none; }
+    .pane.show { display:block; }
+    .qr { width:190px; height:190px; margin:6px auto 10px; display:block; }
+    .copy { display:flex; gap:8px; }
+    .copy input, .field input, .field select { flex:1; width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:10px; font-size:14px; background:#FAFAF8; color:var(--text); }
+    .field { margin-bottom:10px; }
+    .field label { display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+    .row { display:flex; gap:10px; }
+    .btn { display:block; width:100%; border:none; border-radius:12px; padding:15px; font-size:16px; font-weight:700; background:var(--accent); color:#1C2B3A; cursor:pointer; margin-top:14px; }
+    .btn.small { width:auto; padding:11px 14px; font-size:14px; margin:0; }
+    .btn:disabled { opacity:.6; cursor:default; }
+    .err { color:var(--danger); font-size:14px; margin-top:10px; }
+    .success { text-align:center; padding:26px 18px; }
+    .check { width:72px; height:72px; border-radius:50%; background:#E6F4EC; color:var(--ok); display:flex; align-items:center; justify-content:center; font-size:38px; margin:0 auto 12px; }
+    .spin { width:34px; height:34px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation: s .8s linear infinite; margin: 40px auto; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><div class="spin"></div></div>
+
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js?v=31";
+
+    const app = document.getElementById("app");
+    const q = new URLSearchParams(location.search);
+    const order_id = q.get("p"), token = q.get("t");
+    const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    const qty = (n) => String(Math.round(n * 1000) / 1000).replace(".", ",");
+    const UNIT = { m2: "m²", saco: "saco(s)", unidade: "un.", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rolo(s)" };
+
+    async function call(body) {
+      const { data, error } = await supabase.functions.invoke("orders", { body: { order_id, token, ...body } });
+      if (error) {
+        let m = error.message;
+        try { const b = await error.context.json(); if (b?.error) m = b.error; } catch (_) {}
+        throw new Error(m);
+      }
+      return data;
+    }
+
+    // QR "de mentira" (padrão visual), só pra demonstração
+    function fakeQr(seed) {
+      let x = [...seed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+      const rnd = () => ((x = (x * 1103515245 + 12345) >>> 0) / 4294967296);
+      const n = 29, cells = [];
+      const finder = (r, c) => [[0,0],[0,n-7],[n-7,0]].some(([fr,fc]) => r>=fr && r<fr+7 && c>=fc && c<fc+7);
+      const finderOn = (r, c) => { for (const [fr,fc] of [[0,0],[0,n-7],[n-7,0]]) { const a=r-fr,b=c-fc; if (a>=0&&a<7&&b>=0&&b<7) return a===0||a===6||b===0||b===6||(a>=2&&a<=4&&b>=2&&b<=4); } return false; };
+      for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+        const on = finder(r, c) ? finderOn(r, c) : rnd() > 0.52;
+        if (on) cells.push(`<rect x="${c}" y="${r}" width="1" height="1"/>`);
+      }
+      return `<svg class="qr" viewBox="-1 -1 ${n+2} ${n+2}" shape-rendering="crispEdges"><rect x="-1" y="-1" width="${n+2}" height="${n+2}" fill="#fff"/><g fill="#1C2B3A">${cells.join("")}</g></svg>`;
+    }
+
+    function render(o) {
+      if (o.status === "pago") return renderSuccess(o, true);
+      if (o.status !== "aguardando_pagamento") {
+        app.innerHTML = `<div class="card"><h1>Pedido #${o.numero}</h1><p class="muted">Este pedido não está disponível para pagamento.</p></div>`;
+        return;
+      }
+      const e = o.entrega || {};
+      const pag = o.pagamento || {};
+      const metodos = pag.metodos || ["pix", "cartao", "boleto"];
+      const maxP = pag.max_parcelas || 1, semJuros = pag.parcelas_sem_juros || 1;
+      const pixCode = `00020126580014BR.GOV.BCB.PIX0136${order_id.slice(0, 32)}5204000053039865406${Number(o.total).toFixed(2)}5802BR6304DEMO`;
+
+      app.innerHTML = `
+        ${o.simulado ? `<div class="demo">🧪 <strong>Ambiente de demonstração.</strong> Nenhuma cobrança real será feita.</div>` : ""}
+        <div class="card">
+          <div class="muted">${esc(o.loja)}</div>
+          <h1>Pedido #${o.numero}</h1>
+          ${o.cliente ? `<div class="muted">Cliente: ${esc(o.cliente)}</div>` : ""}
+          <table class="items">
+            ${o.itens.map((i) => `<tr><td>${esc(i.nome)}<div class="muted">${i.caixas ? `${i.caixas} caixas · ${qty(i.quantidade)} m²` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`}</div></td><td class="num">${brl(i.subtotal)}</td></tr>`).join("")}
+            <tr><td>${e.tipo === "retirada" ? "Retirada na loja" : `Frete${e.local ? ` · ${esc(e.local)}` : ""}`}${e.prazo ? `<div class="muted">${esc(e.prazo)}</div>` : ""}</td><td class="num">${Number(o.frete) === 0 ? "Grátis" : brl(o.frete)}</td></tr>
+            <tr class="total"><td>Total</td><td class="num">${brl(o.total)}</td></tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <strong>Forma de pagamento</strong>
+          <div class="methods">
+            ${metodos.includes("pix") ? `<button class="method" data-m="pix">Pix</button>` : ""}
+            ${metodos.includes("cartao") ? `<button class="method" data-m="cartao">Cartão</button>` : ""}
+            ${metodos.includes("boleto") ? `<button class="method" data-m="boleto">Boleto</button>` : ""}
+          </div>
+
+          <div class="pane" data-pane="pix">
+            ${fakeQr(order_id)}
+            <p class="muted" style="text-align:center; margin:0 0 10px;">Escaneie o QR Code ou copie o código Pix</p>
+            <div class="copy"><input readonly value="${pixCode}" id="pix-code" /><button class="btn small" id="copy-pix">Copiar</button></div>
+          </div>
+
+          <div class="pane" data-pane="cartao">
+            <div class="field"><label>Número do cartão</label><input inputmode="numeric" value="4111 1111 1111 1111" /></div>
+            <div class="field"><label>Nome impresso</label><input value="${esc((o.cliente || "CLIENTE DEMONSTRAÇÃO").toUpperCase())}" /></div>
+            <div class="row">
+              <div class="field"><label>Validade</label><input value="12/30" /></div>
+              <div class="field"><label>CVV</label><input value="123" /></div>
+            </div>
+            <div class="field"><label>Parcelas</label>
+              <select id="parcelas">
+                ${Array.from({ length: maxP }, (_, k) => k + 1).map((n) => {
+                  const juros = n > semJuros ? 1 + 0.0199 * n : 1;
+                  const total = o.total * juros;
+                  return `<option value="${n}">${n}x de ${brl(total / n)}${n > semJuros ? ` (total ${brl(total)})` : " sem juros"}</option>`;
+                }).join("")}
+              </select>
+            </div>
+          </div>
+
+          <div class="pane" data-pane="boleto">
+            <p class="muted">Linha digitável:</p>
+            <div class="copy"><input readonly value="34191.79001 01043.510047 91020.150008 1 ${String(Math.round(o.total * 100)).padStart(10, "0")}" /></div>
+            <p class="muted" style="margin-top:8px;">Vencimento em 3 dias úteis. A compensação leva até 2 dias.</p>
+          </div>
+
+          <button class="btn" id="pay" disabled>Escolha a forma de pagamento</button>
+          <div class="err" id="err"></div>
+        </div>`;
+
+      let metodo = null;
+      app.querySelectorAll(".method").forEach((b) => b.addEventListener("click", () => {
+        metodo = b.dataset.m;
+        app.querySelectorAll(".method").forEach((x) => x.classList.toggle("active", x === b));
+        app.querySelectorAll(".pane").forEach((p) => p.classList.toggle("show", p.dataset.pane === metodo));
+        const pay = document.getElementById("pay");
+        pay.disabled = false;
+        pay.textContent = metodo === "pix" ? "Já paguei (simular Pix)" : metodo === "boleto" ? "Simular pagamento do boleto" : `Pagar ${brl(o.total)}`;
+      }));
+      document.getElementById("copy-pix")?.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(document.getElementById("pix-code").value); document.getElementById("copy-pix").textContent = "Copiado!"; } catch (_) {}
+      });
+      document.getElementById("pay").addEventListener("click", async () => {
+        const btn = document.getElementById("pay");
+        btn.disabled = true;
+        btn.textContent = "Processando…";
+        document.getElementById("err").textContent = "";
+        try {
+          const parcelas = metodo === "cartao" ? Number(document.getElementById("parcelas").value) : null;
+          await call({ action: "pay_simulated", metodo, parcelas });
+          renderSuccess(o, false);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "Tentar de novo";
+          document.getElementById("err").textContent = err.message;
+        }
+      });
+    }
+
+    function renderSuccess(o, already) {
+      app.innerHTML = `
+        ${o.simulado ? `<div class="demo">🧪 <strong>Ambiente de demonstração.</strong> Nenhuma cobrança real foi feita.</div>` : ""}
+        <div class="card success">
+          <div class="check">✓</div>
+          <h1>${already ? "Pedido já pago" : "Pagamento aprovado!"}</h1>
+          <p class="muted">Pedido <strong>#${o.numero}</strong> · ${brl(o.total)}</p>
+          <p style="margin-top:14px;">A confirmação, a nota fiscal e os detalhes da entrega foram enviados no seu WhatsApp. 💬</p>
+        </div>`;
+    }
+
+    if (!order_id || !token) {
+      app.innerHTML = `<div class="card"><h1>Link inválido</h1><p class="muted">Confira o link recebido no WhatsApp.</p></div>`;
+    } else {
+      try { render(await call({ action: "get_public" })); }
+      catch (err) { app.innerHTML = `<div class="card"><h1>Não foi possível abrir o pedido</h1><p class="muted">${esc(err.message)}</p></div>`; }
+    }
+  </script>
+</body>
+</html>

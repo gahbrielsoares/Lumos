@@ -671,6 +671,61 @@ No painel da UAZAPI, no webhook da instância, as mensagens enviadas pelo própr
 número (`fromMe`) precisam chegar: **não** marque o filtro `fromMeYes` em
 "excluir mensagens". Pode (e deve) manter `wasSentByApi` e `isGroupYes` excluídos.
 
+## 22. Agente simulador, pedidos de venda e produtos por agente
+
+No **SQL Editor**:
+
+```sql
+-- Produtos: em quais agentes aparecem (vazio = todos), m² por caixa e estoque
+alter table public.products add column if not exists agent_ids uuid[] default '{}';
+alter table public.products add column if not exists m2_por_caixa numeric(10,3);
+alter table public.products add column if not exists estoque numeric(12,2);
+
+-- Agente simulador
+alter table public.agents add column if not exists is_simulator boolean default false;
+alter table public.agents add column if not exists sim_business_type text default 'materiais_construcao';
+alter table public.agents add column if not exists sim_auto_approve boolean default false;
+
+-- Pedidos de venda (número sequencial a partir de 1001)
+create table if not exists public.sales_orders (
+  id uuid default gen_random_uuid() primary key,
+  numero bigint generated always as identity (start with 1001) unique,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  agent_id uuid references public.agents(id) on delete set null,
+  lead_id uuid references public.leads(id) on delete cascade not null,
+  itens jsonb not null default '[]'::jsonb,
+  subtotal numeric(12,2) default 0,
+  frete numeric(12,2),
+  total numeric(12,2) default 0,
+  entrega jsonb default '{}'::jsonb,
+  status text default 'aguardando_aprovacao'
+    check (status in ('aguardando_aprovacao','aguardando_pagamento','pago','cancelado')),
+  pagamento jsonb default '{}'::jsonb,
+  nf_numero text,
+  simulado boolean default false,
+  created_at timestamptz default now(),
+  approved_at timestamptz,
+  paid_at timestamptz
+);
+
+alter table public.sales_orders enable row level security;
+drop policy if exists "Dono ve seus pedidos" on public.sales_orders;
+create policy "Dono ve seus pedidos" on public.sales_orders for select using (auth.uid() = owner_id);
+```
+
+### Edge Function `orders`
+1. Crie a função `orders` e cole `supabase/functions/orders/index.ts`.
+2. **"Enforce JWT verification" DESLIGADO** (a página de pagamento é pública; a função confere o token do link, o login do dono ou a chave interna).
+3. Opcional: secret `SITE_URL` com o endereço do site (padrão: `https://gahbrielsoares.github.io/Lumos`).
+
+### Como funciona
+- A IA fecha o pedido com `[ORCAMENTO: produto | qtd]`, `[ENTREGA: bairro/CEP ou retirada]` e `[ETAPA: aguardando_link]`.
+- O **código** calcula preço, arredonda pisos para caixas fechadas, confere estoque e calcula o frete pela tabela.
+- O pedido aparece no Kanban em "Aguardando link de pagamento". Ao aprovar, o cliente recebe o resumo e o link.
+- Pago (simulado pela página `pagamento-simulado.html` ou confirmado pelo vendedor): o cliente recebe
+  confirmação, número do pedido, nota fiscal (no simulador), entrega/retirada e o agradecimento.
+- Agentes que usam o mesmo número: responde o que estiver ativo ("Ativar neste número" na lista de agentes).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

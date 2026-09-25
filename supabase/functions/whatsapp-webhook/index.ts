@@ -436,6 +436,113 @@ async function sendWhatsAppPhoto(
   return res;
 }
 
+// Vários agentes podem usar o mesmo número (ex.: simulador x agente real): vale o que estiver ativo
+// deno-lint-ignore no-explicit-any
+function pickAgent(agents: any[] | null, businessNumber: string) {
+  const matches = (agents || []).filter((a) => onlyDigits(a.phone_number) === businessNumber);
+  return matches.find((a) => a.enabled !== false) || matches[0] || null;
+}
+
+// ---------- Integrações simuladas (agente simulador) ----------
+const SIM_DEFAULTS: Record<string, { kind: string; provider: string | null; enabled: boolean; config: Record<string, unknown> }> = {
+  vendas: { kind: "vendas", provider: null, enabled: true, config: {
+    ia_consulta: true, aprovacao_humana: true, perda_padrao: 10, desconto_max: 5, validade_orcamento_dias: 3, pedido_minimo: 0,
+    mensagem_pos_pagamento: "Obrigado pela preferência! 💛 Qualquer dúvida sobre o pedido ou a instalação, é só chamar aqui. Boa obra!",
+  } },
+  pagamento: { kind: "pagamento", provider: "simulado", enabled: true, config: {
+    ia_consulta: true, metodos: ["pix", "cartao", "boleto"], max_parcelas: 10, parcelas_sem_juros: 3, validade_link_horas: 24,
+  } },
+  frete: { kind: "frete", provider: "proprio", enabled: true, config: {
+    ia_consulta: true, permite_retirada: true, endereco_retirada: "Av. das Indústrias, 1500 — loja de demonstração",
+    frete_gratis_acima: 3000, fora_da_tabela: "humano",
+    faixas: [
+      { regiao: "Centro", valor: 25, prazo: "1 dia útil" },
+      { regiao: "Demais bairros da cidade", valor: 45, prazo: "2 dias úteis" },
+      { regiao: "Cidades vizinhas (até 30 km)", valor: 90, prazo: "3 dias úteis" },
+    ],
+  } },
+  estoque: { kind: "estoque", provider: "manual", enabled: true, config: { ia_consulta: true, bloquear_sem_estoque: true } },
+  nota_fiscal: { kind: "nota_fiscal", provider: "simulado", enabled: true, config: { ia_consulta: true, emitir_quando: "apos_pagamento" } },
+};
+
+// No simulador tudo está "integrado": usa as regras de venda/frete do dono se estiverem ativas,
+// e pagamento + nota fiscal sempre simulados.
+// deno-lint-ignore no-explicit-any
+function effectiveIntegrations(agent: any, integrations: any[]): any[] {
+  if (!agent?.is_simulator) return integrations;
+  // deno-lint-ignore no-explicit-any
+  const own = (kind: string) => integrations.find((i: any) => i.kind === kind && i.enabled);
+  const vendas = own("vendas") ? { ...own("vendas"), config: { ...own("vendas").config } } : structuredClone(SIM_DEFAULTS.vendas);
+  if (agent.sim_auto_approve) vendas.config.aprovacao_humana = false;
+  return [
+    vendas,
+    SIM_DEFAULTS.pagamento,
+    own("frete") || SIM_DEFAULTS.frete,
+    SIM_DEFAULTS.estoque,
+    SIM_DEFAULTS.nota_fiscal,
+  ];
+}
+
+function norm(s: string) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Frete calculado pelo código a partir da tabela (nunca pela IA)
+// deno-lint-ignore no-explicit-any
+function computeFreight(entrega: string | null, frete: any, subtotal: number) {
+  if (!entrega) return { tipo: null, valor: null, prazo: null, local: null };
+  const txt = norm(entrega);
+  if (/retir/.test(txt)) return { tipo: "retirada", valor: 0, prazo: null, local: frete?.config?.endereco_retirada || null };
+  if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local: entrega };
+
+  const faixas = frete.config?.faixas || [];
+  const cep = Number((entrega.match(/\d{5}-?\d{3}/)?.[0] || "").replace(/\D/g, "")) || null;
+  // deno-lint-ignore no-explicit-any
+  let hit = faixas.find((f: any) => f.regiao && !/^demais/i.test(f.regiao) && (txt.includes(norm(f.regiao)) || norm(f.regiao).includes(txt)));
+  // deno-lint-ignore no-explicit-any
+  if (!hit && cep) hit = faixas.find((f: any) => {
+    const a = Number(String(f.cep_inicio || "").replace(/\D/g, "")), b = Number(String(f.cep_fim || f.cep_inicio || "").replace(/\D/g, ""));
+    return a && b && cep >= a && cep <= b;
+  });
+  // deno-lint-ignore no-explicit-any
+  if (!hit) hit = faixas.find((f: any) => /^demais/i.test(f.regiao || ""));
+  if (!hit) return { tipo: "entrega", valor: null, prazo: null, local: entrega };
+
+  const gratis = frete.config?.frete_gratis_acima > 0 && subtotal >= frete.config.frete_gratis_acima;
+  return { tipo: "entrega", valor: gratis ? 0 : Number(hit.valor || 0), prazo: hit.prazo || null, local: entrega, gratis };
+}
+
+// Itens do orçamento: preço do catálogo, pisos arredondados para caixas fechadas, aviso de estoque
+// deno-lint-ignore no-explicit-any
+function buildOrderItems(matches: RegExpMatchArray[], products: any[]) {
+  return matches.map((m) => {
+    const itemName = m[1].trim();
+    let quantidade = parseQty(m[2]);
+    const product = products.find((p) => normalizeForMatch(p.name) === normalizeForMatch(itemName))
+      || products.find((p) =>
+        normalizeForMatch(p.name).includes(normalizeForMatch(itemName)) ||
+        normalizeForMatch(itemName).includes(normalizeForMatch(p.name)));
+    let caixas: number | null = null;
+    if (product?.unit === "m2" && product.m2_por_caixa > 0) {
+      caixas = Math.ceil(quantidade / Number(product.m2_por_caixa) - 1e-9);
+      quantidade = Math.round(caixas * Number(product.m2_por_caixa) * 1000) / 1000;
+    } else if (product && product.unit !== "m2") {
+      quantidade = Math.ceil(quantidade);
+    }
+    const preco = product?.price != null ? Number(product.price) : null;
+    return {
+      product_id: product?.id || null,
+      nome: product?.name || itemName,
+      quantidade,
+      caixas,
+      unidade: product?.unit || "",
+      preco_unitario: preco,
+      subtotal: preco != null ? Math.round(preco * quantidade * 100) / 100 : 0,
+      sem_estoque: product?.estoque != null && quantidade > Number(product.estoque),
+    };
+  });
+}
+
 // ---------- Mensagens que o vendedor manda pelo celular ----------
 // fromMe + wasSentByApi = eco de algo que a IA ou o próprio Lumos enviou (já está salvo).
 // fromMe SEM wasSentByApi = alguém digitou direto no WhatsApp da loja: registramos
@@ -479,7 +586,7 @@ async function handleOwnerMessage(payload: any, msg: any): Promise<Response> {
   if (customerNumber === businessNumber) return new Response("self", { status: 200 });
 
   const { data: agents } = await supabase.from("agents").select("*").not("phone_number", "is", null);
-  const agent = agents?.find((a) => onlyDigits(a.phone_number) === businessNumber);
+  const agent = pickAgent(agents, businessNumber);
   if (!agent) return new Response("no agent", { status: 200 });
 
   // Não registra os avisos de "pedido aguardando aprovação" que o sistema manda pro vendedor
@@ -565,7 +672,7 @@ Deno.serve(async (req) => {
 
     console.log("Agentes cadastrados:", JSON.stringify((agents || []).map((a) => ({ id: a.id, phone_number: a.phone_number }))));
 
-    const agent = agents?.find((a) => onlyDigits(a.phone_number) === businessNumber);
+    const agent = pickAgent(agents, businessNumber);
 
     if (!agent) {
       console.error("Nenhum agente encontrado para o número:", businessNumber);
@@ -651,13 +758,20 @@ Deno.serve(async (req) => {
     // 5. Buscar o catálogo de produtos do dono
     const { data: products } = await supabase
       .from("products")
-      .select("id, name, description, price, unit, photo_urls")
+      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque")
       .eq("owner_id", owner_id)
       .eq("active", true)
-      .limit(40);
+      .or(`agent_ids.is.null,agent_ids.eq.{},agent_ids.cs.{${agent_id}}`)
+      .limit(120);
 
     const catalogText = (products || [])
-      .map((p) => `- ${p.name}: R$ ${p.price} / ${p.unit}${p.description ? " — " + p.description : ""}`)
+      .map((p) => {
+        const extras = [
+          p.m2_por_caixa ? `caixa com ${String(p.m2_por_caixa).replace(".", ",")} m²` : "",
+          p.estoque != null ? (Number(p.estoque) > 0 ? `estoque: ${String(p.estoque).replace(".", ",")} ${p.unit === "m2" ? "m²" : p.unit}` : "SEM ESTOQUE") : "",
+        ].filter(Boolean).join("; ");
+        return `- ${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + p.description : ""}`;
+      })
       .join("\n");
 
     // 6. Buscar o histórico recente dessa conversa
@@ -690,9 +804,16 @@ Deno.serve(async (req) => {
       .select("kind, provider, enabled, config")
       .eq("owner_id", owner_id);
 
-    const storeInfo = buildStoreInfo(integrations || []);
+    const effIntegrations = effectiveIntegrations(agent, integrations || []);
+    const storeInfo = buildStoreInfo(effIntegrations);
     const disabledStages: string[] = bizConfig?.disabled_stages || [];
-    const isRestaurant = bizConfig?.business_type === "restaurante";
+    const businessType = agent.is_simulator ? (agent.sim_business_type || "materiais_construcao") : bizConfig?.business_type;
+    const isRestaurant = businessType === "restaurante";
+    // deno-lint-ignore no-explicit-any
+    const vendasCfg = effIntegrations.find((i: any) => i.kind === "vendas" && i.enabled)?.config || {};
+    // deno-lint-ignore no-explicit-any
+    const freteInt = effIntegrations.find((i: any) => i.kind === "frete" && i.enabled && i.config?.ia_consulta !== false);
+    const autoApprove = vendasCfg.aprovacao_humana === false;
     const canStage = (st: string) => !disabledStages.includes(st);
 
     const stageInstructions = isRestaurant ? "" : `
@@ -701,11 +822,12 @@ Etapas do atendimento (marcações internas, removidas antes de chegar ao client
 ${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}${canStage("aguardando_link") ? `- Quando o cliente CONFIRMAR que quer fechar a compra (itens e quantidades definidos), inclua uma linha por item:
   [ORCAMENTO: Nome Exato do Produto do catálogo | quantidade]
   e também: [ETAPA: aguardando_link]
-  Nesse momento diga ao cliente que vai conferir o pedido com a equipe e já envia o link de pagamento.
-  Não some o total você mesmo: o sistema calcula os valores a partir do catálogo.
+${freteInt ? `  Antes de fechar, pergunte se é entrega ou retirada. Inclua também: [ENTREGA: retirada] ou [ENTREGA: bairro e/ou CEP informado pelo cliente]
+` : ""}  ${autoApprove ? "Nesse momento diga que o pedido foi registrado e que o resumo com o link de pagamento chega em instantes." : "Nesse momento diga ao cliente que vai conferir o pedido com a equipe e já envia o link de pagamento."}
+  Não some o total nem calcule o frete você mesmo: o sistema calcula os valores a partir do catálogo e da tabela de frete.
 ` : ""}`;
 
-    const restaurantInstructions = bizConfig?.business_type === "restaurante" ? `
+    const restaurantInstructions = isRestaurant ? `
 
 Você atende um restaurante. Siga estas regras à risca:
 1. Se ainda não sabe em qual mesa o cliente está NESTA conversa, sua PRIMEIRA pergunta deve ser "Qual é o número da sua mesa?" — não fale de cardápio antes disso.
@@ -777,6 +899,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
     // Etapa do funil e itens do orçamento
     const etapaMatch = reply.match(/\[ETAPA:\s*([a-z_]+)\s*\]/i);
+    const entregaMatch = reply.match(/\[ENTREGA:\s*([^\]]+?)\s*\]/i);
     const orcamentoMatches = [...reply.matchAll(/\[ORCAMENTO:\s*(.+?)\s*\|\s*([\d.,]+)[^\]]*\]/gi)];
 
     // Descrição da imagem recebida (salva no histórico no lugar do texto genérico)
@@ -802,8 +925,9 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       .replace(/\[IMAGEM:[^\]]*\]/gi, "")
       .replace(/\[ETAPA:[^\]]*\]/gi, "")
       .replace(/\[ORCAMENTO:[^\]]*\]/gi, "")
+      .replace(/\[ENTREGA:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)[^\]]*\]/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -834,38 +958,49 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     } else if (contextoSimpleMatch) {
       leadUpdate.motivo_contato = contextoSimpleMatch[1].trim();
     }
-    // Orçamento: o código calcula os valores a partir do catálogo (a IA só diz itens e quantidades)
+    // Pedido: a IA só diz itens, quantidades e entrega — preço, caixas e frete são calculados pelo código
+    let enteredAwaiting = false;
+    // deno-lint-ignore no-explicit-any
+    let newOrder: any = null;
+    const closing = !isRestaurant && orcamentoMatches.length > 0 && etapaMatch?.[1]?.toLowerCase() === "aguardando_link";
     if (!isRestaurant && orcamentoMatches.length) {
-      const itens = orcamentoMatches.map((m) => {
-        const itemName = m[1].trim();
-        const quantidade = parseQty(m[2]);
-        const product = (products || []).find((p) => normalizeForMatch(p.name) === normalizeForMatch(itemName))
-          || (products || []).find((p) =>
-            normalizeForMatch(p.name).includes(normalizeForMatch(itemName)) ||
-            normalizeForMatch(itemName).includes(normalizeForMatch(p.name)));
-        const preco = product?.price != null ? Number(product.price) : null;
-        return {
-          product_id: product?.id || null,
-          nome: product?.name || itemName,
-          quantidade,
-          unidade: product?.unit || "",
-          preco_unitario: preco,
-          subtotal: preco != null ? Math.round(preco * quantidade * 100) / 100 : 0,
+      const itens = buildOrderItems(orcamentoMatches, products || []);
+      const subtotal = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
+      const entrega = computeFreight(entregaMatch?.[1] || null, freteInt, subtotal);
+      leadUpdate.orcamento = { itens, total: subtotal, frete: entrega.valor, entrega, criado_em: new Date().toISOString() };
+
+      if (closing) {
+        const orderRow = {
+          owner_id, agent_id, lead_id: lead.id, itens, subtotal,
+          frete: entrega.valor,
+          total: Math.round((subtotal + (entrega.valor || 0)) * 100) / 100,
+          entrega, simulado: !!agent.is_simulator, status: "aguardando_aprovacao",
         };
-      });
-      const total = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
-      leadUpdate.orcamento = { itens, total, frete: null, criado_em: new Date().toISOString() };
+        // Se o cliente mudou o pedido antes da aprovação, atualiza o mesmo pedido em vez de criar outro
+        const { data: open } = await supabase
+          .from("sales_orders").select("id").eq("lead_id", lead.id).eq("status", "aguardando_aprovacao")
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const { data: saved, error: orderErr } = open
+          ? await supabase.from("sales_orders").update(orderRow).eq("id", open.id).select().single()
+          : await supabase.from("sales_orders").insert(orderRow).select().single();
+        if (orderErr) console.error("Erro ao salvar pedido:", orderErr.message);
+        newOrder = saved;
+        if (newOrder) {
+          leadUpdate.orcamento = { ...(leadUpdate.orcamento as object), order_id: newOrder.id, numero: newOrder.numero };
+          if (canStage("aguardando_link")) leadUpdate.stage = "aguardando_link";
+          enteredAwaiting = true;
+          console.log("Pedido registrado:", newOrder.numero, "total", newOrder.total);
+        }
+      }
     }
 
     // Etapa: só avança (nunca volta) e só entre as etapas automáticas e ativas
-    let enteredAwaiting = false;
-    if (!isRestaurant && etapaMatch) {
+    if (!isRestaurant && etapaMatch && !leadUpdate.stage) {
       const target = etapaMatch[1].toLowerCase();
       const currentRank = AUTO_STAGE_RANK[lead.stage];
       const targetRank = AUTO_STAGE_RANK[target];
       if (currentRank !== undefined && targetRank !== undefined && targetRank > currentRank && canStage(target)) {
         leadUpdate.stage = target;
-        enteredAwaiting = target === "aguardando_link";
         console.log("Lead avançou de etapa:", lead.stage, "->", target);
       }
     }
@@ -883,19 +1018,29 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
-    // Avisa o vendedor que tem pedido esperando aprovação
-    // deno-lint-ignore no-explicit-any
-    const vendas = (integrations || []).find((i: any) => i.kind === "vendas" && i.enabled);
-    const sellerPhone = onlyDigits(vendas?.config?.telefone_aprovacao);
-    if (enteredAwaiting && sellerPhone) {
-      const q = leadUpdate.orcamento as { itens: { nome: string; quantidade: number; unidade: string }[]; total: number } | undefined;
-      const itensTxt = q?.itens?.map((i) => `• ${i.nome} — ${String(i.quantidade).replace(".", ",")} ${i.unidade}`).join("\n") || "";
-      const aviso = `🟡 *Pedido aguardando aprovação*\nCliente: ${lead.name || customerNumber} (${customerNumber})\n${itensTxt}${q ? `\nTotal: ${brl(q.total)} + frete` : ""}\n\nAbra o Kanban do Lumos para conferir e aprovar.`;
-      await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, sellerPhone, aviso);
+    if (enteredAwaiting && newOrder) {
+      if (autoApprove) {
+        // Aprovação automática: a função de pedidos envia o resumo e o link de pagamento
+        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/orders`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: JSON.stringify({ action: "approve", order_id: newOrder.id }),
+        });
+        if (!res.ok) console.error("Falha na aprovação automática:", res.status, await res.text());
+      } else {
+        // Avisa o vendedor que tem pedido esperando aprovação
+        const sellerPhone = onlyDigits(vendasCfg.telefone_aprovacao);
+        if (sellerPhone) {
+          const itensTxt = (newOrder.itens || [])
+            .map((i: { nome: string; quantidade: number; unidade: string }) => `• ${i.nome} — ${String(i.quantidade).replace(".", ",")} ${i.unidade}`).join("\n");
+          const aviso = `🟡 *Pedido #${newOrder.numero} aguardando aprovação*\nCliente: ${lead.name || customerNumber} (${customerNumber})\n${itensTxt}\nTotal: ${brl(newOrder.total)}${newOrder.frete == null ? " + frete a calcular" : ""}\n\nAbra o Kanban do Lumos para conferir e aprovar.`;
+          await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, sellerPhone, aviso);
+        }
+      }
     }
 
     // 10.b Fluxo de restaurante: vincular à mesa, criar pedido, ou marcar aguardando pagamento
-    if (bizConfig?.business_type === "restaurante") {
+    if (isRestaurant) {
       // [MESA: N] — vincula o lead a uma sessão ativa daquela mesa (cria a sessão se for a primeira pessoa)
       if (mesaMatch) {
         const mesaDigits = onlyDigits(mesaMatch[1]);

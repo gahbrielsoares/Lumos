@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=30" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=30" />
+  <script src="js/logo.js?v=31" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=31" />
 </head>
 <body>
 
@@ -100,6 +100,21 @@
               </select>
             </div>
           </div>
+          <div class="field-row">
+            <div class="field" id="box-field">
+              <label for="p-box">m² por caixa <span style="opacity:.7">(opcional)</span></label>
+              <input type="number" id="p-box" step="0.001" min="0" placeholder="Ex.: 2,16" />
+            </div>
+            <div class="field">
+              <label for="p-stock">Estoque <span style="opacity:.7">(vazio = não controla)</span></label>
+              <input type="number" id="p-stock" step="0.01" min="0" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Aparece em quais agentes</label>
+            <div id="agent-checkboxes" class="chips-row"></div>
+            <p class="settings-hint" style="margin-top:6px;">Nenhum marcado = aparece em todos os agentes.</p>
+          </div>
           <div class="field">
             <label>Categorias</label>
             <div id="category-checkboxes" class="chips-row"></div>
@@ -119,15 +134,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=30";
-    import { initThemeToggle } from "./js/theme.js?v=30";
-    import { initMobileNav } from "./js/mobileNav.js?v=30";
-    import { renderSidebar } from "./js/sidebar.js?v=30";
+    import { requireSession, signOut } from "./js/auth.js?v=31";
+    import { initThemeToggle } from "./js/theme.js?v=31";
+    import { initMobileNav } from "./js/mobileNav.js?v=31";
+    import { renderSidebar } from "./js/sidebar.js?v=31";
+    import { listAgents } from "./js/agents.js?v=31";
     import {
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=30";
+    } from "./js/products.js?v=31";
 
     await requireSession();
     initThemeToggle();
@@ -178,6 +194,17 @@
       });
     }
 
+    // Agentes (pra escolher em quais IAs cada produto aparece)
+    const agentsList = (await listAgents()) || [];
+    const agentName = (id) => agentsList.find((a) => a.id === id)?.name || "Agente removido";
+    document.getElementById("agent-checkboxes").innerHTML = agentsList.map((a) => `
+      <label class="chip-checkbox"><input type="checkbox" class="agent-check" value="${a.id}" /> ${a.name}${a.is_simulator ? " (simulador)" : ""}</label>
+    `).join("") || `<span class="settings-hint">Nenhum agente cadastrado.</span>`;
+
+    const unitSel = document.getElementById("p-unit");
+    const syncBoxField = () => (document.getElementById("box-field").style.display = unitSel.value === "m2" ? "" : "none");
+    unitSel.addEventListener("change", syncBoxField);
+
     async function renderProducts() {
       const { data, error } = await listProducts();
       if (error) {
@@ -202,6 +229,11 @@
                   <p class="hub-sub">${p.description || ""}</p>
                   <div class="chips-row" style="margin-top:8px;">
                     ${cats.map((c) => `<span class="pill-badge">${c}</span>`).join("")}
+                    ${(p.agent_ids || []).length
+                      ? p.agent_ids.map((id) => `<span class="pill-badge" title="Aparece só neste agente">🤖 ${agentName(id)}</span>`).join("")
+                      : `<span class="pill-badge" title="Aparece em todos os agentes">🤖 Todos os agentes</span>`}
+                    ${p.m2_por_caixa ? `<span class="pill-badge">Caixa ${String(p.m2_por_caixa).replace(".", ",")} m²</span>` : ""}
+                    ${p.estoque != null ? `<span class="pill-badge">Estoque ${String(p.estoque).replace(".", ",")}</span>` : ""}
                   </div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap:6px;">
@@ -227,6 +259,7 @@
         btn.addEventListener("click", () => {
           const p = data.find((x) => x.id === btn.dataset.edit);
           openForm(p);
+          syncBoxField();
         });
       });
     }
@@ -235,7 +268,7 @@
       productForm.style.display = "flex";
       addProductBtn.style.display = "none";
       productForm.reset();
-      document.querySelectorAll(".cat-check").forEach((c) => (c.checked = false));
+      document.querySelectorAll(".cat-check, .agent-check").forEach((c) => (c.checked = false));
 
       editingId = product?.id || null;
       document.getElementById("product-id").value = editingId || "";
@@ -245,6 +278,9 @@
         document.getElementById("p-desc").value = product.description || "";
         document.getElementById("p-price").value = product.price;
         document.getElementById("p-unit").value = product.unit;
+        document.getElementById("p-box").value = product.m2_por_caixa ?? "";
+        document.getElementById("p-stock").value = product.estoque ?? "";
+        document.querySelectorAll(".agent-check").forEach((c) => (c.checked = (product.agent_ids || []).includes(c.value)));
         const productCatIds = (product.product_categories || []).map((pc) => pc.category_id);
         document.querySelectorAll(".cat-check").forEach((c) => {
           c.checked = productCatIds.includes(c.value);
@@ -252,7 +288,7 @@
       }
     }
 
-    addProductBtn.addEventListener("click", () => openForm());
+    addProductBtn.addEventListener("click", () => { openForm(); syncBoxField(); });
 
     cancelProduct.addEventListener("click", () => {
       productForm.style.display = "none";
@@ -287,6 +323,10 @@
           description: document.getElementById("p-desc").value.trim(),
           price: parseFloat(document.getElementById("p-price").value),
           unit: document.getElementById("p-unit").value,
+          m2_por_caixa: document.getElementById("p-unit").value === "m2" && document.getElementById("p-box").value
+            ? parseFloat(document.getElementById("p-box").value) : null,
+          estoque: document.getElementById("p-stock").value === "" ? null : parseFloat(document.getElementById("p-stock").value),
+          agent_ids: [...document.querySelectorAll(".agent-check:checked")].map((c) => c.value),
           ...(photo_urls ? { photo_urls } : {}),
         };
 
