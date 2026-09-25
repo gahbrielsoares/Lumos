@@ -551,6 +551,37 @@ function norm(s: string) {
   return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// CEP escrito de qualquer jeito: 13502-416, 13.502-416, 13502416, 13502 416
+const CEP_RE = /\b\d{2}\.?\d{3}[-\s]?\d{3}\b/;
+
+// ---------- Validação de documentos e e-mail ----------
+function validCpf(cpf: string) {
+  const d = onlyDigits(cpf);
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const calc = (n: number) => {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += Number(d[i]) * (n + 1 - i);
+    const r = (sum * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return calc(9) === Number(d[9]) && calc(10) === Number(d[10]);
+}
+function validCnpj(cnpj: string) {
+  const d = onlyDigits(cnpj);
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  const calc = (n: number) => {
+    const w = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = w.reduce((s, wi, i) => s + Number(d[i]) * wi, 0);
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === Number(d[12]) && calc(13) === Number(d[13]);
+}
+const validDoc = (v: string) => validCpf(v) || validCnpj(v);
+const validEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v).trim());
+// "não tenho", "não possui", "sem e-mail", "não quero"... = cliente recusou informar
+const NEGATIVE_RE = /^(n[ãa]o|nao)\b|n[ãa]o (possui|tenho|tem|quero|precisa|informou)|^sem\b|^nenhum|^(\?|-|n\/a)$/i;
+
 // Frete calculado pelo código a partir da tabela (nunca pela IA)
 type Place = { cep?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null; rua?: string | null };
 // deno-lint-ignore no-explicit-any
@@ -560,7 +591,7 @@ function computeFreight(entrega: string | null, frete: any, subtotal: number, pl
   if (/\bretir|\bbusco\b|buscar na loja|pego na loja|pegar na loja/.test(txt)) {
     return { tipo: "retirada", valor: 0, prazo: null, local: frete?.config?.endereco_retirada || null };
   }
-  const cepDigits = place.cep || (entrega?.match(/\d{5}-?\d{3}/)?.[0] || "").replace(/\D/g, "") || null;
+  const cepDigits = place.cep || (entrega?.match(CEP_RE)?.[0] || "").replace(/\D/g, "") || null;
   const local = [place.bairro, place.cidade && `${place.cidade}${place.uf ? "/" + place.uf : ""}`].filter(Boolean).join(", ")
     || entrega || (cepDigits ? `CEP ${cepDigits}` : null);
   if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits, place };
@@ -615,7 +646,7 @@ async function resolveDelivery(customerTexts: string[], frete: any, subtotal = 0
     const n = norm(t);
     if (!n) continue;
     if (/\bretir|\bbusco\b|buscar na loja|pego na loja|pegar na loja/.test(n)) return computeFreight("retirada", frete, subtotal);
-    const cepMatch = t.match(/\b\d{5}-?\d{3}\b/);
+    const cepMatch = t.match(CEP_RE);
     if (cepMatch) {
       const cep = cepMatch[0].replace(/\D/g, "");
       const place = (await lookupCep(cep)) || { cep };
@@ -655,8 +686,32 @@ function parseDados(reply: string): Record<string, string> {
       let key = norm(pair.slice(0, idx)).replace(/ /g, "_");
       key = DADOS_ALIASES[key] || key;
       const val = pair.slice(idx + 1).trim();
-      if (DADOS_KEYS[key] && val && !/^(\?|-|n\/a|nao informado|não informado)$/i.test(val)) out[key] = val.slice(0, 160);
+      if (!DADOS_KEYS[key] || !val) continue;
+      if (NEGATIVE_RE.test(val)) {
+        if (key === "cpf" || key === "email" || key === "referencia" || key === "recebedor" || key === "janela" || key === "ie") out[`${key}_recusado`] = "sim";
+        continue;
+      }
+      out[key] = val.slice(0, 160);
     }
+  }
+  return out;
+}
+
+// Separa o que é válido do que precisa ser conferido com o cliente
+function checkDados(d: Record<string, string>) {
+  const invalid: string[] = [];
+  if (d.cpf && !validDoc(d.cpf)) invalid.push(`CPF/CNPJ "${d.cpf}" (${onlyDigits(d.cpf).length} dígitos, não confere — CPF tem 11 e CNPJ 14)`);
+  if (d.email && !validEmail(d.email)) invalid.push(`e-mail "${d.email}" (formato inválido)`);
+  if (d.cep && onlyDigits(d.cep).length !== 8) invalid.push(`CEP "${d.cep}" (precisa ter 8 dígitos)`);
+  return invalid;
+}
+function cleanDados(d: Record<string, string>) {
+  const out = { ...d };
+  if (out.cpf && !validDoc(out.cpf)) delete out.cpf;
+  if (out.email && !validEmail(out.email)) delete out.email;
+  if (out.cep) {
+    if (onlyDigits(out.cep).length !== 8) delete out.cep;
+    else out.cep = onlyDigits(out.cep);
   }
   return out;
 }
@@ -667,8 +722,7 @@ function missingDados(d: Record<string, string>, entregaTipo: string | null, nfA
   const req: string[] = ["nome"];
   const rec: string[] = [];
   if (entregaTipo !== "retirada") {
-    req.push("rua", "numero", "tipo_imovel");
-    if (!d.bairro && !d.cep) req.push("bairro");
+    req.push("rua", "numero", "tipo_imovel", "bairro");
     if (/apart|apto|condom|bloco|predio|prédio/i.test(d.tipo_imovel || "") && !d.complemento) req.push("complemento");
     rec.push("janela", "referencia", "recebedor");
   }
@@ -678,12 +732,14 @@ function missingDados(d: Record<string, string>, entregaTipo: string | null, nfA
     req.push("razao_social");
     rec.push("ie");
   }
-  return { required: req.filter((k) => !d[k]), recommended: rec.filter((k) => !d[k]) };
+  return { required: req.filter((k) => !d[k]), recommended: rec.filter((k) => !d[k] && !d[`${k}_recusado`]) };
 }
 
 function describeDados(d: Record<string, string>, missing: { required: string[]; recommended: string[] }, entregaTipo: string | null): string {
   const have = Object.entries(d).filter(([k]) => DADOS_KEYS[k]).map(([k, v]) => `${k}=${v}`).join("; ");
+  const refused = Object.keys(d).filter((k) => k.endsWith("_recusado")).map((k) => DADOS_KEYS[k.replace("_recusado", "")]).filter(Boolean);
   const lines = [`\n\nDados do cliente já registrados: ${have || "(nenhum ainda)"}`];
+  if (refused.length) lines.push(`O cliente preferiu não informar: ${refused.join(", ")} — não peça de novo.`);
   if (missing.required.length) {
     lines.push(`OBRIGATÓRIO antes de fechar o pedido${entregaTipo === "retirada" ? "" : " (entrega)"}: ${missing.required.map((k) => DADOS_KEYS[k]).join(", ")}.`);
   }
@@ -691,7 +747,9 @@ function describeDados(d: Record<string, string>, missing: { required: string[];
   lines.push(`Peça esses dados de forma natural, no máximo 2 ou 3 por mensagem, de preferência quando o cliente já decidiu os produtos.
 Quando o cliente informar qualquer um deles, registre no FINAL da resposta: [DADOS: campo=valor; campo=valor]
 Campos: ${Object.keys(DADOS_KEYS).join(", ")}. Ex.: [DADOS: nome=Ana Souza; rua=Rua 3; numero=450; tipo_imovel=apartamento; complemento=Apto 21 bloco B]
-Se a rua já veio pelo CEP, só confirme com o cliente e peça o número.`);
+Se a rua já veio pelo CEP, só confirme com o cliente e peça o número.
+Se o cliente não quiser informar algo que não é obrigatório, registre como "não" (ex.: [DADOS: email=não]) e siga em frente.
+Confira o CPF (11 dígitos) ou CNPJ (14 dígitos) e o e-mail: se parecerem errados ou incompletos, peça gentilmente para o cliente conferir.`);
   return lines.join("\n");
 }
 
@@ -958,7 +1016,8 @@ Deno.serve(async (req) => {
       .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque")
       .eq("owner_id", owner_id)
       .eq("active", true)
-      .or(`agent_ids.is.null,agent_ids.eq.{},agent_ids.cs.{${agent_id}}`)
+      // O simulador só mostra os produtos vinculados a ele; os outros agentes veem também os "de todos"
+      .or(agent.is_simulator ? `agent_ids.cs.{${agent_id}}` : `agent_ids.is.null,agent_ids.eq.{},agent_ids.cs.{${agent_id}}`)
       .limit(120);
 
     const catalogText = (products || [])
@@ -1022,9 +1081,14 @@ Deno.serve(async (req) => {
     // Dados do cliente: o que já sabemos (CEP preenche rua/bairro/cidade) e o que falta pra fechar
     const nfAtiva = (effIntegrations as { kind: string; enabled: boolean; provider: string | null }[])
       .some((i) => i.kind === "nota_fiscal" && i.enabled && i.provider && i.provider !== "nenhum");
-    const dadosCliente: Record<string, string> = { ...(lead.dados_cliente || {}) };
+    const dadosCliente: Record<string, string> = cleanDados({ ...(lead.dados_cliente || {}) });
     if (!dadosCliente.nome && lead.name) dadosCliente.nome_whatsapp = lead.name;
-    const place = knownDelivery?.place;
+    let place = knownDelivery?.place;
+    // CEP que veio pelos dados (e não na conversa): consulta rua/bairro/cidade também
+    if (!place?.bairro && dadosCliente.cep && !(dadosCliente.bairro && dadosCliente.rua)) {
+      const viaCep = await lookupCep(dadosCliente.cep);
+      if (viaCep) place = { ...(place || {}), ...viaCep };
+    }
     if (place?.cep && !dadosCliente.cep) dadosCliente.cep = place.cep;
     if (place?.bairro && !dadosCliente.bairro) dadosCliente.bairro = place.bairro;
     if (place?.cidade && !dadosCliente.cidade) dadosCliente.cidade = `${place.cidade}${place.uf ? "/" + place.uf : ""}`;
@@ -1105,6 +1169,7 @@ Não use títulos com #, tabelas nem links no formato [texto](link).
 Tom: converse como uma pessoa no WhatsApp — frases curtas, naturais, uma pergunta por vez, sem repetir as mesmas aberturas.
 ${isFirstReply ? "Esta é a sua PRIMEIRA resposta nesta conversa: cumprimente e se apresente." : "Você JÁ cumprimentou o cliente nesta conversa: NÃO comece com \"Oi\", \"Olá\" nem se apresente de novo. Vá direto ao assunto, com naturalidade."}
 Se errar alguma informação, corrija com leveza, sem pedir desculpas em excesso.
+Varie o começo das mensagens: não abra duas respostas seguidas com a mesma palavra ("Perfeito", "Ótimo", "Excelente"...).
 
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
@@ -1144,6 +1209,17 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 Você não tem como fazer isso. Resolva nesta mensagem com as informações disponíveis. Se algo depende da equipe, trate como pendência que vem no resumo do pedido e siga coletando o que falta. Se o cliente já confirmou a compra, feche agora com as marcações.`);
       if (retry && !looksLikeLeakedReasoning(retry)) reply = retry;
     }
+    // Registrou CPF/CNPJ, e-mail ou CEP inválido? Pede pro cliente conferir, em vez de "anotar"
+    if (reply && !isRestaurant) {
+      const invalid = checkDados(parseDados(reply));
+      if (invalid.length) {
+        console.log("Dados inválidos na resposta, pedindo para conferir:", invalid.join(" | "));
+        const retry = await generate(activeProvider, `\n\nCORREÇÃO: estes dados informados pelo cliente não conferem: ${invalid.join("; ")}.
+Não diga que anotou esses dados e não os registre em [DADOS]. Registre só os outros dados válidos e peça, com gentileza, para o cliente conferir e mandar de novo. Não feche o pedido nesta mensagem.`);
+        if (retry && !looksLikeLeakedReasoning(retry) && !checkDados(parseDados(retry)).length) reply = retry;
+      }
+    }
+
     // Tentou fechar sem os dados obrigatórios? Pede de novo, agora coletando o que falta
     const isClosing = (r: string) => /\[ORCAMENTO:/i.test(r) && /\[ETAPA:\s*aguardando_link/i.test(r);
     if (reply && !isRestaurant && freteInt && isClosing(reply)) {
@@ -1228,7 +1304,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
     const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
     const novosDados = parseDados(rawReplyForMarkers);
-    const dadosFinal: Record<string, string> = { ...dadosCliente, ...novosDados };
+    const dadosFinal: Record<string, string> = cleanDados({ ...dadosCliente, ...novosDados });
     delete dadosFinal.nome_whatsapp;
     if (JSON.stringify(dadosFinal) !== JSON.stringify(lead.dados_cliente || {})) leadUpdate.dados_cliente = dadosFinal;
     // O motivo do contato é definido uma vez (o primeiro); o resumo acompanha a conversa

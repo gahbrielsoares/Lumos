@@ -47,7 +47,12 @@ const maskDoc = (doc: string) => {
   const d = onlyDigits(doc);
   if (d.length === 11) return `***.${d.slice(3, 6)}.${d.slice(6, 9)}-**`;
   if (d.length === 14) return `${d.slice(0, 2)}.***.***/${d.slice(8, 12)}-**`;
-  return doc;
+  return ""; // documento incompleto: não exibe
+};
+const validEmail = (v: unknown) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || "").trim());
+const docLabel = (doc: string) => {
+  const m = maskDoc(doc);
+  return m ? `${onlyDigits(doc).length === 14 ? "CNPJ" : "CPF"} ${m}` : "";
 };
 
 // "2 dias úteis" -> data prevista (dias úteis, fuso de Brasília)
@@ -146,7 +151,7 @@ function orderSummary(order: any) {
   const end = e.tipo === "retirada" ? "" : enderecoTxt(e);
   const c = order.cliente || {};
   const cli = c.nome || c.razao_social
-    ? `\n\n👤 ${c.razao_social ? `${c.razao_social} (contato: ${c.nome || "—"})` : c.nome}${c.cpf ? ` · ${onlyDigits(c.cpf).length === 14 ? "CNPJ" : "CPF"} ${maskDoc(c.cpf)}` : ""}${c.ie ? ` · IE ${c.ie}` : ""}`
+    ? `\n\n👤 ${c.razao_social ? `${c.razao_social} (contato: ${c.nome || "—"})` : c.nome}${docLabel(c.cpf || "") ? ` · ${docLabel(c.cpf)}` : ""}${c.ie ? ` · IE ${c.ie}` : ""}`
     : "";
   return `${linhas.join("\n")}\n\nSubtotal: ${brl(order.subtotal)}\n${freteLinha}\n*Total: ${brl(order.total)}*${cli}${end ? `\n\n📍 *Entrega em:*\n${end}` : ""}\n\nSe algo estiver errado, é só me avisar antes de pagar. 😉`;
 }
@@ -231,9 +236,9 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     await sleep(1200);
     const c = order.cliente || {};
     const emNome = c.razao_social
-      ? `\nEm nome de: ${c.razao_social} (CNPJ ${maskDoc(c.cpf || "")}${c.ie ? ` · IE ${c.ie}` : ""})`
-      : c.nome ? `\nEm nome de: ${c.nome}${c.cpf ? ` (${maskDoc(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
-    const envio = c.email ? `Enviamos o PDF para *${c.email}*.` : "Se quiser o PDF, é só pedir que eu te mando por aqui.";
+      ? `\nEm nome de: ${c.razao_social}${docLabel(c.cpf || "") ? ` (${docLabel(c.cpf)}` : " ("}${c.ie ? `${docLabel(c.cpf || "") ? " · " : ""}IE ${c.ie}` : ""})`.replace(" ()", "")
+      : c.nome ? `\nEm nome de: ${c.nome}${docLabel(c.cpf || "") ? ` (${docLabel(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
+    const envio = validEmail(c.email) ? `Enviamos o PDF para *${c.email}*.` : "Se quiser o PDF, é só pedir que eu te mando por aqui.";
     await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*${emNome}\n${envio}\n_(ambiente de demonstração — nota sem valor fiscal)_`);
   }
 
