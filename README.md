@@ -740,6 +740,18 @@ número, complemento, tipo de imóvel, bairro, cidade, CEP, referência, quem re
 rua/bairro/cidade automaticamente (ViaCEP). O código só deixa fechar o pedido de entrega com nome,
 rua, número, tipo de imóvel e bairro (e complemento, se for apartamento/condomínio).
 
+## 24. Pós-venda (saiu para entrega, pronto para retirada, entregue)
+
+No **SQL Editor**:
+
+```sql
+alter table public.sales_orders add column if not exists logistica jsonb default '{}'::jsonb;
+```
+
+No painel do lead (pedido pago) aparecem os botões **Saiu para entrega / Pronto para retirada / Entregue**;
+cada um avisa o cliente no WhatsApp. A IA também coleta o período de entrega (manhã/tarde) e, em nota no
+CNPJ, a razão social (obrigatória) e a inscrição estadual.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=33" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=33" />
+  <script src="js/logo.js?v=34" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=34" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -88,15 +88,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=33";
-    import { initThemeToggle } from "./js/theme.js?v=33";
-    import { initMobileNav } from "./js/mobileNav.js?v=33";
-    import { renderSidebar } from "./js/sidebar.js?v=33";
-    import { supabase } from "./js/supabaseClient.js?v=33";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=33";
-    import { listAgents } from "./js/agents.js?v=33";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=33";
-    import { openLeadPanel } from "./js/leadPanel.js?v=33";
+    import { requireSession, signOut } from "./js/auth.js?v=34";
+    import { initThemeToggle } from "./js/theme.js?v=34";
+    import { initMobileNav } from "./js/mobileNav.js?v=34";
+    import { renderSidebar } from "./js/sidebar.js?v=34";
+    import { supabase } from "./js/supabaseClient.js?v=34";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=34";
+    import { listAgents } from "./js/agents.js?v=34";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=34";
+    import { openLeadPanel } from "./js/leadPanel.js?v=34";
 
     await requireSession();
     initThemeToggle();
@@ -142,7 +142,8 @@
         const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
         const q = lead.orcamento;
         const money = Number((q?.total || 0) + (q?.frete || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-        const statusTag = { pago: `<div class="kc-tag kc-ok">Pago</div>`, aguardando_pagamento: `<div class="kc-tag kc-quote">Link enviado</div>`, cancelado: `<div class="kc-tag kc-off">Cancelado</div>` };
+        const logTag = { saiu_para_entrega: "🚚 Em rota", pronto_para_retirada: "📦 Pronto p/ retirada", entregue: "✅ Entregue" }[q?.logistica] || "";
+        const statusTag = { pago: `<div class="kc-tag kc-ok">${logTag || "Pago"}</div>`, aguardando_pagamento: `<div class="kc-tag kc-quote">Link enviado</div>`, cancelado: `<div class="kc-tag kc-off">Cancelado</div>` };
         const quoteTotal = q?.itens?.length
           ? `<div class="kc-tag kc-quote">${q.numero ? `#${q.numero} · ` : "Orçamento "}${money}</div>${statusTag[q.status] || ""}` : "";
         const approved = "";

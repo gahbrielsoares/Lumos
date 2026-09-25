@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=33";
+import { supabase } from "./supabaseClient.js?v=34";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=33";
-import { getIntegration } from "./integrations.js?v=33";
+} from "./leads.js?v=34";
+import { getIntegration } from "./integrations.js?v=34";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -79,6 +79,11 @@ const ORDER_STATUS = {
   aguardando_pagamento: "Link enviado — aguardando pagamento",
   pago: "Pago",
   cancelado: "Cancelado",
+};
+const LOG_STATUS = {
+  saiu_para_entrega: "Saiu para entrega",
+  pronto_para_retirada: "Pronto para retirada",
+  entregue: "Entregue",
 };
 const UNIT = { m2: "m²", saco: "saco(s)", unidade: "un.", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rolo(s)" };
 const qty = (n) => String(Math.round(Number(n) * 1000) / 1000).replace(".", ",");
@@ -293,11 +298,14 @@ function clienteBlock(o) {
   const c = o.cliente || {};
   const a = o.entrega?.endereco;
   const rows = [
+    c.razao_social && `🏢 ${esc(c.razao_social)}${c.ie ? ` · IE ${esc(c.ie)}` : ""}`,
     c.nome && `👤 ${esc(c.nome)}${c.cpf ? ` · ${esc(c.cpf)}` : ""}${c.email ? ` · ${esc(c.email)}` : ""}`,
     a && `📍 ${esc([[a.rua, a.numero].filter(Boolean).join(", "), a.complemento, a.bairro, a.cidade, a.cep && `CEP ${a.cep}`].filter(Boolean).join(" · "))}`,
     a?.tipo_imovel && `🏠 ${esc(a.tipo_imovel)}`,
     a?.referencia && `🧭 ${esc(a.referencia)}`,
     a?.recebedor && `🙋 Recebe: ${esc(a.recebedor)}`,
+    o.entrega?.janela && `🕘 Período: ${esc(o.entrega.janela)}`,
+    o.logistica?.status && `🚦 ${LOG_STATUS[o.logistica.status] || o.logistica.status}`,
     o.entrega?.tipo === "retirada" && "🏬 Retirada na loja",
   ].filter(Boolean);
   const faltando = o.entrega?.tipo !== "retirada" && (!a?.rua || !a?.numero);
@@ -319,6 +327,15 @@ function orderActions() {
     <button class="btn ${o.simulado ? "btn-ghost" : "btn-primary"}" id="lp-paid">Confirmar pagamento recebido</button>
     <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
     <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Cancelar pedido</button>`;
+  if (o.status === "pago") {
+    const st = o.logistica?.status;
+    if (st === "entregue") return "";
+    const retirada = o.entrega?.tipo === "retirada";
+    return `
+      ${!retirada && st !== "saiu_para_entrega" ? `<button class="btn btn-primary" data-log="dispatch">🚚 Saiu para entrega</button>` : ""}
+      ${retirada && st !== "pronto_para_retirada" ? `<button class="btn btn-primary" data-log="ready_pickup">📦 Pronto para retirada</button>` : ""}
+      <button class="btn ${st ? "btn-primary" : "btn-ghost"}" data-log="delivered">✅ ${retirada ? "Retirado" : "Entregue"}</button>`;
+  }
   return "";
 }
 
@@ -353,7 +370,8 @@ async function renderSummary() {
     </div>
     <div class="lp-section"><div class="lp-k">Motivo do contato</div><div class="lp-v">${esc(l.motivo_contato || "—")}</div></div>
     <div class="lp-section"><div class="lp-k">Resumo da conversa</div><div class="lp-v">${esc(l.resumo_conversa || "—")}</div></div>
-    ${!waiting && (o?.itens?.length || l.orcamento?.itens?.length) ? `<div class="lp-section"><div class="lp-k">${o?.status === "pago" ? "Último pedido" : "Último orçamento"}</div>${quoteBlock(l)}</div>` : ""}
+    ${!waiting && (o?.itens?.length || l.orcamento?.itens?.length) ? `<div class="lp-section"><div class="lp-k">${o?.status === "pago" ? "Último pedido" : "Último orçamento"}</div>${quoteBlock(l)}
+      ${o?.status === "pago" ? `<div class="lp-actions" style="margin-top:12px;">${orderActions()}</div><div class="lp-warn" id="lp-log-msg" style="display:none;"></div>` : ""}</div>` : ""}
   `;
 
   document.getElementById("lp-ai").addEventListener("change", (e) => refreshLead({ ai_enabled: e.target.checked }));
@@ -362,6 +380,16 @@ async function renderSummary() {
     await updateLeadStage(l.id, e.target.value);
     refreshLead();
   });
+
+  // Pós-venda (pedido pago): avisa o cliente de cada etapa
+  body.querySelectorAll("[data-log]").forEach((btn) => btn.addEventListener("click", async () => {
+    const labels = { dispatch: "avisar o cliente que o pedido saiu para entrega", ready_pickup: "avisar o cliente que o pedido está pronto para retirada", delivered: "marcar como entregue e avisar o cliente" };
+    if (!confirm(`Confirmar: ${labels[btn.dataset.log]}?`)) return;
+    const msg = document.getElementById("lp-log-msg");
+    btn.disabled = true;
+    try { await orderAction(btn.dataset.log); await refreshLead(); }
+    catch (err) { btn.disabled = false; msg.textContent = err.message; msg.style.display = "block"; }
+  }));
 
   if (waiting) {
     const on = (id, fn) => document.getElementById(id)?.addEventListener("click", fn);

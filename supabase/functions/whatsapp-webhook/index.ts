@@ -635,11 +635,15 @@ const DADOS_KEYS: Record<string, string> = {
   rua: "rua/avenida", numero: "número", complemento: "complemento (apto, bloco, casa dos fundos...)",
   tipo_imovel: "tipo de imóvel (casa, apartamento, condomínio, comercial)", bairro: "bairro", cidade: "cidade",
   cep: "CEP", referencia: "ponto de referência", recebedor: "quem vai receber a entrega",
+  janela: "melhor período para receber (manhã ou tarde)",
+  razao_social: "razão social da empresa (nota no CNPJ)", ie: "inscrição estadual (ou \"isento\")",
 };
 const DADOS_ALIASES: Record<string, string> = {
   cnpj: "cpf", documento: "cpf", "cpf/cnpj": "cpf", "e-mail": "email", endereco: "rua", logradouro: "rua",
   avenida: "rua", "número": "numero", n: "numero", tipo: "tipo_imovel", imovel: "tipo_imovel", "referência": "referencia",
   ponto_referencia: "referencia", quem_recebe: "recebedor",
+  periodo: "janela", horario: "janela", "horário": "janela", turno: "janela", janela_entrega: "janela",
+  inscricao_estadual: "ie", "inscrição_estadual": "ie", razao: "razao_social", empresa: "razao_social",
 };
 
 function parseDados(reply: string): Record<string, string> {
@@ -666,9 +670,14 @@ function missingDados(d: Record<string, string>, entregaTipo: string | null, nfA
     req.push("rua", "numero", "tipo_imovel");
     if (!d.bairro && !d.cep) req.push("bairro");
     if (/apart|apto|condom|bloco|predio|prédio/i.test(d.tipo_imovel || "") && !d.complemento) req.push("complemento");
-    rec.push("referencia", "recebedor");
+    rec.push("janela", "referencia", "recebedor");
   }
   if (nfAtiva) rec.push("cpf", "email");
+  // Nota no CNPJ (obra de empresa): razão social é obrigatória, inscrição estadual recomendada
+  if (onlyDigits(d.cpf).length === 14) {
+    req.push("razao_social");
+    rec.push("ie");
+  }
   return { required: req.filter((k) => !d[k]), recommended: rec.filter((k) => !d[k]) };
 }
 
@@ -1253,8 +1262,11 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
             rua: dadosFinal.rua || null, numero: dadosFinal.numero || null, complemento: dadosFinal.complemento || null,
             tipo_imovel: dadosFinal.tipo_imovel || null, bairro: dadosFinal.bairro || null, cidade: dadosFinal.cidade || null,
             cep: dadosFinal.cep || entrega.cep || null, referencia: dadosFinal.referencia || null, recebedor: dadosFinal.recebedor || null,
-          } },
-          cliente: { nome: dadosFinal.nome || lead.name || null, cpf: dadosFinal.cpf || null, email: dadosFinal.email || null, telefone: customerNumber },
+          }, janela: entrega.tipo === "retirada" ? null : dadosFinal.janela || null },
+          cliente: {
+            nome: dadosFinal.nome || lead.name || null, cpf: dadosFinal.cpf || null, email: dadosFinal.email || null, telefone: customerNumber,
+            razao_social: dadosFinal.razao_social || null, ie: dadosFinal.ie || null,
+          },
           simulado: !!agent.is_simulator, status: "aguardando_aprovacao",
         };
         // Se o cliente mudou o pedido antes da aprovação, atualiza o mesmo pedido em vez de criar outro

@@ -82,6 +82,7 @@ function enderecoTxt(e: any): string {
     a.tipo_imovel ? `Imóvel: ${a.tipo_imovel}` : "",
     a.referencia ? `Referência: ${a.referencia}` : "",
     a.recebedor ? `Quem recebe: ${a.recebedor}` : "",
+    e?.janela ? `Período: ${e.janela}` : "",
   ].filter(Boolean);
   return [partes.join("\n"), extras.join("\n")].filter(Boolean).join("\n") || e?.local || "";
 }
@@ -143,7 +144,10 @@ function orderSummary(order: any) {
     ? "Retirada na loja: sem custo"
     : `Frete${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}${e.prazo ? ` — ${e.prazo}` : ""}`;
   const end = e.tipo === "retirada" ? "" : enderecoTxt(e);
-  const cli = order.cliente?.nome ? `\n\n👤 ${order.cliente.nome}${order.cliente.cpf ? ` · CPF/CNPJ ${maskDoc(order.cliente.cpf)}` : ""}` : "";
+  const c = order.cliente || {};
+  const cli = c.nome || c.razao_social
+    ? `\n\n👤 ${c.razao_social ? `${c.razao_social} (contato: ${c.nome || "—"})` : c.nome}${c.cpf ? ` · ${onlyDigits(c.cpf).length === 14 ? "CNPJ" : "CPF"} ${maskDoc(c.cpf)}` : ""}${c.ie ? ` · IE ${c.ie}` : ""}`
+    : "";
   return `${linhas.join("\n")}\n\nSubtotal: ${brl(order.subtotal)}\n${freteLinha}\n*Total: ${brl(order.total)}*${cli}${end ? `\n\n📍 *Entrega em:*\n${end}` : ""}\n\nSe algo estiver errado, é só me avisar antes de pagar. 😉`;
 }
 
@@ -226,7 +230,9 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   if (ctx.simulated && nf) {
     await sleep(1200);
     const c = order.cliente || {};
-    const emNome = c.nome ? `\nEm nome de: ${c.nome}${c.cpf ? ` (${maskDoc(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
+    const emNome = c.razao_social
+      ? `\nEm nome de: ${c.razao_social} (CNPJ ${maskDoc(c.cpf || "")}${c.ie ? ` · IE ${c.ie}` : ""})`
+      : c.nome ? `\nEm nome de: ${c.nome}${c.cpf ? ` (${maskDoc(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
     const envio = c.email ? `Enviamos o PDF para *${c.email}*.` : "Se quiser o PDF, é só pedir que eu te mando por aqui.";
     await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*${emNome}\n${envio}\n_(ambiente de demonstração — nota sem valor fiscal)_`);
   }
@@ -246,6 +252,35 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado* — pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(cobrado)} (${formaTxt})`);
 
   return json({ ok: true, numero: order.numero, nf });
+}
+
+// ---------- Pós-venda: separação, saída para entrega, retirada e entrega ----------
+// deno-lint-ignore no-explicit-any
+async function logistics(ctx: any, step: "dispatch" | "ready_pickup" | "delivered") {
+  const { order } = ctx;
+  if (order.status !== "pago") return json({ error: "O pedido precisa estar pago." }, 409);
+  const e = order.entrega || {};
+  const now = new Date().toISOString();
+  const log = { ...(order.logistica || {}) };
+  const nome = (order.cliente?.nome || ctx.lead.name || "").split(" ")[0];
+
+  if (step === "dispatch") {
+    if (e.tipo === "retirada") return json({ error: "Este pedido é para retirada na loja." }, 400);
+    log.status = "saiu_para_entrega"; log.saiu_em = now;
+    await sendToCustomer(ctx, `🚚 ${nome ? `${nome}, s` : "S"}eu pedido *#${order.numero}* saiu para entrega!${e.janela ? `\nChegada prevista: ${e.janela} de hoje.` : "\nChega ainda hoje."}${e.endereco?.recebedor ? `\nQuem recebe: ${e.endereco.recebedor}.` : ""}\n\nNosso motorista pode te ligar se precisar de alguma orientação para chegar. ${ctx.obsEntrega ? `\n\nℹ️ ${ctx.obsEntrega}` : ""}`);
+  } else if (step === "ready_pickup") {
+    if (e.tipo !== "retirada") return json({ error: "Este pedido é para entrega." }, 400);
+    log.status = "pronto_para_retirada"; log.pronto_em = now;
+    await sendToCustomer(ctx, `📦 ${nome ? `${nome}, s` : "S"}eu pedido *#${order.numero}* está separado e pronto para retirada!${e.local ? `\n📍 ${e.local}` : ""}\nÉ só informar o número *#${order.numero}* no balcão. Se for pesado, venha de carro ou com alguém pra ajudar. 😉`);
+  } else {
+    log.status = "entregue"; log.entregue_em = now;
+    await sendToCustomer(ctx, `✅ Pedido *#${order.numero}* ${e.tipo === "retirada" ? "retirado" : "entregue"}! Obrigado pela confiança${nome ? `, ${nome}` : ""}. 💛\n\nConfere se chegou tudo certinho? Se precisar de algo na instalação ou faltar alguma peça, é só chamar aqui.`);
+  }
+  await supabase.from("sales_orders").update({ logistica: log }).eq("id", order.id);
+  await supabase.from("leads").update({
+    last_message_at: now, orcamento: { ...(ctx.lead.orcamento || {}), logistica: log.status },
+  }).eq("id", ctx.lead.id);
+  return json({ ok: true, logistica: log });
 }
 
 // ---------- Entrada ----------
@@ -290,6 +325,7 @@ Deno.serve(async (req) => {
 
     if (action === "approve") return await approve(ctx, body.frete != null && body.frete !== "" ? Number(body.frete) : null);
     if (action === "mark_paid") return await finalizePaid(ctx, "manual", null);
+    if (action === "dispatch" || action === "ready_pickup" || action === "delivered") return await logistics(ctx, action);
     if (action === "cancel") {
       await supabase.from("sales_orders").update({ status: "cancelado" }).eq("id", ctx.order.id);
       await supabase.from("leads").update({ stage: "perdido", orcamento: { ...(ctx.lead.orcamento || {}), status: "cancelado" } }).eq("id", ctx.lead.id);
