@@ -168,6 +168,102 @@ async function transcribeAudio(
 }
 
 // ---------- Provedores de IA (todos compatíveis com o formato OpenAI, exceto Gemini) ----------
+// ---------- Funil (Kanban): a IA só avança o lead, nunca volta ----------
+const AUTO_STAGE_RANK: Record<string, number> = {
+  novo_contato: 0,
+  conversando: 1,
+  consulta_agendada: 2,
+  aguardando_link: 3,
+};
+
+function brl(n: number) {
+  return Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function parseQty(s: string) {
+  let t = String(s).trim();
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");   // 1.250,5 -> 1250.5
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");  // 1.250 -> 1250
+  const n = parseFloat(t);                                             // 35.5 -> 35.5
+  return isFinite(n) && n > 0 ? n : 1;
+}
+
+// Monta o bloco de informações da loja a partir das integrações ativas em que
+// o dono marcou "a IA consulta estas informações". Nunca inclui chaves/tokens.
+// deno-lint-ignore no-explicit-any
+function buildStoreInfo(integrations: any[]): string {
+  // deno-lint-ignore no-explicit-any
+  const get = (kind: string) => integrations.find((i: any) => i.kind === kind && i.enabled && i.config?.ia_consulta !== false);
+  const out: string[] = [];
+
+  const vendas = get("vendas");
+  if (vendas) {
+    const c = vendas.config || {};
+    const r: string[] = [];
+    if (c.perda_padrao > 0) r.push(`ao calcular a quantidade de materiais (pisos, revestimentos etc.), acrescente ${c.perda_padrao}% de margem de perda e explique isso ao cliente`);
+    r.push(c.desconto_max > 0 ? `você pode oferecer no máximo ${c.desconto_max}% de desconto` : "não ofereça descontos");
+    if (c.validade_orcamento_dias) r.push(`orçamentos valem ${c.validade_orcamento_dias} dia(s)`);
+    if (c.pedido_minimo > 0) r.push(`o pedido mínimo é ${brl(c.pedido_minimo)}`);
+    out.push(`Regras de venda: ${r.join("; ")}.`);
+  }
+
+  const pag = get("pagamento");
+  if (pag) {
+    const c = pag.config || {};
+    if (pag.provider === "pix_manual") {
+      out.push("Pagamento: via Pix. A chave é enviada pela equipe depois que o pedido é conferido.");
+    } else {
+      const nomes: Record<string, string> = { pix: "Pix", cartao: "cartão de crédito", boleto: "boleto" };
+      const metodos = (c.metodos || []).map((m: string) => nomes[m] || m);
+      let t = `Pagamento: ${metodos.join(", ") || "consulte a equipe"}`;
+      if ((c.metodos || []).includes("cartao") && c.max_parcelas > 1) {
+        t += ` (cartão em até ${c.max_parcelas}x${c.parcelas_sem_juros > 1 ? `, sem juros até ${c.parcelas_sem_juros}x` : ""})`;
+      }
+      out.push(`${t}. O link de pagamento é enviado depois que a equipe confere o pedido.`);
+    }
+  }
+
+  const frete = get("frete");
+  if (frete) {
+    const c = frete.config || {};
+    const linhas: string[] = [];
+    if (frete.provider === "retirada") {
+      linhas.push("A loja NÃO faz entregas: somente retirada na loja.");
+    } else if (frete.provider === "proprio") {
+      // deno-lint-ignore no-explicit-any
+      const faixas = (c.faixas || []).map((f: any) => {
+        const onde = f.regiao || (f.cep_inicio ? `CEP ${f.cep_inicio} a ${f.cep_fim || f.cep_inicio}` : "");
+        const cep = f.regiao && f.cep_inicio ? ` (CEP ${f.cep_inicio} a ${f.cep_fim || f.cep_inicio})` : "";
+        return `- ${onde}${cep}: ${brl(f.valor)}${f.prazo ? `, prazo ${f.prazo}` : ""}`;
+      });
+      linhas.push(`Entrega própria. Tabela de frete (use SOMENTE estes valores):
+${faixas.join("\n") || "(tabela vazia)"}`);
+      linhas.push(c.fora_da_tabela === "recusar"
+        ? "Endereço fora da tabela: informe com educação que a loja não entrega nessa região."
+        : "Endereço fora da tabela: diga que vai verificar com a equipe (não invente valor).");
+      linhas.push("Para saber o frete, pergunte o bairro ou o CEP do cliente.");
+    } else if (frete.provider === "melhorenvio") {
+      linhas.push("Entregas por transportadora: o valor do frete é calculado pela equipe com base no CEP (peça o CEP ao cliente).");
+    }
+    if (c.frete_gratis_acima > 0 && frete.provider !== "retirada") linhas.push(`Frete grátis para compras acima de ${brl(c.frete_gratis_acima)}.`);
+    if (frete.provider === "retirada" || c.permite_retirada) linhas.push(`Retirada na loja${c.endereco_retirada ? `: ${c.endereco_retirada}` : " disponível"}.`);
+    out.push(`Frete e entrega:
+${linhas.join("\n")}`);
+  }
+
+  const estoque = get("estoque");
+  if (estoque && estoque.config?.bloquear_sem_estoque) {
+    out.push("Estoque: só ofereça o que está no catálogo abaixo. Se o cliente pedir algo que não está listado, diga que vai confirmar a disponibilidade com a equipe.");
+  }
+
+  const nf = get("nota_fiscal");
+  if (nf && nf.provider && nf.provider !== "nenhum") {
+    out.push("Nota fiscal: a loja emite NF-e para as compras. Se o cliente quiser nota no CNPJ, peça o CNPJ e a razão social.");
+  }
+
+  return out.length ? `\n\nInformações da loja (use para responder o cliente):\n${out.join("\n\n")}` : "";
+}
+
 // Se o modelo não conseguiu receber a imagem, avisa pra ele não inventar uma descrição
 const NO_IMAGE_NOTICE = `
 
@@ -459,6 +555,13 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
+    // 4.b IA desativada pra esse contato: a mensagem fica salva, mas ninguém responde automaticamente
+    if (lead.ai_enabled === false) {
+      await supabase.from("leads").update({ last_message_at: new Date().toISOString() }).eq("id", lead.id);
+      console.log("IA desativada para este contato, mensagem só registrada:", lead.id);
+      return new Response("ai disabled for lead", { status: 200 });
+    }
+
     // 5. Buscar o catálogo de produtos do dono
     const { data: products } = await supabase
       .from("products")
@@ -492,9 +595,29 @@ Deno.serve(async (req) => {
 
     const { data: bizConfig } = await supabase
       .from("business_config")
-      .select("business_type")
+      .select("business_type, disabled_stages")
       .eq("owner_id", owner_id)
       .maybeSingle();
+
+    const { data: integrations } = await supabase
+      .from("integrations")
+      .select("kind, provider, enabled, config")
+      .eq("owner_id", owner_id);
+
+    const storeInfo = buildStoreInfo(integrations || []);
+    const disabledStages: string[] = bizConfig?.disabled_stages || [];
+    const isRestaurant = bizConfig?.business_type === "restaurante";
+    const canStage = (st: string) => !disabledStages.includes(st);
+
+    const stageInstructions = isRestaurant ? "" : `
+
+Etapas do atendimento (marcações internas, removidas antes de chegar ao cliente, uma por linha no FINAL):
+${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}${canStage("aguardando_link") ? `- Quando o cliente CONFIRMAR que quer fechar a compra (itens e quantidades definidos), inclua uma linha por item:
+  [ORCAMENTO: Nome Exato do Produto do catálogo | quantidade]
+  e também: [ETAPA: aguardando_link]
+  Nesse momento diga ao cliente que vai conferir o pedido com a equipe e já envia o link de pagamento.
+  Não some o total você mesmo: o sistema calcula os valores a partir do catálogo.
+` : ""}`;
 
     const restaurantInstructions = bizConfig?.business_type === "restaurante" ? `
 
@@ -540,7 +663,7 @@ Não use títulos com #, tabelas nem links no formato [texto](link).
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
 se está falando com um robô ou uma IA, não negue.
-${imageInstructions}${restaurantInstructions}
+${imageInstructions}${restaurantInstructions}${stageInstructions}${storeInfo}
 
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
@@ -566,6 +689,10 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
     const photoProductNames = photoMatches.map((m) => m[1].trim());
 
+    // Etapa do funil e itens do orçamento
+    const etapaMatch = reply.match(/\[ETAPA:\s*([a-z_]+)\s*\]/i);
+    const orcamentoMatches = [...reply.matchAll(/\[ORCAMENTO:\s*(.+?)\s*\|\s*([\d.,]+)[^\]]*\]/gi)];
+
     // Descrição da imagem recebida (salva no histórico no lugar do texto genérico)
     const imagemMatch = reply.match(/\[IMAGEM:\s*([^\]]+?)\s*\]/i);
 
@@ -587,8 +714,10 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       // Remoção tolerante: apaga QUALQUER [CONTEXTO: ...], com ou sem "|", formatado certo ou não
       .replace(/\[CONTEXTO:[^\]]*\]/gi, "")
       .replace(/\[IMAGEM:[^\]]*\]/gi, "")
+      .replace(/\[ETAPA:[^\]]*\]/gi, "")
+      .replace(/\[ORCAMENTO:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO)[^\]]*\]/gi, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -619,6 +748,42 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     } else if (contextoSimpleMatch) {
       leadUpdate.motivo_contato = contextoSimpleMatch[1].trim();
     }
+    // Orçamento: o código calcula os valores a partir do catálogo (a IA só diz itens e quantidades)
+    if (!isRestaurant && orcamentoMatches.length) {
+      const itens = orcamentoMatches.map((m) => {
+        const itemName = m[1].trim();
+        const quantidade = parseQty(m[2]);
+        const product = (products || []).find((p) => normalizeForMatch(p.name) === normalizeForMatch(itemName))
+          || (products || []).find((p) =>
+            normalizeForMatch(p.name).includes(normalizeForMatch(itemName)) ||
+            normalizeForMatch(itemName).includes(normalizeForMatch(p.name)));
+        const preco = product?.price != null ? Number(product.price) : null;
+        return {
+          product_id: product?.id || null,
+          nome: product?.name || itemName,
+          quantidade,
+          unidade: product?.unit || "",
+          preco_unitario: preco,
+          subtotal: preco != null ? Math.round(preco * quantidade * 100) / 100 : 0,
+        };
+      });
+      const total = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
+      leadUpdate.orcamento = { itens, total, frete: null, criado_em: new Date().toISOString() };
+    }
+
+    // Etapa: só avança (nunca volta) e só entre as etapas automáticas e ativas
+    let enteredAwaiting = false;
+    if (!isRestaurant && etapaMatch) {
+      const target = etapaMatch[1].toLowerCase();
+      const currentRank = AUTO_STAGE_RANK[lead.stage];
+      const targetRank = AUTO_STAGE_RANK[target];
+      if (currentRank !== undefined && targetRank !== undefined && targetRank > currentRank && canStage(target)) {
+        leadUpdate.stage = target;
+        enteredAwaiting = target === "aguardando_link";
+        console.log("Lead avançou de etapa:", lead.stage, "->", target);
+      }
+    }
+
     await supabase.from("leads").update(leadUpdate).eq("id", lead.id);
 
     // 9. Enviar a resposta pelo provedor de WhatsApp configurado (ou fallback do payload)
@@ -631,6 +796,17 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     console.log("Config de WhatsApp usada:", JSON.stringify({ ...waConfig, api_key: waConfig?.api_key ? "(definida)" : null }));
 
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
+
+    // Avisa o vendedor que tem pedido esperando aprovação
+    // deno-lint-ignore no-explicit-any
+    const vendas = (integrations || []).find((i: any) => i.kind === "vendas" && i.enabled);
+    const sellerPhone = onlyDigits(vendas?.config?.telefone_aprovacao);
+    if (enteredAwaiting && sellerPhone) {
+      const q = leadUpdate.orcamento as { itens: { nome: string; quantidade: number; unidade: string }[]; total: number } | undefined;
+      const itensTxt = q?.itens?.map((i) => `• ${i.nome} — ${String(i.quantidade).replace(".", ",")} ${i.unidade}`).join("\n") || "";
+      const aviso = `🟡 *Pedido aguardando aprovação*\nCliente: ${lead.name || customerNumber} (${customerNumber})\n${itensTxt}${q ? `\nTotal: ${brl(q.total)} + frete` : ""}\n\nAbra o Kanban do Lumos para conferir e aprovar.`;
+      await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, sellerPhone, aviso);
+    }
 
     // 10.b Fluxo de restaurante: vincular à mesa, criar pedido, ou marcar aguardando pagamento
     if (bizConfig?.business_type === "restaurante") {

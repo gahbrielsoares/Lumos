@@ -1,9 +1,10 @@
-import { supabase } from "./supabaseClient.js?v=27";
+import { supabase } from "./supabaseClient.js?v=28";
 
 export const STAGES = [
   "novo_contato",
   "conversando",
   "consulta_agendada",
+  "aguardando_link",
   "compareceu",
   "follow_up",
   "fechado",
@@ -14,6 +15,7 @@ export const STAGE_LABELS = {
   novo_contato: "Novo Contato",
   conversando: "Conversando",
   consulta_agendada: "Consulta Agendada",
+  aguardando_link: "Aguardando link de pagamento",
   compareceu: "Compareceu",
   follow_up: "Follow Up",
   fechado: "Fechado",
@@ -24,6 +26,7 @@ export const STAGE_DESCRIPTIONS = {
   novo_contato: "Lead acabou de entrar em contato",
   conversando: "Em conversa, coletando informações",
   consulta_agendada: "Visita/consulta marcada, aguardando comparecimento",
+  aguardando_link: "Pedido montado pela IA — confira e aprove o envio do link",
   compareceu: "Compareceu e virou cliente",
   follow_up: "O Agente de IA fará o follow up automaticamente",
   fechado: "Negócio fechado, cliente ativo",
@@ -100,4 +103,21 @@ export function timeAgo(dateString) {
   if (hours < 24) return `há ${hours}h`;
   const days = Math.floor(hours / 24);
   return `há ${days}d`;
+}
+
+export async function listMessages(leadId, limit = 200) {
+  const { data } = await supabase
+    .from("messages")
+    .select("direction, text, created_at")
+    .eq("lead_id", leadId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  return data || [];
+}
+
+// Abre a conversa no WhatsApp: no celular usa o app, no computador o WhatsApp Web
+export function whatsappLink(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return isMobile ? `https://wa.me/${digits}` : `https://web.whatsapp.com/send?phone=${digits}`;
 }

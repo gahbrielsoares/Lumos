@@ -5,8 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=27" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=27" />
+  <script src="js/logo.js?v=28" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=28" />
+  <style>
+    .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+    .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+    .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
+    .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
+    .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
+  </style>
 </head>
 <body>
 
@@ -81,14 +88,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=27";
-    import { initThemeToggle } from "./js/theme.js?v=27";
-    import { initMobileNav } from "./js/mobileNav.js?v=27";
-    import { renderSidebar } from "./js/sidebar.js?v=27";
-    import { supabase } from "./js/supabaseClient.js?v=27";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js?v=27";
-    import { listAgents } from "./js/agents.js?v=27";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=27";
+    import { requireSession, signOut } from "./js/auth.js?v=28";
+    import { initThemeToggle } from "./js/theme.js?v=28";
+    import { initMobileNav } from "./js/mobileNav.js?v=28";
+    import { renderSidebar } from "./js/sidebar.js?v=28";
+    import { supabase } from "./js/supabaseClient.js?v=28";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage } from "./js/leads.js?v=28";
+    import { listAgents } from "./js/agents.js?v=28";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=28";
+    import { openLeadPanel } from "./js/leadPanel.js?v=28";
 
     await requireSession();
     initThemeToggle();
@@ -129,17 +137,21 @@
         card.draggable = true;
         card.dataset.id = lead.id;
         card.dataset.stage = lead.stage;
+        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        const q = lead.orcamento;
+        const quoteTotal = q?.itens?.length && !q.aprovado_em
+          ? `<div class="kc-tag kc-quote">Orçamento ${Number((q.total || 0) + (q.frete || 0)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</div>` : "";
+        const approved = q?.aprovado_em && lead.stage === "aguardando_link" ? `<div class="kc-tag kc-ok">Aprovado</div>` : "";
+        const aiOff = lead.ai_enabled === false ? `<div class="kc-tag kc-off">IA pausada</div>` : "";
         card.innerHTML = `
-          <div class="name">${lead.name || lead.phone}</div>
-          <div class="reason">${lead.motivo_contato || "Sem motivo registrado"}</div>
+          <div class="name">${esc(lead.name || lead.phone)}</div>
+          <div class="reason">${esc(lead.motivo_contato || "Sem motivo registrado")}</div>
+          ${aiOff || quoteTotal || approved ? `<div class="kc-tags">${aiOff}${quoteTotal}${approved}</div>` : ""}
           <div class="date">${new Date(lead.created_at).toLocaleDateString("pt-BR")}</div>
         `;
         card.addEventListener("dragstart", () => card.classList.add("dragging"));
         card.addEventListener("dragend", () => card.classList.remove("dragging"));
-        card.addEventListener("click", () => {
-          const dest = lead.is_client ? "clientes.html" : "leads.html";
-          window.location.href = `${dest}?id=${lead.id}`;
-        });
+        card.addEventListener("click", () => openLeadPanel(lead.id, { onChange: () => loadBoard() }));
         body.appendChild(card);
       });
 

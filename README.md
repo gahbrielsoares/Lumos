@@ -623,6 +623,30 @@ A tela fica em **Integrações** (menu lateral). Os campos são gerados a partir
 esquema ali. Chaves e tokens ficam na coluna `secrets` e nunca são mostrados de
 volta na tela.
 
+## 20. Funil automático, orçamento para aprovação e IA por contato
+
+No **SQL Editor**:
+
+```sql
+-- IA ligada/desligada por contato e orçamento montado pela IA
+alter table public.leads add column if not exists ai_enabled boolean default true;
+alter table public.leads add column if not exists orcamento jsonb;
+
+-- Nova etapa do Kanban: "Aguardando link de pagamento"
+alter table public.leads drop constraint if exists leads_stage_check;
+alter table public.leads add constraint leads_stage_check
+  check (stage in ('novo_contato','conversando','consulta_agendada','aguardando_link','compareceu','follow_up','fechado','perdido'));
+```
+
+Como funciona:
+- A IA marca a etapa com `[ETAPA: ...]` e o código só deixa o lead **avançar**
+  (novo contato → conversando → consulta agendada → aguardando link), nunca voltar.
+  Etapas desativadas no Kanban são respeitadas. Fechado/perdido são sempre manuais.
+- Quando o cliente confirma a compra, a IA lista os itens com `[ORCAMENTO: produto | qtd]`
+  e o **código** calcula preços e total a partir do catálogo.
+- Se "Regras de venda" tiver o WhatsApp do vendedor, ele recebe um aviso na hora.
+- Com a IA desativada no contato, as mensagens continuam salvas, mas ninguém responde automaticamente.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=27";
+import { supabase } from "./supabaseClient.js?v=28";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -218,3 +218,15 @@ export async function saveIntegration(kind, { provider, enabled, config, secrets
     { onConflict: "owner_id,kind" }
   );
 }
+
+// Toda integração (menos a API personalizada) ganha o interruptor
+// "a IA consulta estas informações" como primeiro campo.
+INTEGRATIONS.filter((d) => d.kind !== "api_personalizada").forEach((d) =>
+  d.fields.unshift({
+    key: "ia_consulta",
+    label: "A IA consulta estas informações durante o atendimento",
+    type: "toggle",
+    default: true,
+    hint: "Desligado: a configuração fica salva, mas a IA não usa nem menciona nada disso na conversa.",
+  })
+);

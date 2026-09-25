@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Leads — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=27" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=27" />
+  <script src="js/logo.js?v=28" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=28" />
 </head>
 <body>
 
@@ -109,16 +109,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=27";
-    import { initThemeToggle } from "./js/theme.js?v=27";
-    import { initMobileNav } from "./js/mobileNav.js?v=27";
-    import { renderSidebar } from "./js/sidebar.js?v=27";
-    import { getRange } from "./js/dateRange.js?v=27";
-    import { listAgents } from "./js/agents.js?v=27";
+    import { requireSession, signOut } from "./js/auth.js?v=28";
+    import { initThemeToggle } from "./js/theme.js?v=28";
+    import { initMobileNav } from "./js/mobileNav.js?v=28";
+    import { renderSidebar } from "./js/sidebar.js?v=28";
+    import { getRange } from "./js/dateRange.js?v=28";
+    import { listAgents } from "./js/agents.js?v=28";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
-    } from "./js/leads.js?v=27";
+    } from "./js/leads.js?v=28";
+    import { openLeadPanel } from "./js/leadPanel.js?v=28";
 
     await requireSession();
     initThemeToggle();
@@ -210,6 +211,18 @@
       document.getElementById("d-agendamento").textContent = lead.data_agendamento
         ? new Date(lead.data_agendamento).toLocaleString("pt-BR") : "—";
       document.getElementById("d-anotacoes").value = lead.anotacoes || "";
+
+      // Botões: conversa, WhatsApp e IA ligada/desligada ficam no painel lateral
+      const bar = document.createElement("div");
+      bar.style.cssText = "display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 4px;";
+      bar.innerHTML = `
+        <button class="btn btn-primary" id="d-open-chat">Abrir conversa</button>
+        <button class="btn btn-ghost" id="d-open-panel">${lead.ai_enabled === false ? "IA pausada — gerenciar" : "IA ativa — gerenciar"}</button>`;
+      document.getElementById("detail-name").closest("div").after(bar);
+      document.getElementById("d-open-chat").addEventListener("click", () => openLeadPanel(id, { tab: "conversa" }));
+      document.getElementById("d-open-panel").addEventListener("click", () => openLeadPanel(id, {
+        onChange: (l) => (document.getElementById("d-open-panel").textContent = l.ai_enabled === false ? "IA pausada — gerenciar" : "IA ativa — gerenciar"),
+      }));
 
       const latest = await getLatestMessage(id);
       document.getElementById("d-ultima").textContent = latest?.text || "—";
