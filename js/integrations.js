@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=31";
+import { supabase } from "./supabaseClient.js?v=32";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -79,6 +79,8 @@ export const INTEGRATIONS = [
     ],
     fields: [
       { key: "cep_origem", label: "CEP da loja (origem)", type: "text", placeholder: "13500-000" },
+      { key: "cidade", label: "Cidade da loja", type: "text", placeholder: "Ex.: Rio Claro",
+        hint: "Usada pra saber se o CEP do cliente é de outra cidade (aí vale a linha \"Cidades vizinhas\" da tabela, se existir). Dica: crie uma linha \"Demais bairros\" para cobrir bairros que não estão na tabela." },
       { key: "endereco_retirada", label: "Endereço para retirada", type: "text" },
       { key: "permite_retirada", label: "Cliente pode retirar na loja", type: "toggle", default: true,
         showIf: { provider: ["proprio", "melhorenvio"] } },

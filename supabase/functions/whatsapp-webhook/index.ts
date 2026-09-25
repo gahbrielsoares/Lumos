@@ -43,20 +43,28 @@ function toWhatsAppFormat(text: string): string {
 // conteúdo automaticamente. Nesses casos é mais seguro usar uma resposta
 // de reserva do que arriscar mandar isso pro cliente.
 function looksLikeLeakedReasoning(text: string): boolean {
+  // Avalia só o texto que vai pro cliente (sem as marcações internas, que podem ser longas num fechamento)
+  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)[^\]]*\]?/gi, "").trim();
   const markers = [
     "here's a thinking process",
     "let me think",
     "let's think",
     "analyze user input",
     "identify context",
-    "step 1",
-    "1.  **",
-    "1. **",
     "wait, the rule",
+    "the user is asking",
+    "we need to respond",
     "revisão final",
   ];
-  const lower = text.toLowerCase();
-  return markers.some((m) => lower.includes(m)) || text.length > 900;
+  const lower = visible.toLowerCase();
+  return markers.some((m) => lower.includes(m)) || visible.length > 2200;
+}
+
+// Resposta que "enrola" (promete voltar depois) em vez de resolver — a IA não tem como voltar depois
+function looksLikeStall(text: string): boolean {
+  const visible = text.replace(/\[[^\]]*\]?/g, " ").toLowerCase();
+  if (/\[orcamento:/i.test(text)) return false;
+  return /(j[áa] te (respondo|retorno|confirmo|falo)|deixa eu (confirmar|verificar|checar|consultar)|vou (verificar|confirmar|checar|consultar)[^.!?\n]{0,40}(equipe|pessoal|setor|j[áa] te)|s[óo] um (instante|minuto|momento)|aguarde (um|só)|recebi (aqui )?a confirma[çc][ãa]o da (nossa )?equipe)/.test(visible);
 }
 
 function onlyDigits(s: string | undefined | null) {
@@ -276,7 +284,8 @@ async function callAiProvider(
   userContent: string,
   temperature: number,
   maxTokens: number,
-  imageUrl?: string | null
+  imageUrl?: string | null,
+  geminiThinking = true,
 ): Promise<string> {
   const vendor = provider?.vendor || "openrouter";
   const apiKey = provider?.api_key || FALLBACK_OPENROUTER_KEY;
@@ -302,17 +311,29 @@ async function callAiProvider(
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts }],
-          generationConfig: { temperature, maxOutputTokens: maxTokens },
+          generationConfig: {
+            temperature,
+            // Os modelos Gemini 3 "pensam" antes de responder e isso consome o limite de saída
+            maxOutputTokens: Math.max(maxTokens, 2048),
+            ...(geminiThinking ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
+          },
         }),
       }
     );
     const data = await res.json();
+    // Modelo que não aceita thinkingConfig: tenta de novo sem
+    if (!res.ok && geminiThinking && res.status === 400 && /thinking/i.test(JSON.stringify(data))) {
+      return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, imageUrl, false);
+    }
     if (!res.ok && imageUrl) {
       console.error("Erro na chamada Gemini com imagem, tentando de novo só com texto:", res.status, JSON.stringify(data));
       return callAiProvider(provider, systemPrompt + NO_IMAGE_NOTICE, userContent, temperature, maxTokens, null);
     }
     if (!res.ok) console.error("Erro na chamada Gemini:", res.status, JSON.stringify(data));
-    const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    // Junta as partes de texto (ignorando partes de "pensamento", se vierem)
+    const out = (data.candidates?.[0]?.content?.parts || [])
+      .filter((p: { text?: string; thought?: boolean }) => p.text && !p.thought)
+      .map((p: { text: string }) => p.text).join("").trim();
     if (!out) console.error("Gemini respondeu vazio. Payload completo:", JSON.stringify(data));
     return out;
   }
@@ -322,6 +343,8 @@ async function callAiProvider(
     groq: "https://api.groq.com/openai/v1/chat/completions",
     openrouter: "https://openrouter.ai/api/v1/chat/completions",
   };
+
+  const reasoningExtras = geminiThinking && vendor === "groq" && /gpt-oss/i.test(model);
 
   const userMessageContent = imageUrl
     ? [
@@ -342,7 +365,9 @@ async function callAiProvider(
     body: JSON.stringify({
       model,
       temperature,
-      max_tokens: maxTokens,
+      // Modelos de raciocínio (ex.: gpt-oss no Groq) gastam tokens pensando: dá folga e pede raciocínio curto
+      max_tokens: Math.max(maxTokens, 2048),
+      ...(reasoningExtras ? { reasoning_effort: "low", include_reasoning: false } : {}),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessageContent },
@@ -351,6 +376,12 @@ async function callAiProvider(
   });
 
   const data = await res.json();
+
+  // Provedor não aceitou os parâmetros de raciocínio: tenta de novo sem eles
+  if (!res.ok && reasoningExtras && res.status === 400) {
+    console.error(`${vendor} recusou parâmetros de raciocínio, tentando sem:`, JSON.stringify(data));
+    return callAiProvider(provider, systemPrompt, userContent, temperature, maxTokens, imageUrl, false);
+  }
 
   // Se mandamos imagem e o modelo não aceitou (não tem visão), tenta de novo só com texto
   if (!res.ok && imageUrl) {
@@ -488,28 +519,94 @@ function norm(s: string) {
 }
 
 // Frete calculado pelo código a partir da tabela (nunca pela IA)
+type Place = { cep?: string | null; bairro?: string | null; cidade?: string | null; uf?: string | null };
 // deno-lint-ignore no-explicit-any
-function computeFreight(entrega: string | null, frete: any, subtotal: number) {
-  if (!entrega) return { tipo: null, valor: null, prazo: null, local: null };
-  const txt = norm(entrega);
-  if (/retir/.test(txt)) return { tipo: "retirada", valor: 0, prazo: null, local: frete?.config?.endereco_retirada || null };
-  if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local: entrega };
+function computeFreight(entrega: string | null, frete: any, subtotal: number, place: Place = {}) {
+  if (!entrega && !place.cep && !place.bairro) return { tipo: null, valor: null, prazo: null, local: null };
+  const txt = norm(entrega || "");
+  if (/\bretir|\bbusco\b|buscar na loja|pego na loja|pegar na loja/.test(txt)) {
+    return { tipo: "retirada", valor: 0, prazo: null, local: frete?.config?.endereco_retirada || null };
+  }
+  const cepDigits = place.cep || (entrega?.match(/\d{5}-?\d{3}/)?.[0] || "").replace(/\D/g, "") || null;
+  const local = [place.bairro, place.cidade && `${place.cidade}${place.uf ? "/" + place.uf : ""}`].filter(Boolean).join(", ")
+    || entrega || (cepDigits ? `CEP ${cepDigits}` : null);
+  if (!frete || frete.provider !== "proprio") return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits };
 
   const faixas = frete.config?.faixas || [];
-  const cep = Number((entrega.match(/\d{5}-?\d{3}/)?.[0] || "").replace(/\D/g, "")) || null;
   // deno-lint-ignore no-explicit-any
-  let hit = faixas.find((f: any) => f.regiao && !/^demais/i.test(f.regiao) && (txt.includes(norm(f.regiao)) || norm(f.regiao).includes(txt)));
+  const named = faixas.filter((f: any) => f.regiao && !/^demais|vizinh|outras cidades/i.test(f.regiao));
+  const lojaCidade = norm(frete.config?.cidade || "");
+  const outraCidade = !!(lojaCidade && place.cidade && norm(place.cidade) !== lojaCidade);
+
   // deno-lint-ignore no-explicit-any
-  if (!hit && cep) hit = faixas.find((f: any) => {
-    const a = Number(String(f.cep_inicio || "").replace(/\D/g, "")), b = Number(String(f.cep_fim || f.cep_inicio || "").replace(/\D/g, ""));
-    return a && b && cep >= a && cep <= b;
-  });
-  // deno-lint-ignore no-explicit-any
-  if (!hit) hit = faixas.find((f: any) => /^demais/i.test(f.regiao || ""));
-  if (!hit) return { tipo: "entrega", valor: null, prazo: null, local: entrega };
+  let hit: any = null;
+  if (!outraCidade) {
+    const candidates = [norm(place.bairro || ""), txt].filter(Boolean);
+    // deno-lint-ignore no-explicit-any
+    hit = named.find((f: any) => candidates.some((c) => c === norm(f.regiao) || c.includes(norm(f.regiao))));
+    const cep = Number(cepDigits || 0);
+    // deno-lint-ignore no-explicit-any
+    if (!hit && cep) hit = faixas.find((f: any) => {
+      const a = Number(String(f.cep_inicio || "").replace(/\D/g, "")), b = Number(String(f.cep_fim || f.cep_inicio || "").replace(/\D/g, ""));
+      return a && b && cep >= a && cep <= b;
+    });
+    // deno-lint-ignore no-explicit-any
+    if (!hit) hit = faixas.find((f: any) => /^demais/i.test(f.regiao || ""));
+  } else {
+    // deno-lint-ignore no-explicit-any
+    hit = faixas.find((f: any) => /vizinh|outras cidades/i.test(f.regiao || ""));
+  }
+  if (!hit) return { tipo: "entrega", valor: null, prazo: null, local, cep: cepDigits };
 
   const gratis = frete.config?.frete_gratis_acima > 0 && subtotal >= frete.config.frete_gratis_acima;
-  return { tipo: "entrega", valor: gratis ? 0 : Number(hit.valor || 0), prazo: hit.prazo || null, local: entrega, gratis };
+  return { tipo: "entrega", valor: gratis ? 0 : Number(hit.valor || 0), prazo: hit.prazo || null, local, cep: cepDigits, faixa: hit.regiao || null, gratis };
+}
+
+async function lookupCep(cep: string): Promise<Place | null> {
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`, { signal: AbortSignal.timeout(3500) });
+    const d = await res.json();
+    if (!res.ok || d.erro) return null;
+    return { cep, bairro: d.bairro || null, cidade: d.localidade || null, uf: d.uf || null };
+  } catch (_) {
+    return null;
+  }
+}
+
+// Procura, nas mensagens do cliente (mais recente primeiro), onde ele quer receber ou se vai retirar
+// deno-lint-ignore no-explicit-any
+async function resolveDelivery(customerTexts: string[], frete: any, subtotal = 0) {
+  if (!frete) return null;
+  for (const raw of customerTexts) {
+    const t = String(raw || "");
+    const n = norm(t);
+    if (!n) continue;
+    if (/\bretir|\bbusco\b|buscar na loja|pego na loja|pegar na loja/.test(n)) return computeFreight("retirada", frete, subtotal);
+    const cepMatch = t.match(/\b\d{5}-?\d{3}\b/);
+    if (cepMatch) {
+      const cep = cepMatch[0].replace(/\D/g, "");
+      const place = (await lookupCep(cep)) || { cep };
+      return computeFreight(t, frete, subtotal, place);
+    }
+    // deno-lint-ignore no-explicit-any
+    const faixa = (frete.config?.faixas || []).find((f: any) => f.regiao && !/^demais|vizinh|outras cidades/i.test(f.regiao) && new RegExp(`\\b${norm(f.regiao)}\\b`).test(n));
+    if (faixa) return computeFreight(t, frete, subtotal, { bairro: faixa.regiao });
+  }
+  return null;
+}
+
+// deno-lint-ignore no-explicit-any
+function describeDelivery(d: any, frete: any): string {
+  if (!d) return "";
+  const gratisTxt = frete?.config?.frete_gratis_acima > 0 ? ` (frete grátis se a compra passar de ${brl(frete.config.frete_gratis_acima)})` : "";
+  if (d.tipo === "retirada") return `\n\nEntrega já definida nesta conversa: o cliente vai RETIRAR na loja${d.local ? ` (${d.local})` : ""}. Sem frete.`;
+  if (d.valor != null) {
+    return `\n\nEntrega já identificada nesta conversa (calculada pelo sistema — use exatamente estes dados, não recalcule):
+${d.local ? `Endereço: ${d.local}${d.cep ? ` (CEP ${d.cep})` : ""}` : ""}
+Frete: ${brl(d.valor)}${d.prazo ? ` — prazo ${d.prazo}` : ""}${gratisTxt}.`;
+  }
+  return `\n\nEntrega: o cliente informou ${d.local || "um endereço"}${d.cep ? ` (CEP ${d.cep})` : ""}, que está FORA da tabela de frete.
+Isso é uma pendência da equipe e NÃO trava a venda: diga com naturalidade que o valor do frete para esse endereço vem junto no resumo do pedido, e siga coletando o que falta.`;
 }
 
 // Itens do orçamento: preço do catálogo, pisos arredondados para caixas fechadas, aviso de estoque
@@ -814,18 +911,39 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const freteInt = effIntegrations.find((i: any) => i.kind === "frete" && i.enabled && i.config?.ia_consulta !== false);
     const autoApprove = vendasCfg.aprovacao_humana === false;
+
+    // Entrega/frete: o código descobre na conversa (CEP -> bairro pelo ViaCEP) e passa pronto pra IA
+    // (o histórico já foi invertido pra ordem cronológica; aqui queremos o mais recente primeiro)
+    const customerTexts = [...(history || [])].reverse().filter((m) => m.direction === "in").map((m) => m.text);
+    const knownDelivery = !isRestaurant && freteInt ? await resolveDelivery(customerTexts, freteInt) : null;
+    const deliveryInfo = describeDelivery(knownDelivery, freteInt);
+    const isFirstReply = !(history || []).some((m) => m.direction === "out");
     const canStage = (st: string) => !disabledStages.includes(st);
 
     const stageInstructions = isRestaurant ? "" : `
 
+Condução da venda:
+- Colete tudo o que VOCÊ consegue resolver: produtos, quantidades${freteInt ? ", entrega ou retirada (e o bairro ou CEP)" : ""} e a confirmação do cliente.
+- Pendências que só a equipe resolve (frete fora da tabela, produto sem cadastro, desconto acima do permitido) NÃO travam a venda:
+  avise com naturalidade que isso vem confirmado no resumo do pedido e continue coletando o resto.
+- Você não consegue consultar ninguém nem "voltar depois". Nunca diga "vou verificar com a equipe", "já te respondo",
+  "só um instante", e nunca diga que recebeu confirmação da equipe. Resolva sempre na própria mensagem.
+- Nunca invente preço, frete, prazo ou estoque. Use só o catálogo e as informações da loja.
+- Pisos são vendidos em caixas fechadas: fale da metragem em m², mas NÃO informe número de caixas nem valores totais —
+  o resumo oficial, com caixas, valores e frete calculados pelo sistema, chega logo depois do fechamento.
+
 Etapas do atendimento (marcações internas, removidas antes de chegar ao cliente, uma por linha no FINAL):
-${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}${canStage("aguardando_link") ? `- Quando o cliente CONFIRMAR que quer fechar a compra (itens e quantidades definidos), inclua uma linha por item:
-  [ORCAMENTO: Nome Exato do Produto do catálogo | quantidade]
-  e também: [ETAPA: aguardando_link]
-${freteInt ? `  Antes de fechar, pergunte se é entrega ou retirada. Inclua também: [ENTREGA: retirada] ou [ENTREGA: bairro e/ou CEP informado pelo cliente]
-` : ""}  ${autoApprove ? "Nesse momento diga que o pedido foi registrado e que o resumo com o link de pagamento chega em instantes." : "Nesse momento diga ao cliente que vai conferir o pedido com a equipe e já envia o link de pagamento."}
-  Não some o total nem calcule o frete você mesmo: o sistema calcula os valores a partir do catálogo e da tabela de frete.
-` : ""}`;
+${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}- FECHAMENTO: assim que o cliente confirmar a compra ("pode fechar", "sim", "ok", "fechado", "pode mandar"), feche NESSA MESMA
+  resposta. Inclua uma linha por item: [ORCAMENTO: Nome Exato do Produto do catálogo | quantidade]
+${freteInt ? "  e a entrega: [ENTREGA: retirada] ou [ENTREGA: bairro e/ou CEP que o cliente informou]\n" : ""}  e também: [ETAPA: aguardando_link]
+  ${autoApprove ? "Diga que o pedido foi registrado e que o resumo com o link de pagamento chega em instantes." : "Diga que vai passar o pedido para a equipe conferir e que o resumo com o link de pagamento chega em seguida."}
+  Exemplo de fechamento:
+  Perfeito, pedido fechado! ${autoApprove ? "Já te mando o resumo com o link de pagamento." : "Vou passar para a equipe conferir e já te envio o resumo com o link de pagamento."}
+  [ORCAMENTO: Porcelanato X | 7,7]
+  [ORCAMENTO: Argamassa Y | 2]
+${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
+- Se o cliente ainda não confirmou, recapitule o pedido em poucas linhas e pergunte se pode fechar.
+- Depois que o pedido foi pago, agradeça e ajude no que precisar (instalação, prazo, dúvidas).${deliveryInfo}`;
 
     const restaurantInstructions = isRestaurant ? `
 
@@ -861,12 +979,16 @@ explicitamente, não repita a marcação — só avise em texto que já mandou a
 Se o cliente pedir de novo (algo como "manda de novo", "não recebi", "envia outra vez"), inclua a marcação normalmente.
 
 Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em uma linha separada, sempre:
-[CONTEXTO: motivo do contato em poucas palavras | resumo curto do que já foi conversado até agora, 1-2 frases]
+[CONTEXTO: motivo do contato em 3 a 6 palavras (ex.: "Orçamento piso e parede banheiro") | resumo curto do que já foi conversado até agora, 1-2 frases]
 Atualize esse resumo a cada mensagem, refletindo o estado mais recente da conversa. Essa marcação é interna,
 nunca a explique pro cliente — ela é removida automaticamente antes de chegar até ele.
 
 Formatação: você está no WhatsApp. Para negrito use UM asterisco de cada lado (*assim*), nunca dois (**assim**).
 Não use títulos com #, tabelas nem links no formato [texto](link).
+
+Tom: converse como uma pessoa no WhatsApp — frases curtas, naturais, uma pergunta por vez, sem repetir as mesmas aberturas.
+${isFirstReply ? "Esta é a sua PRIMEIRA resposta nesta conversa: cumprimente e se apresente." : "Você JÁ cumprimentou o cliente nesta conversa: NÃO comece com \"Oi\", \"Olá\" nem se apresente de novo. Vá direto ao assunto, com naturalidade."}
+Se errar alguma informação, corrija com leveza, sem pedir desculpas em excesso.
 
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
@@ -876,21 +998,35 @@ ${imageInstructions}${restaurantInstructions}${stageInstructions}${storeInfo}
 Catálogo:
 ${catalogText || "(nenhum produto cadastrado ainda)"}`;
 
-    let reply = await callAiProvider(
-      activeProvider,
-      systemPrompt,
-      `Histórico da conversa:\n${conversation}\n\nNova mensagem do cliente: ${text}`,
-      agent?.temperature ?? 0.7,
-      agent?.max_tokens ?? 1024,
-      imageUrlForAi
-    );
+    const userContent = `Histórico da conversa:\n${conversation}\n\nNova mensagem do cliente: ${text}`;
+    const temperature = agent?.temperature ?? 0.7;
+    const maxTokens = agent?.max_tokens ?? 1024;
+    const otherProvider = aiProviders?.find((p) => p.slot !== activeSlot && p.api_key) || null;
 
-    if (!reply) reply = "Desculpa, tive um probleminha aqui — já te respondo.";
-    reply = sanitizeReply(reply);
+    // Gera a resposta com redes de segurança:
+    // vazia/erro -> tenta a outra IA configurada; raciocínio vazado ou "enrolação" -> uma nova tentativa corrigida
+    // deno-lint-ignore no-explicit-any
+    const generate = async (provider: any, extraNote = "") =>
+      sanitizeReply(await callAiProvider(provider, systemPrompt + extraNote, userContent, temperature, maxTokens, imageUrlForAi));
 
-    if (looksLikeLeakedReasoning(reply)) {
-      console.error("Resposta descartada por parecer raciocínio interno vazado:", reply.slice(0, 300));
-      reply = "Oi! Deixa eu confirmar uma informação aqui e já te respondo certinho.";
+    let reply = await generate(activeProvider);
+    if (!reply && otherProvider) {
+      console.error("IA ativa não respondeu, tentando a do outro slot:", otherProvider.vendor);
+      reply = await generate(otherProvider);
+    }
+    if (reply && looksLikeLeakedReasoning(reply)) {
+      console.error("Resposta parecia raciocínio interno, gerando de novo:", reply.slice(0, 300));
+      reply = await generate(activeProvider, "\n\nIMPORTANTE: escreva SOMENTE a mensagem final para o cliente, sem explicar seu raciocínio.");
+      if (looksLikeLeakedReasoning(reply) && otherProvider) reply = await generate(otherProvider);
+    }
+    if (reply && looksLikeStall(reply)) {
+      console.log("Resposta prometia retorno em vez de resolver, gerando de novo:", reply.slice(0, 200));
+      const retry = await generate(activeProvider, `\n\nCORREÇÃO: sua resposta anterior prometia verificar algo e voltar depois ("${reply.replace(/\[[^\]]*\]?/g, "").slice(0, 160)}").
+Você não tem como fazer isso. Resolva nesta mensagem com as informações disponíveis. Se algo depende da equipe, trate como pendência que vem no resumo do pedido e siga coletando o que falta. Se o cliente já confirmou a compra, feche agora com as marcações.`);
+      if (retry && !looksLikeLeakedReasoning(retry)) reply = retry;
+    }
+    if (!reply || looksLikeLeakedReasoning(reply)) {
+      reply = "Só um segundinho que minha conexão falhou aqui — pode repetir sua última mensagem, por favor?";
     }
 
     // Extrai TODAS as marcações [FOTO: nome do produto] — o cliente pode pedir mais de uma foto de uma vez
@@ -913,7 +1049,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     // Motivo do contato + resumo da conversa (usado em qualquer tipo de negócio)
     const contextoMatch = reply.match(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/i);
     // Fallback: às vezes a IA esquece o "|" e escreve só uma frase — ainda aproveitamos como motivo
-    const contextoSimpleMatch = !contextoMatch ? reply.match(/\[CONTEXTO:\s*(.+?)\]/i) : null;
+    const contextoSimpleMatch = !contextoMatch ? (reply.match(/\[CONTEXTO:\s*(.+?)\]/i) || reply.match(/\[CONTEXTO:\s*([^\]\n]+)$/im)) : null;
 
     reply = reply
       .replace(/\[FOTO:\s*(.+?)\]/gi, "")
@@ -928,6 +1064,8 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
       .replace(/\[ENTREGA:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
       .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)[^\]]*\]/gi, "")
+      // Marcação cortada (a resposta terminou antes do "]"): remove até o fim da linha
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA)\b[^\]\n]*$/gim, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -952,11 +1090,13 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "ia", text: reply });
 
     const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
+    // O motivo do contato é definido uma vez (o primeiro); o resumo acompanha a conversa
+    const motivoAtual = String(lead.motivo_contato || "").trim();
     if (contextoMatch) {
-      leadUpdate.motivo_contato = contextoMatch[1].trim();
+      if (!motivoAtual) leadUpdate.motivo_contato = contextoMatch[1].trim().slice(0, 80);
       leadUpdate.resumo_conversa = contextoMatch[2].trim();
-    } else if (contextoSimpleMatch) {
-      leadUpdate.motivo_contato = contextoSimpleMatch[1].trim();
+    } else if (contextoSimpleMatch && !motivoAtual) {
+      leadUpdate.motivo_contato = contextoSimpleMatch[1].trim().slice(0, 80);
     }
     // Pedido: a IA só diz itens, quantidades e entrega — preço, caixas e frete são calculados pelo código
     let enteredAwaiting = false;
@@ -966,7 +1106,10 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     if (!isRestaurant && orcamentoMatches.length) {
       const itens = buildOrderItems(orcamentoMatches, products || []);
       const subtotal = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
-      const entrega = computeFreight(entregaMatch?.[1] || null, freteInt, subtotal);
+      const fromMarker = entregaMatch?.[1] ? await resolveDelivery([entregaMatch[1]], freteInt, subtotal) : null;
+      const entrega = fromMarker || (knownDelivery
+        ? (knownDelivery.tipo === "retirada" ? knownDelivery : computeFreight(knownDelivery.local, freteInt, subtotal, { cep: knownDelivery.cep, bairro: knownDelivery.faixa || null }))
+        : computeFreight(entregaMatch?.[1] || null, freteInt, subtotal));
       leadUpdate.orcamento = { itens, total: subtotal, frete: entrega.valor, entrega, criado_em: new Date().toISOString() };
 
       if (closing) {
@@ -1019,7 +1162,12 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
     await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
     if (enteredAwaiting && newOrder) {
-      if (autoApprove) {
+      const freteDefinido = newOrder.frete != null || newOrder.entrega?.tipo === "retirada";
+      if (autoApprove && !freteDefinido) {
+        await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber,
+          `Seu pedido *#${newOrder.numero}* está registrado! ✅ Só falta a equipe confirmar o frete para ${newOrder.entrega?.local || "o seu endereço"} — assim que confirmar, te mando o resumo com o link de pagamento.`);
+      }
+      if (autoApprove && freteDefinido) {
         // Aprovação automática: a função de pedidos envia o resumo e o link de pagamento
         const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/orders`, {
           method: "POST",
@@ -1028,6 +1176,7 @@ ${catalogText || "(nenhum produto cadastrado ainda)"}`;
         });
         if (!res.ok) console.error("Falha na aprovação automática:", res.status, await res.text());
       } else {
+        // Vai pro vendedor (aprovação manual, ou frete que só ele define)
         // Avisa o vendedor que tem pedido esperando aprovação
         const sellerPhone = onlyDigits(vendasCfg.telefone_aprovacao);
         if (sellerPhone) {

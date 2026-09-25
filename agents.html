@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=31" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=31" />
+  <script src="js/logo.js?v=32" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=32" />
 </head>
 <body>
 
@@ -104,6 +104,7 @@
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button class="btn btn-primary" id="sim-save">Salvar simulação</button>
               <button class="btn btn-ghost" id="sim-reseed">Recadastrar produtos de demonstração</button>
+              <button class="btn btn-ghost" id="sim-prompt-reset">Restaurar prompt padrão do simulador</button>
             </div>
           </div>
         </div>
@@ -246,20 +247,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=31";
-    import { initThemeToggle } from "./js/theme.js?v=31";
-    import { initMobileNav } from "./js/mobileNav.js?v=31";
-    import { renderSidebar } from "./js/sidebar.js?v=31";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=31";
-    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=31";
+    import { requireSession, signOut } from "./js/auth.js?v=32";
+    import { initThemeToggle } from "./js/theme.js?v=32";
+    import { initMobileNav } from "./js/mobileNav.js?v=32";
+    import { renderSidebar } from "./js/sidebar.js?v=32";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=32";
+    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=32";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=31";
+    } from "./js/agents.js?v=32";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, seedSimulatorProducts, activateAgentForNumber,
-    } from "./js/simulator.js?v=31";
+    } from "./js/simulator.js?v=32";
 
     await requireSession();
     initThemeToggle();
@@ -439,6 +440,17 @@
       }
       const { error } = await saveAgent(currentAgentId, fields);
       msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
+      msg.className = error ? "form-msg error" : "form-msg ok";
+    });
+
+    document.getElementById("sim-prompt-reset").addEventListener("click", async () => {
+      const msg = document.getElementById("sim-detail-msg");
+      const type = document.getElementById("sim-type-detail").value;
+      if (!SIM_PROMPTS[type]) return;
+      if (!confirm("Substituir o prompt atual pelo prompt padrão (mais recente) do simulador?")) return;
+      const { error } = await saveAgent(currentAgentId, { system_prompt: SIM_PROMPTS[type] });
+      if (!error) document.getElementById("a-prompt").value = SIM_PROMPTS[type];
+      msg.textContent = error ? `Erro: ${error.message}` : "Prompt restaurado.";
       msg.className = error ? "form-msg error" : "form-msg ok";
     });
 
