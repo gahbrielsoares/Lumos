@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=36";
+import { supabase } from "./supabaseClient.js?v=37";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de

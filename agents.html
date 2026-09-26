@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=36" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=36" />
+  <script src="js/logo.js?v=37" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=37" />
 </head>
 <body>
 
@@ -127,6 +127,7 @@
             <div class="field">
               <label for="a-prompt">Prompt do sistema</label>
               <textarea id="a-prompt" rows="10" style="min-height:220px;"></textarea>
+              <button type="button" class="btn btn-ghost btn-sm" id="apply-niche-prompt" style="margin-top:8px;">Usar o prompt recomendado do nicho</button>
             </div>
             <div class="field-row">
               <div class="field">
@@ -247,20 +248,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=36";
-    import { initThemeToggle } from "./js/theme.js?v=36";
-    import { initMobileNav } from "./js/mobileNav.js?v=36";
-    import { renderSidebar } from "./js/sidebar.js?v=36";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=36";
-    import { getBusinessTypeInfo } from "./js/businessTypes.js?v=36";
+    import { requireSession, signOut } from "./js/auth.js?v=37";
+    import { initThemeToggle } from "./js/theme.js?v=37";
+    import { initMobileNav } from "./js/mobileNav.js?v=37";
+    import { renderSidebar } from "./js/sidebar.js?v=37";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=37";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=37";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=36";
+    } from "./js/agents.js?v=37";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=36";
+    } from "./js/simulator.js?v=37";
 
     await requireSession();
     initThemeToggle();
@@ -361,8 +362,7 @@
 
     document.getElementById("new-agent-btn").addEventListener("click", async () => {
       const cfg = await getBusinessConfig();
-      const info = getBusinessTypeInfo(cfg?.business_type || "geral");
-      const { data, error } = await createAgent({ name: "Novo agente", system_prompt: info.promptTemplate });
+      const { data, error } = await createAgent({ name: "Novo agente", system_prompt: buildNichePrompt(cfg?.business_type || "geral", cfg?.business_name) });
       if (error) return alert(`Erro ao criar agente: ${error.message}`);
       window.location.href = `agents.html?id=${data.id}`;
     });
@@ -387,6 +387,7 @@
       document.getElementById("a-pause").checked = agent.pause_on_human !== false;
       document.getElementById("a-phones").value = agent.allowed_phones || "";
 
+      document.getElementById("apply-niche-prompt").style.display = agent.is_simulator ? "none" : "";
       if (agent.is_simulator) {
         document.getElementById("sim-block").style.display = "block";
         const sel = document.getElementById("sim-type-detail");
@@ -426,6 +427,16 @@
       msg.textContent = error ? `Erro: ${error.message}` : "Salvo.";
       msg.className = error ? "form-msg error" : "form-msg ok";
       document.getElementById("detail-title").textContent = document.getElementById("a-name").value || "Agente";
+    });
+
+    document.getElementById("apply-niche-prompt")?.addEventListener("click", async () => {
+      const cfg = await getBusinessConfig();
+      const info = getBusinessTypeInfo(cfg?.business_type || "geral");
+      if (!confirm(`Substituir o prompt deste agente pelo prompt recomendado de "${info.label}"?`)) return;
+      const prompt = buildNichePrompt(info.key, cfg?.business_name);
+      const { error } = await saveAgent(currentAgentId, { system_prompt: prompt });
+      if (!error) document.getElementById("a-prompt").value = prompt;
+      alert(error ? `Erro: ${error.message}` : "Prompt atualizado.");
     });
 
     document.getElementById("sim-save").addEventListener("click", async () => {

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=36" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=36" />
+  <script src="js/logo.js?v=37" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=37" />
 </head>
 <body>
 
@@ -126,7 +126,7 @@
   <div class="modal-backdrop" id="prompt-update-modal" style="display:none;">
     <div class="modal-box" style="max-width:420px;">
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Atualizar prompt dos agentes?</h3>
-      <p>O tipo de negócio foi salvo. Se quiser, marque abaixo quais agentes devem receber o novo prompt padrão desse nicho — os não marcados continuam exatamente como estão.</p>
+      <p>O tipo de negócio foi salvo. Marque os agentes que devem receber o prompt recomendado desse nicho (a versão mais completa, com todo o roteiro de atendimento). Os não marcados continuam exatamente como estão.</p>
       <div id="prompt-update-list" style="display:flex; flex-direction:column; gap:8px; margin: 14px 0;"></div>
       <div id="prompt-update-msg" class="form-msg"></div>
       <div class="modal-actions">
@@ -137,15 +137,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=36";
-    import { initThemeToggle } from "./js/theme.js?v=36";
-    import { initMobileNav } from "./js/mobileNav.js?v=36";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js?v=36";
-    import { BUSINESS_TYPES, getBusinessTypeInfo } from "./js/businessTypes.js?v=36";
-    import { listAgents, saveAgent } from "./js/agents.js?v=36";
+    import { requireSession, signOut } from "./js/auth.js?v=37";
+    import { initThemeToggle } from "./js/theme.js?v=37";
+    import { initMobileNav } from "./js/mobileNav.js?v=37";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js?v=37";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=37";
+    import { listAgents, saveAgent } from "./js/agents.js?v=37";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=36";
+    } from "./js/businessConfig.js?v=37";
 
     await requireSession();
     initThemeToggle();
@@ -290,7 +290,8 @@
     });
 
     async function openPromptUpdateModal(info) {
-      const agents = await listAgents();
+      // Simuladores têm prompt próprio: ficam fora
+      const agents = (await listAgents()).filter((a) => !a.is_simulator);
       const list = document.getElementById("prompt-update-list");
 
       if (!agents.length) {
@@ -310,7 +311,7 @@
       document.getElementById("prompt-update-confirm").onclick = async () => {
         const selected = [...document.querySelectorAll(".agent-prompt-check:checked")].map((c) => c.value);
         for (const agentId of selected) {
-          await saveAgent(agentId, { system_prompt: info.promptTemplate });
+          await saveAgent(agentId, { system_prompt: buildNichePrompt(info.key, document.getElementById("biz-name")?.value) });
         }
         document.getElementById("prompt-update-modal").style.display = "none";
       };
