@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=37";
+import { supabase } from "./supabaseClient.js?v=38";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=37";
-import { getIntegration } from "./integrations.js?v=37";
+} from "./leads.js?v=38";
+import { getIntegration } from "./integrations.js?v=38";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -261,7 +261,7 @@ function quoteBlock(l) {
   const frete = q.frete;
   const e = q.entrega || {};
   const editableFrete = o?.status === "aguardando_aprovacao";
-  const missing = q.itens.some((i) => !i.product_id);
+  const missing = q.itens.some((i) => !i.product_id && !i.taxa);
   const noStock = q.itens.some((i) => i.sem_estoque);
   return `
     <div class="lp-quote">
@@ -270,7 +270,7 @@ function quoteBlock(l) {
         <tr><th>Item</th><th class="num">Qtd</th><th class="num">Unit.</th><th class="num">Subtotal</th></tr>
         ${q.itens.map((i) => `
           <tr>
-            <td>${esc(i.nome)}${i.product_id ? "" : " ⚠️"}${i.sem_estoque ? " 📦" : ""}</td>
+            <td>${esc(i.nome)}${i.product_id || i.taxa ? "" : " ⚠️"}${i.sem_estoque ? " 📦" : ""}</td>
             <td class="num">${i.caixas ? `${i.caixas} cx<br><span class="lp-k">${qty(i.quantidade)} m²</span>` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade || ""}`}</td>
             <td class="num">${i.preco_unitario != null ? brl(i.preco_unitario) : "—"}</td>
             <td class="num">${brl(i.subtotal)}</td>

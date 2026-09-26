@@ -796,6 +796,92 @@ Como funciona:
   avisa o cliente no WhatsApp.
 - **Reservas**: `[RESERVA: data=...; hora=...; pessoas=...]`, validadas (antecedência, lotação) e salvas em Agendamentos.
 
+## 26. Follow-up automático
+
+No **SQL Editor**:
+
+```sql
+-- Cards de follow-up (1, 2, 3...) de cada loja
+create table if not exists public.follow_up_rules (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  ordem integer not null default 1,
+  ativo boolean default true,
+  espera_valor integer not null default 2,
+  espera_unidade text not null default 'horas' check (espera_unidade in ('minutos','horas','dias')),
+  gatilho text not null default 'sem_resposta' check (gatilho in ('sem_resposta','horario_fixo')),
+  horario_fixo text,                         -- "10:00" quando o gatilho é horário fixo
+  repeticao text not null default 'unica' check (repeticao in ('unica','constante')),
+  max_repeticoes integer default 3,
+  objetivo_tipo text not null default 'retomar',
+  objetivo_texto text,
+  desconto_pct numeric(5,2),
+  created_at timestamptz default now()
+);
+alter table public.follow_up_rules enable row level security;
+drop policy if exists "Dono ve/edita follow-ups" on public.follow_up_rules;
+create policy "Dono ve/edita follow-ups" on public.follow_up_rules for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Configuração geral (liga/desliga, janela de horário, dias e intervalo entre envios)
+create table if not exists public.follow_up_config (
+  owner_id uuid references auth.users(id) on delete cascade primary key,
+  ativo boolean default false,
+  hora_inicio text default '08:00',
+  hora_fim text default '20:00',
+  dias integer[] default '{1,2,3,4,5,6}',   -- 0 = domingo ... 6 = sábado
+  intervalo_seg integer default 60,
+  ultimo_envio_at timestamptz
+);
+alter table public.follow_up_config enable row level security;
+drop policy if exists "Dono ve/edita config de follow-up" on public.follow_up_config;
+create policy "Dono ve/edita config de follow-up" on public.follow_up_config for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+-- Histórico do que foi enviado
+create table if not exists public.follow_up_log (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  lead_id uuid references public.leads(id) on delete cascade not null,
+  rule_id uuid references public.follow_up_rules(id) on delete set null,
+  ordem integer,
+  objetivo text,
+  texto text,
+  created_at timestamptz default now()
+);
+alter table public.follow_up_log enable row level security;
+drop policy if exists "Dono ve seu historico de follow-up" on public.follow_up_log;
+create policy "Dono ve seu historico de follow-up" on public.follow_up_log for select using (auth.uid() = owner_id);
+
+-- Estado do follow-up em cada lead
+alter table public.leads add column if not exists fu_step integer default 0;
+alter table public.leads add column if not exists fu_rep integer default 0;
+alter table public.leads add column if not exists fu_optout boolean default false;
+alter table public.leads add column if not exists desconto_pct numeric(5,2);
+alter table public.leads add column if not exists desconto_ate timestamptz;
+```
+
+### Edge Function `follow-up`
+1. Crie a função `follow-up` com o código de `supabase/functions/follow-up/index.ts`, **JWT desligado**.
+2. Em **Edge Functions → Secrets**, crie `FOLLOWUP_SECRET` com uma senha longa qualquer.
+3. Agende pra rodar a cada minuto (**SQL Editor**, troque SUA_SENHA pela senha do passo 2):
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+select cron.schedule('lumos-follow-up', '* * * * *', $$
+  select net.http_post(
+    url := 'https://nkmyunxjoeqpmwolefbj.supabase.co/functions/v1/follow-up',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-cron-secret', 'SUA_SENHA'),
+    body := '{}'::jsonb
+  );
+$$);
+```
+
+Cada loja recebe no máximo 1 envio por intervalo (padrão: 1 por minuto), só dentro da janela de horário.
+O follow-up para quando o cliente responde, quando a IA está pausada no contato, quando o pedido é
+fechado/perdido ou quando o cliente pede pra não receber mais mensagens.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

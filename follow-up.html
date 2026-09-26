@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Follow Up — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=37" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=37" />
+  <script src="js/logo.js?v=38" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=38" />
 </head>
 <body>
 
@@ -35,125 +35,277 @@
     </aside>
 
     <main class="dash-main">
-      <h1 style="font-size: 28px;">Follow Up</h1>
-      <p style="margin-top: 6px;">Leads que precisam de acompanhamento. O Agente de IA faz o follow up automaticamente.</p>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Follow Up</h1>
+          <p style="margin-top: 6px; max-width: 720px;">Quando o cliente para de responder, a IA volta a falar com ele seguindo a sequência abaixo. A sequência recomeça sempre que o cliente responde, e para de vez se ele pedir pra não receber mais mensagens.</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="run-now">Rodar agora (teste)</button>
+          <button class="btn btn-primary" id="save-all">Salvar follow-ups</button>
+        </div>
+      </div>
+      <div id="fu-msg" class="form-msg" style="margin-top:10px;"></div>
 
-      <div class="filter-bar" id="filter-bar">
-        <button class="filter-btn" data-range="hoje">Hoje</button>
-        <button class="filter-btn" data-range="ontem">Ontem</button>
-        <button class="filter-btn active" data-range="7d">Últimos 7 dias</button>
-        <button class="filter-btn" data-range="14d">Últimos 14 dias</button>
-        <button class="filter-btn" data-range="mes">Este mês</button>
-        <button class="filter-btn" data-range="mes_passado">Mês passado</button>
-        <button class="filter-btn" data-range="ano">Este ano</button>
+      <!-- Configuração geral -->
+      <div class="settings-block" style="margin-top:18px;">
+        <div class="field toggle-row">
+          <label for="cfg-ativo"><strong>Follow-up automático ligado</strong></label>
+          <input type="checkbox" id="cfg-ativo" class="toggle-input" />
+        </div>
+        <div class="fu-grid">
+          <div class="field"><label>Enviar a partir de</label><input type="time" id="cfg-inicio" value="08:00" /></div>
+          <div class="field"><label>Até</label><input type="time" id="cfg-fim" value="20:00" /></div>
+          <div class="field"><label>Intervalo entre envios (1 cliente por vez)</label>
+            <select id="cfg-intervalo">
+              <option value="60">1 por minuto</option><option value="120">1 a cada 2 minutos</option>
+              <option value="300">1 a cada 5 minutos</option><option value="30">1 a cada 30 segundos</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Dias da semana</label>
+          <div class="multi-days" id="cfg-dias"></div>
+        </div>
+        <p class="settings-hint">Fora da janela, os follow-ups esperam e saem no próximo horário permitido.</p>
       </div>
 
-      <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
-        <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
-        <select class="panel-select" id="agent-filter" style="min-width:220px;">
-          <option value="">Todos os agentes</option>
-        </select>
-      </div>
+      <!-- Cards -->
+      <div id="rules" class="fu-rules"></div>
+      <button class="btn btn-ghost" id="add-rule" style="margin-top:14px;">+ Adicionar follow-up</button>
 
+      <!-- Histórico -->
+      <h3 style="margin-top:34px; font-size:18px;">Enviados recentemente</h3>
       <div class="panel-table-wrap">
         <table class="panel-table">
-          <thead>
-            <tr><th>Início do Atendimento</th><th>Nome</th><th>WhatsApp</th><th>Motivo do Contato</th><th>Status</th><th>Última Mensagem</th></tr>
-          </thead>
-          <tbody id="table-body"></tbody>
+          <thead><tr><th>Quando</th><th>Cliente</th><th>Follow-up</th><th>Mensagem</th></tr></thead>
+          <tbody id="log-body"></tbody>
         </table>
-        <div class="empty-state" id="table-empty" style="display:none; border:none; border-radius:0;">
-          <h3>Nada pendente de follow up</h3>
-          <p>Assim que um lead precisar de acompanhamento, ele aparece aqui.</p>
+        <div class="empty-state" id="log-empty" style="display:none; border:none; border-radius:0;">
+          <h3>Nenhum follow-up enviado ainda</h3>
+          <p>Assim que a IA mandar o primeiro, ele aparece aqui.</p>
         </div>
       </div>
     </main>
   </div>
 
+  <style>
+    .fu-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 14px; }
+    .multi-days { display:flex; flex-wrap:wrap; gap:8px; }
+    .multi-days label { display:inline-flex !important; align-items:center; gap:6px; margin:0 !important; padding:7px 12px; border:1px solid var(--panel-border); border-radius:999px; font-size:13px; cursor:pointer; color: var(--panel-text) !important; }
+    .multi-days input { width:auto !important; padding:0 !important; margin:0; accent-color: var(--panel-accent); }
+    .fu-rules { display:flex; flex-direction:column; gap:14px; margin-top:22px; }
+    .fu-card { border:1px solid var(--panel-border); border-radius:16px; padding:18px; background: var(--panel-card); }
+    .fu-card.off { opacity:.55; }
+    .fu-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .fu-num { width:34px; height:34px; border-radius:50%; background: var(--panel-accent); color:#1C2B3A; font-weight:700; display:flex; align-items:center; justify-content:center; }
+    .fu-title { display:flex; align-items:center; gap:12px; font-weight:600; }
+    .fu-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 12px; }
+    .fu-actions { display:flex; gap:8px; align-items:center; }
+    .fu-actions button { background:none; border:1px solid var(--panel-border); border-radius:8px; padding:5px 9px; cursor:pointer; color: var(--panel-text); }
+    .fu-actions .del { color:#B94040; border-color: rgba(185,64,64,.4); }
+    .fu-summary { font-size:13px; color: var(--panel-text-muted); margin-top:4px; }
+  </style>
+
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=37";
-    import { initThemeToggle } from "./js/theme.js?v=37";
-    import { initMobileNav } from "./js/mobileNav.js?v=37";
-    import { renderSidebar } from "./js/sidebar.js?v=37";
-    import { getRange } from "./js/dateRange.js?v=37";
-    import { supabase } from "./js/supabaseClient.js?v=37";
-    import { STAGE_LABELS, getLatestMessage } from "./js/leads.js?v=37";
-    import { listAgents } from "./js/agents.js?v=37";
+    import { requireSession, signOut } from "./js/auth.js?v=38";
+    import { initThemeToggle } from "./js/theme.js?v=38";
+    import { initMobileNav } from "./js/mobileNav.js?v=38";
+    import { renderSidebar } from "./js/sidebar.js?v=38";
+    import { supabase } from "./js/supabaseClient.js?v=38";
 
     await requireSession();
     initThemeToggle();
     await renderSidebar("follow_up");
     initMobileNav();
-    document.getElementById("logout-link").addEventListener("click", (e) => {
-      e.preventDefault();
-      signOut();
-    });
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
 
-    async function loadList(rangeKey) {
-      const agentId = document.getElementById("agent-filter").value;
-      const [start, end] = getRange(rangeKey);
-      let query = supabase
-        .from("leads")
-        .select("*")
-        .eq("stage", "follow_up")
-        .gte("created_at", start.toISOString())
-        .lt("created_at", end.toISOString())
-        .order("created_at", { ascending: false });
-      if (agentId) query = query.eq("agent_id", agentId);
-      const { data: leads } = await query;
+    const { data: userData } = await supabase.auth.getUser();
+    const owner_id = userData?.user?.id;
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
 
-      const body = document.getElementById("table-body");
-      const empty = document.getElementById("table-empty");
+    const OBJETIVOS = [
+      { value: "retomar", label: "Retomar a conversa", hint: "Relembra o que o cliente procurava e pergunta se ainda pode ajudar." },
+      { value: "duvidas", label: "Tirar dúvidas", hint: "Pergunta se ficou alguma dúvida e se oferece pra ajudar a decidir." },
+      { value: "orcamento", label: "Lembrar o orçamento", hint: "Relembra os itens/orçamento e pergunta se pode fechar." },
+      { value: "pagamento", label: "Lembrar pagamento pendente", hint: "Quando há pedido aguardando pagamento, lembra do link. Senão, retoma a conversa." },
+      { value: "desconto", label: "Oferecer desconto", hint: "Oferece o desconto abaixo, válido por 48h. Se o cliente fechar, o desconto entra no pedido automaticamente." },
+      { value: "encerrar", label: "Encerrar com a porta aberta", hint: "Último contato: avisa que vai parar de insistir, mas continua à disposição." },
+      { value: "personalizado", label: "Personalizado (escrevo o objetivo)", hint: "Descreva o que a IA deve fazer; ela escreve a mensagem com base na conversa." },
+    ];
+    // Sequência recomendada pra começar
+    const RECOMENDADA = [
+      { espera_valor: 2, espera_unidade: "horas", objetivo_tipo: "retomar" },
+      { espera_valor: 1, espera_unidade: "dias", objetivo_tipo: "duvidas" },
+      { espera_valor: 3, espera_unidade: "dias", objetivo_tipo: "desconto", desconto_pct: 10 },
+    ];
+    const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-      if (!leads?.length) {
-        body.innerHTML = "";
-        empty.style.display = "block";
-        return;
-      }
-      empty.style.display = "none";
+    let rules = [];
+    let removed = [];
 
-      const rows = await Promise.all(leads.map(async (l) => {
-        const latest = await getLatestMessage(l.id);
-        return `
-          <tr onclick="window.location.href='leads.html?id=${l.id}'">
-            <td>${new Date(l.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-            <td>${l.name || "—"}</td>
-            <td>${l.phone}</td>
-            <td>${l.motivo_contato || "—"}</td>
-            <td><span class="panel-badge ${l.stage}">${STAGE_LABELS[l.stage]}</span></td>
-            <td>${latest?.text || "—"}</td>
-          </tr>
-        `;
-      }));
-      body.innerHTML = rows.join("");
+    // ---------- Configuração ----------
+    const { data: cfg } = await supabase.from("follow_up_config").select("*").eq("owner_id", owner_id).maybeSingle();
+    document.getElementById("cfg-ativo").checked = !!cfg?.ativo;
+    document.getElementById("cfg-inicio").value = cfg?.hora_inicio || "08:00";
+    document.getElementById("cfg-fim").value = cfg?.hora_fim || "20:00";
+    document.getElementById("cfg-intervalo").value = String(cfg?.intervalo_seg || 60);
+    const dias = cfg?.dias || [1, 2, 3, 4, 5, 6];
+    document.getElementById("cfg-dias").innerHTML = DIAS.map((d, i) =>
+      `<label><input type="checkbox" value="${i}" ${dias.includes(i) ? "checked" : ""} /> ${d}</label>`).join("");
+
+    // ---------- Cards ----------
+    const { data: saved } = await supabase.from("follow_up_rules").select("*").eq("owner_id", owner_id).order("ordem");
+    rules = saved?.length ? saved : RECOMENDADA.map((r) => ({ ...defaults(), ...r, _new: true }));
+
+    function defaults() {
+      return { ativo: true, espera_valor: 1, espera_unidade: "dias", gatilho: "sem_resposta", horario_fixo: "10:00",
+        repeticao: "unica", max_repeticoes: 3, objetivo_tipo: "retomar", objetivo_texto: "", desconto_pct: 10 };
     }
 
-    (async () => {
-      const agents = await listAgents();
-      const select = document.getElementById("agent-filter");
-      agents.forEach((a) => {
-        const opt = document.createElement("option");
-        opt.value = a.id;
-        opt.textContent = a.name || a.phone_number || "Agente";
-        select.appendChild(opt);
-      });
-    })();
+    function summary(r) {
+      const t = `${r.espera_valor} ${r.espera_unidade === "minutos" ? "min" : r.espera_unidade === "horas" ? (r.espera_valor == 1 ? "hora" : "horas") : (r.espera_valor == 1 ? "dia" : "dias")}`;
+      const quando = r.gatilho === "horario_fixo" ? `depois de ${t} sem resposta, às ${r.horario_fixo}` : `${t} sem resposta`;
+      const rep = r.repeticao === "constante" ? ` · repete a cada ${t} (até ${r.max_repeticoes}x)` : " · uma vez";
+      const obj = OBJETIVOS.find((o) => o.value === r.objetivo_tipo)?.label || "";
+      return `Envia ${quando}${rep} · ${obj}${r.objetivo_tipo === "desconto" ? ` de ${r.desconto_pct}%` : ""}`;
+    }
 
-    document.getElementById("agent-filter").addEventListener("change", () => {
-      const active = document.querySelector(".filter-btn.active");
-      loadList(active ? active.dataset.range : "7d");
+    function render() {
+      const box = document.getElementById("rules");
+      box.innerHTML = rules.map((r, i) => {
+        const obj = OBJETIVOS.find((o) => o.value === r.objetivo_tipo) || OBJETIVOS[0];
+        return `
+        <div class="fu-card ${r.ativo ? "" : "off"}" data-i="${i}">
+          <div class="fu-head">
+            <div class="fu-title"><div class="fu-num">${i + 1}</div><div>Follow-up ${i + 1}<div class="fu-summary">${esc(summary(r))}</div></div></div>
+            <div class="fu-actions">
+              <label class="toggle-row" style="margin:0; gap:8px;"><span style="font-size:12.5px;">Ativo</span><input type="checkbox" class="toggle-input" data-k="ativo" ${r.ativo ? "checked" : ""} /></label>
+              <button data-move="-1" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button>
+              <button data-move="1" title="Descer" ${i === rules.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="del" data-del title="Remover">✕</button>
+            </div>
+          </div>
+          <div class="fu-row">
+            <div class="field"><label>Esperar</label><input type="number" min="1" data-k="espera_valor" value="${r.espera_valor}" /></div>
+            <div class="field"><label>Unidade</label>
+              <select data-k="espera_unidade">${["minutos", "horas", "dias"].map((u) => `<option ${u === r.espera_unidade ? "selected" : ""}>${u}</option>`).join("")}</select>
+            </div>
+            <div class="field"><label>Quando enviar</label>
+              <select data-k="gatilho">
+                <option value="sem_resposta" ${r.gatilho === "sem_resposta" ? "selected" : ""}>Assim que der o tempo sem resposta</option>
+                <option value="horario_fixo" ${r.gatilho === "horario_fixo" ? "selected" : ""}>Depois do tempo, num horário fixo</option>
+              </select>
+            </div>
+            ${r.gatilho === "horario_fixo" ? `<div class="field"><label>Horário fixo</label><input type="time" data-k="horario_fixo" value="${r.horario_fixo || "10:00"}" /></div>` : ""}
+            <div class="field"><label>Repetição</label>
+              <select data-k="repeticao">
+                <option value="unica" ${r.repeticao === "unica" ? "selected" : ""}>Uma vez só</option>
+                <option value="constante" ${r.repeticao === "constante" ? "selected" : ""}>Constante (repete a cada período)</option>
+              </select>
+            </div>
+            ${r.repeticao === "constante" ? `<div class="field"><label>Repetir no máximo</label><input type="number" min="1" max="10" data-k="max_repeticoes" value="${r.max_repeticoes || 3}" /></div>` : ""}
+          </div>
+          <div class="field"><label>Objetivo</label>
+            <select data-k="objetivo_tipo">${OBJETIVOS.map((o) => `<option value="${o.value}" ${o.value === r.objetivo_tipo ? "selected" : ""}>${o.label}</option>`).join("")}</select>
+            <p class="settings-hint" style="margin-top:6px;">${obj.hint}</p>
+          </div>
+          ${r.objetivo_tipo === "desconto" ? `<div class="field" style="max-width:220px;"><label>Desconto (%)</label><input type="number" min="1" max="90" data-k="desconto_pct" value="${r.desconto_pct || 10}" /></div>` : ""}
+          ${r.objetivo_tipo === "personalizado" ? `<div class="field"><label>O que a IA deve fazer neste follow-up</label><textarea data-k="objetivo_texto" rows="3" placeholder="Ex.: Avise que o frete está grátis só até sexta e pergunte se quer aproveitar.">${esc(r.objetivo_texto || "")}</textarea></div>` : ""}
+        </div>`;
+      }).join("") || `<div class="settings-block"><p class="settings-hint">Nenhum follow-up. Clique em "+ Adicionar follow-up".</p></div>`;
+    }
+
+    // Mudanças nos campos (re-renderiza quando muda algo que mostra/esconde campos)
+    document.getElementById("rules").addEventListener("input", (e) => {
+      const card = e.target.closest(".fu-card"); const k = e.target.dataset.k;
+      if (!card || !k) return;
+      const r = rules[Number(card.dataset.i)];
+      r[k] = e.target.type === "checkbox" ? e.target.checked : e.target.type === "number" ? Number(e.target.value) : e.target.value;
+      if (["gatilho", "repeticao", "objetivo_tipo", "ativo"].includes(k)) render();
+      else card.querySelector(".fu-summary").textContent = summary(r);
+    });
+    document.getElementById("rules").addEventListener("click", (e) => {
+      const card = e.target.closest(".fu-card"); if (!card) return;
+      const i = Number(card.dataset.i);
+      if (e.target.closest("[data-del]")) {
+        if (!confirm(`Remover o follow-up ${i + 1}?`)) return;
+        const [r] = rules.splice(i, 1); if (r.id) removed.push(r.id); render();
+      }
+      const mv = e.target.closest("[data-move]");
+      if (mv) { const j = i + Number(mv.dataset.move); [rules[i], rules[j]] = [rules[j], rules[i]]; render(); }
+    });
+    document.getElementById("add-rule").addEventListener("click", () => {
+      const last = rules[rules.length - 1];
+      rules.push({ ...defaults(), espera_valor: last ? Math.max(1, last.espera_unidade === "dias" ? last.espera_valor + 2 : 1) : 2, espera_unidade: last ? "dias" : "horas", _new: true });
+      render();
+      document.querySelector(".fu-card:last-child")?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
-    document.querySelectorAll(".filter-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        loadList(btn.dataset.range);
-      });
+    // ---------- Salvar ----------
+    document.getElementById("save-all").addEventListener("click", async () => {
+      const msg = document.getElementById("fu-msg");
+      const btn = document.getElementById("save-all");
+      btn.disabled = true;
+      try {
+        const cfgRow = {
+          owner_id, ativo: document.getElementById("cfg-ativo").checked,
+          hora_inicio: document.getElementById("cfg-inicio").value || "08:00",
+          hora_fim: document.getElementById("cfg-fim").value || "20:00",
+          intervalo_seg: Number(document.getElementById("cfg-intervalo").value),
+          dias: [...document.querySelectorAll("#cfg-dias input:checked")].map((c) => Number(c.value)),
+        };
+        let { error } = await supabase.from("follow_up_config").upsert(cfgRow, { onConflict: "owner_id" });
+        if (error) throw error;
+        if (removed.length) { ({ error } = await supabase.from("follow_up_rules").delete().in("id", removed)); if (error) throw error; removed = []; }
+        for (const [i, r] of rules.entries()) {
+          const row = {
+            owner_id, ordem: i + 1, ativo: !!r.ativo, espera_valor: Math.max(1, Number(r.espera_valor) || 1), espera_unidade: r.espera_unidade,
+            gatilho: r.gatilho, horario_fixo: r.gatilho === "horario_fixo" ? r.horario_fixo || "10:00" : null, repeticao: r.repeticao,
+            max_repeticoes: Math.min(10, Math.max(1, Number(r.max_repeticoes) || 3)), objetivo_tipo: r.objetivo_tipo,
+            objetivo_texto: r.objetivo_tipo === "personalizado" ? (r.objetivo_texto || "").trim() : null,
+            desconto_pct: r.objetivo_tipo === "desconto" ? Number(r.desconto_pct) || 10 : null,
+          };
+          if (r.objetivo_tipo === "personalizado" && !row.objetivo_texto) throw new Error(`Escreva o objetivo do follow-up ${i + 1}.`);
+          if (r.id) ({ error } = await supabase.from("follow_up_rules").update(row).eq("id", r.id));
+          else { const res = await supabase.from("follow_up_rules").insert(row).select().single(); error = res.error; if (res.data) { r.id = res.data.id; delete r._new; } }
+          if (error) throw error;
+        }
+        msg.textContent = cfgRow.ativo ? "Salvo. O follow-up automático está ligado." : "Salvo. Ligue o follow-up automático quando quiser começar.";
+        msg.className = "form-msg ok";
+      } catch (err) {
+        msg.textContent = `Erro: ${err.message}`; msg.className = "form-msg error";
+      }
+      btn.disabled = false;
     });
 
-    loadList("7d");
+    // ---------- Rodar agora (teste) ----------
+    document.getElementById("run-now").addEventListener("click", async () => {
+      const msg = document.getElementById("fu-msg");
+      msg.textContent = "Procurando quem está na fila…"; msg.className = "form-msg";
+      const { data, error } = await supabase.functions.invoke("follow-up", { body: {} });
+      if (error || data?.error) { msg.textContent = `Erro: ${data?.error || error.message}`; msg.className = "form-msg error"; return; }
+      msg.textContent = data?.sent ? `Enviado para ${data.sent.lead} (follow-up ${data.sent.card}): "${data.sent.texto}"` : `Nada enviado: ${data?.skipped || "ninguém na fila"}.`;
+      msg.className = "form-msg ok";
+      loadLog();
+    });
+
+    // ---------- Histórico ----------
+    async function loadLog() {
+      const { data } = await supabase.from("follow_up_log").select("*, leads(name, phone)").order("created_at", { ascending: false }).limit(50);
+      const body = document.getElementById("log-body");
+      document.getElementById("log-empty").style.display = data?.length ? "none" : "block";
+      body.innerHTML = (data || []).map((l) => `
+        <tr onclick="window.location.href='leads.html?id=${l.lead_id}'">
+          <td>${new Date(l.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+          <td>${esc(l.leads?.name || l.leads?.phone || "—")}</td>
+          <td>Nº ${l.ordem} · ${esc(OBJETIVOS.find((o) => o.value === l.objetivo)?.label || l.objetivo)}</td>
+          <td style="max-width:420px;">${esc(l.texto)}</td>
+        </tr>`).join("");
+    }
+
+    render();
+    loadLog();
   </script>
-
 </body>
 </html>

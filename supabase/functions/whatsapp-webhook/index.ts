@@ -1084,6 +1084,17 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
+    // 4.a Cliente respondeu: a sequência de follow-up recomeça do card 1.
+    //     Se ele pediu pra não receber mais mensagens, o follow-up para de vez pra esse contato.
+    const optOut = /\b(n[ãa]o (quero|desejo) (mais )?(receber|mensage)|para(r)? de (me )?(mandar|enviar)|pare de (me )?(mandar|enviar)|sair da lista|me tira da lista|n[ãa]o me (mande|envie) mais)/i.test(text);
+    const fuReset: Record<string, unknown> = { fu_step: 0, fu_rep: 0 };
+    if (optOut) fuReset.fu_optout = true;
+    if (lead.stage === "follow_up") fuReset.stage = "conversando";
+    if (lead.fu_step || lead.fu_rep || optOut || lead.stage === "follow_up") {
+      await supabase.from("leads").update(fuReset).eq("id", lead.id);
+      Object.assign(lead, fuReset);
+    }
+
     // 4.b IA desativada pra esse contato: a mensagem fica salva, mas ninguém responde automaticamente
     if (lead.ai_enabled === false) {
       await supabase.from("leads").update({ last_message_at: new Date().toISOString() }).eq("id", lead.id);
@@ -1254,12 +1265,20 @@ Essa marcação é interna, nunca a explique pro cliente — ela é removida aut
 imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como "[Imagem: descrição]".
 ` : "";
 
+    const descontoAtivo = Number(lead.desconto_pct || 0) > 0 && lead.desconto_ate && new Date(lead.desconto_ate).getTime() > Date.now()
+      ? Number(lead.desconto_pct) : 0;
+    const descontoInfo = descontoAtivo
+      ? `\n\nEste cliente recebeu uma oferta de ${descontoAtivo}% de desconto nos produtos, válida até ${new Date(lead.desconto_ate).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}. Se ele fechar, o desconto é aplicado automaticamente no resumo do pedido — pode confirmar isso a ele.`
+      : "";
+    const optOutInfo = lead.fu_optout && optOut
+      ? "\n\nO cliente acabou de pedir para não receber mais mensagens automáticas: confirme com educação que não vai mais mandar mensagens por conta própria e que ele pode chamar quando quiser."
+      : "";
     const agoraBR = new Date().toLocaleString("pt-BR", {
       timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
     });
     const systemPrompt = `${basePrompt}
 
-Agora é ${agoraBR} (horário de Brasília).
+Agora é ${agoraBR} (horário de Brasília).${descontoInfo}${optOutInfo}
 
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
 Se o cliente perguntar algo fora do catálogo ou que exija um humano, diga que vai chamar alguém da equipe.
@@ -1450,8 +1469,14 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     let newOrder: any = null;
     const closing = salesFlow && orcamentoMatches.length > 0 && etapaMatch?.[1]?.toLowerCase() === "aguardando_link";
     if (salesFlow && orcamentoMatches.length) {
-      const itens = buildOrderItems(orcamentoMatches, products || []);
-      const subtotal = Math.round(itens.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
+      const itens: Record<string, unknown>[] = buildOrderItems(orcamentoMatches, products || []);
+      const bruto = Math.round(itens.reduce((s, i) => s + Number(i.subtotal), 0) * 100) / 100;
+      // Desconto oferecido no follow-up (ainda válido) entra como uma linha negativa
+      if (descontoAtivo && bruto > 0) {
+        const valor = -Math.round(bruto * descontoAtivo) / 100;
+        itens.push({ product_id: null, taxa: true, nome: `Desconto especial (${descontoAtivo}%)`, quantidade: 1, unidade: "unidade", preco_unitario: valor, subtotal: valor });
+      }
+      const subtotal = Math.round(itens.reduce((s, i) => s + Number(i.subtotal), 0) * 100) / 100;
       const fromMarker = entregaMatch?.[1] ? await resolveDelivery([entregaMatch[1]], freteInt, subtotal) : null;
       const entrega = fromMarker || (knownDelivery
         ? (knownDelivery.tipo === "retirada" ? knownDelivery : computeFreight(knownDelivery.local, freteInt, subtotal, { cep: knownDelivery.cep, bairro: knownDelivery.faixa || null }))
