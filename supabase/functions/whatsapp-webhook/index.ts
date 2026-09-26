@@ -533,7 +533,7 @@ const SIM_DEFAULTS: Record<string, { kind: string; provider: string | null; enab
 // Simulador de restaurante: taxa de entrega por região, casa configurada e aprovação automática
 const SIM_RESTAURANTE = {
   restaurante: { kind: "restaurante", provider: null, enabled: true, config: {
-    ia_consulta: true, modalidades: ["mesa", "delivery", "retirada", "reservas"],
+    ia_consulta: true, modalidades: ["mesa"],
     horarios: "Seg: fechado\nTer a Qui: 18h às 23h30\nSex e Sáb: 18h às 2h\nDom: 12h às 17h (almoço)",
     taxa_servico: 10, couvert: 12, couvert_info: "música ao vivo sex e sáb a partir das 21h",
     tempo_preparo: 25, tempo_entrega: 35, pedido_minimo_delivery: 40, pagamento_na_entrega: true,
@@ -1179,14 +1179,45 @@ Deno.serve(async (req) => {
 
     // 6. Buscar o histórico recente dessa conversa
     const historyLimit = agent?.history_limit || 10;
-    const { data: history } = await supabase
+    const { data: historyRaw } = await supabase
       .from("messages")
-      .select("direction, text")
+      .select("direction, text, created_at")
       .eq("lead_id", lead.id)
       .order("created_at", { ascending: false })
       .limit(historyLimit);
 
-    const conversation = (history || [])
+    // Nova visita: o cliente voltou depois de 24h sem conversa (ou é a primeira vez).
+    // A IA cumprimenta de novo e não trata como continuação da conversa antiga.
+    const previous = (historyRaw || [])[1];
+    const gapHours = previous ? (Date.now() - new Date(previous.created_at).getTime()) / 3600e3 : Infinity;
+    const newVisit = !previous || gapHours >= 24;
+    const history = newVisit ? (historyRaw || []).slice(0, 1) : (historyRaw || []);
+    if (newVisit && previous) {
+      console.log(`Nova visita (${Math.round(gapHours)}h sem conversa): boas-vindas de novo.`);
+      // Mesa de uma visita antiga que ficou aberta: desvincula (e libera se ninguém mais estiver nela)
+      if (lead.table_session_id) {
+        const oldSession = lead.table_session_id;
+        await supabase.from("leads").update({ table_session_id: null, visit_status: "iniciado" }).eq("id", lead.id);
+        lead.table_session_id = null;
+        lead.visit_status = "iniciado";
+        const { data: others } = await supabase.from("leads").select("id").eq("table_session_id", oldSession);
+        if (!others?.length) {
+          const { data: sess } = await supabase.from("table_sessions").update({ status: "fechada", closed_at: new Date().toISOString() })
+            .eq("id", oldSession).select("table_id").maybeSingle();
+          if (sess?.table_id) await supabase.from("restaurant_tables").update({ status: "livre" }).eq("id", sess.table_id);
+        }
+      }
+      // Cliente que já tinha fechado (ou perdido) voltou: nova oportunidade no funil
+      if (["fechado", "perdido"].includes(lead.stage)) {
+        await supabase.from("leads").update({ stage: "novo_contato" }).eq("id", lead.id);
+        lead.stage = "novo_contato";
+      }
+    }
+    const returningNote = newVisit && previous && lead.resumo_conversa
+      ? `\n\nEste cliente já conversou com a loja antes (há ${Math.round(gapHours / 24)} dia(s)). Resumo da última conversa: ${lead.resumo_conversa}\nTrate como uma NOVA visita: cumprimente de novo; só retome o assunto antigo se o cliente puxar.`
+      : "";
+
+    const conversation = [...history]
       .reverse()
       .map((m) => `${m.direction === "in" ? "Cliente" : "Atendente"}: ${m.text}`)
       .join("\n");
@@ -1270,13 +1301,21 @@ Deno.serve(async (req) => {
         }
         const session = await openTableSession(owner_id, table, lead.id);
         lead.table_session_id = session.id;
-        if (!(history || []).some((m) => m.direction === "out")) await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
+        if (newVisit || !(history || []).some((m) => m.direction === "out")) await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
         await askMenu(`Perfeito, você está na *${table.label}*! 🍽️\n`);
         return await done("conversando");
       }
 
-      // Chegou pelo QR padrão: boas-vindas e, em seguida, o número da mesa
-      if (chegou && !lead.table_session_id) {
+      // Casa que só atende no salão: qualquer mensagem de quem ainda não está numa mesa é uma chegada
+      const soSalao = modalidades.every((m) => m === "mesa" || m === "reservas");
+      const aguardandoMesa = lead.visit_status === "aguardando_mesa" && !lead.table_session_id;
+      if (soSalao && aguardandoMesa && !falaDeReserva) {
+        await say("Me conta só o número da sua *mesa* (fica na plaquinha em cima dela) 😊");
+        return await done("aguardando_mesa");
+      }
+
+      // Chegou pelo QR padrão (ou chamou uma casa que só atende no salão): boas-vindas e o número da mesa
+      if ((chegou || (soSalao && !falaDeReserva)) && !lead.table_session_id) {
         await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
         await say("Para começarmos, me fale o número da sua *MESA* 🍽️");
         return await done("aguardando_mesa");
@@ -1284,7 +1323,7 @@ Deno.serve(async (req) => {
 
       // Já está na mesa: resposta ao "Quer ver nosso cardápio?" ou pedido do cardápio a qualquer momento
       if (lead.table_session_id) {
-        const lastOut = [...(history || [])].reverse().find((m) => m.direction === "out")?.text || "";
+        const lastOut = (history || []).find((m) => m.direction === "out")?.text || "";
         const perguntouCardapio = /quer ver nosso cardapio/i.test(norm(lastOut));
         const pedeCardapio = /\b(cardapio|menu)\b/.test(tn) && tn.split(" ").length <= 8;
         if ((perguntouCardapio && /^(sim|s|quero|pode|claro|bora|manda|ok|beleza|por favor)\b/.test(tn)) || pedeCardapio) {
@@ -1299,11 +1338,11 @@ Deno.serve(async (req) => {
     }
 
     // Entrega/frete: o código descobre na conversa (CEP -> bairro pelo ViaCEP) e passa pronto pra IA
-    // (o histórico já foi invertido pra ordem cronológica; aqui queremos o mais recente primeiro)
-    const customerTexts = [...(history || [])].reverse().filter((m) => m.direction === "in").map((m) => m.text);
+    // (o histórico está do mais recente para o mais antigo)
+    const customerTexts = (history || []).filter((m) => m.direction === "in").map((m) => m.text);
     const knownDelivery = salesFlow && freteInt ? await resolveDelivery(customerTexts, freteInt) : null;
     const deliveryInfo = describeDelivery(knownDelivery, freteInt);
-    const isFirstReply = !(history || []).some((m) => m.direction === "out");
+    const isFirstReply = newVisit || !(history || []).some((m) => m.direction === "out");
 
     // Dados do cliente: o que já sabemos (CEP preenche rua/bairro/cidade) e o que falta pra fechar
     // No restaurante a nota é cupom (NFC-e): não precisa pedir CPF/e-mail
@@ -1400,7 +1439,7 @@ imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como 
     });
     const systemPrompt = `${basePrompt}
 
-Agora é ${agoraBR} (horário de Brasília).${descontoInfo}${optOutInfo}
+Agora é ${agoraBR} (horário de Brasília).${descontoInfo}${optOutInfo}${returningNote}
 
 Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
 Se o cliente perguntar algo fora do catálogo ou que exija um humano, diga que vai chamar alguém da equipe.

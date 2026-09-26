@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=39";
+import { supabase } from "./supabaseClient.js?v=40";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -38,7 +38,8 @@ export const INTEGRATIONS = [
     icon: `<path d="M4 3v8a3 3 0 0 0 3 3v7M7 3v8M10 3v8a3 3 0 0 1-3 3M17 21V3c-2 1-3 4-3 7h3"/>`,
     providers: null,
     fields: [
-      { key: "modalidades", label: "O que a casa oferece pelo WhatsApp", type: "multi", default: ["mesa", "delivery", "retirada", "reservas"],
+      { key: "modalidades", label: "O que a casa oferece pelo WhatsApp", type: "multi", default: ["mesa"],
+        hint: "Só \"Pedido na mesa\" = atendimento exclusivo do salão: qualquer mensagem recebe as boas-vindas e o pedido do número da mesa.",
         options: [
           { value: "mesa", label: "Pedido na mesa" }, { value: "delivery", label: "Delivery" },
           { value: "retirada", label: "Retirada no balcão" }, { value: "reservas", label: "Reservas" },

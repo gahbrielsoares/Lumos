@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Integrações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=39" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=39" />
+  <script src="js/logo.js?v=40" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=40" />
   <style>
     .int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 24px; }
     .int-grid .hub-card { cursor: pointer; transition: border-color .2s ease, transform .2s ease; }
@@ -97,14 +97,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=39";
-    import { initThemeToggle } from "./js/theme.js?v=39";
-    import { initMobileNav } from "./js/mobileNav.js?v=39";
-    import { renderSidebar } from "./js/sidebar.js?v=39";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=39";
+    import { requireSession, signOut } from "./js/auth.js?v=40";
+    import { initThemeToggle } from "./js/theme.js?v=40";
+    import { initMobileNav } from "./js/mobileNav.js?v=40";
+    import { renderSidebar } from "./js/sidebar.js?v=40";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=40";
     import {
       INTEGRATIONS, getIntegrationDef, listIntegrations, getIntegration, saveIntegration,
-    } from "./js/integrations.js?v=39";
+    } from "./js/integrations.js?v=40";
 
     await requireSession();
     initThemeToggle();

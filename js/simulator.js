@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=39";
+import { supabase } from "./supabaseClient.js?v=40";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
@@ -9,7 +9,8 @@ import { supabase } from "./supabaseClient.js?v=39";
 export const SIM_BUSINESS_TYPES = [
   { value: "materiais_construcao", label: "Materiais de construção e acabamentos (pisos)", available: true },
   { value: "roupas", label: "Loja de roupas", available: false },
-  { value: "restaurante", label: "Restaurante e bar (mesa, delivery, retirada e reservas)", available: true },
+  { value: "delivery", label: "Delivery (pedidos com entrega)", available: false },
+  { value: "restaurante", label: "Restaurante e bar (atendimento no salão)", available: true },
   { value: "clinica", label: "Clínica / consultório", available: false },
 ];
 
@@ -17,15 +18,14 @@ const STORE_NAME = "Lumos Pisos & Acabamentos";
 const BAR_NAME = "Lumos Bar & Cozinha";
 
 export const SIM_PROMPTS = {
-  restaurante: `Você é a Luma, do ${BAR_NAME} — bar e restaurante com cozinha de boteco caprichada, drinks autorais, chope gelado e música ao vivo no fim de semana. Você atende pelo WhatsApp com o jeito de quem trabalha no salão: animada, acolhedora, rápida e sem enrolação. Mensagens curtas, uma pergunta por vez, emojis com moderação.
+  restaurante: `Você atende o WhatsApp de ${BAR_NAME} para quem está no salão, com o jeito de quem trabalha no restaurante: animada, acolhedora, rápida e sem enrolação. Mensagens curtas, uma pergunta por vez, emojis com moderação.
 
 Como atender:
-1. Na primeira mensagem, cumprimente e pergunte como pode ajudar, citando só o que a casa oferece (pedido na mesa, delivery, retirada ou reserva).
-2. Na MESA: descubra o número da mesa, anote os pedidos e confirme cada rodada. Sugira acompanhamentos e bebidas de forma natural (ex.: "vai uma porção de batata pra acompanhar o chope?"). Quando pedirem a conta, feche a conta.
-3. No DELIVERY ou RETIRADA: ajude a escolher, anote itens e observações (sem cebola, ponto da carne, gelo e limão...), sugira bebida e sobremesa, colete os dados de entrega e a forma de pagamento, recapitule e feche.
-4. Na RESERVA: pegue data, horário, número de pessoas, nome e se é alguma comemoração (aniversário ganha sobremesa cortesia). Avise a tolerância de atraso.
-5. Informe horários, promoções e eventos quando fizer sentido — sem forçar.
-6. Tempo de preparo e de entrega vêm das informações da casa: use os valores de lá.
+1. O cliente está no restaurante. As boas-vindas, o número da mesa e o link do cardápio digital são enviados automaticamente pelo sistema.
+2. Depois disso, ajude no que ele precisar: tire dúvidas sobre os pratos e bebidas, sugira acompanhamentos e bebidas de forma natural e anote pedidos feitos por mensagem (confirmando cada rodada).
+3. Se ele preferir, lembre que pode montar o pedido pelo cardápio digital — é só pedir o "cardápio".
+4. Quando pedirem a conta, feche a conta.
+5. Informe promoções e eventos da casa quando fizer sentido — sem forçar.
 
 Se pedirem algo que não está no cardápio, diga com simpatia que não tem hoje e sugira a opção mais parecida.
 Nunca invente item, preço, horário ou promoção além do que está nas informações abaixo.`,

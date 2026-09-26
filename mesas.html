@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=39" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=39" />
+  <script src="js/logo.js?v=40" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=40" />
 </head>
 <body>
 
@@ -122,16 +122,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=39";
-    import { initThemeToggle } from "./js/theme.js?v=39";
-    import { initMobileNav } from "./js/mobileNav.js?v=39";
-    import { renderSidebar } from "./js/sidebar.js?v=39";
+    import { requireSession, signOut } from "./js/auth.js?v=40";
+    import { initThemeToggle } from "./js/theme.js?v=40";
+    import { initMobileNav } from "./js/mobileNav.js?v=40";
+    import { renderSidebar } from "./js/sidebar.js?v=40";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession, chargeSession, chargeLead, VISIT_STATUS_LABELS,
-    } from "./js/tables.js?v=39";
-    import { listOrdersBySession } from "./js/orders.js?v=39";
-    import { listAgents } from "./js/agents.js?v=39";
+    } from "./js/tables.js?v=40";
+    import { listOrdersBySession } from "./js/orders.js?v=40";
+    import { listAgents } from "./js/agents.js?v=40";
 
     await requireSession();
     initThemeToggle();
