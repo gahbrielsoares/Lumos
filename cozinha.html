@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=38" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=38" />
+  <script src="js/logo.js?v=39" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=39" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
@@ -76,13 +76,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=38";
-    import { initThemeToggle } from "./js/theme.js?v=38";
-    import { initMobileNav } from "./js/mobileNav.js?v=38";
-    import { renderSidebar } from "./js/sidebar.js?v=38";
-    import { supabase } from "./js/supabaseClient.js?v=38";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=38";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=38";
+    import { requireSession, signOut } from "./js/auth.js?v=39";
+    import { initThemeToggle } from "./js/theme.js?v=39";
+    import { initMobileNav } from "./js/mobileNav.js?v=39";
+    import { renderSidebar } from "./js/sidebar.js?v=39";
+    import { supabase } from "./js/supabaseClient.js?v=39";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=39";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=39";
 
     await requireSession();
     initThemeToggle();

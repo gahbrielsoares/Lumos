@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FBF6EE">
+<title>Cardápio</title>
+<link rel="preconnect" href="https://nkmyunxjoeqpmwolefbj.supabase.co">
+<style>
+:root{--bg:#FBF6EE;--card:#fff;--ink:#2A1F16;--muted:#8A7B6C;--line:#EDE3D6;--acc:#D9772B;--acc2:#FFF1E4;--ok:#2F7D4F;--danger:#B94040;--r:16px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+body{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+header{padding:calc(14px + env(safe-area-inset-top,0px)) 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:20px;margin:0;letter-spacing:-.2px}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+.pill{background:var(--ink);color:#fff;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;white-space:nowrap}
+.hint{margin:4px 16px 8px;background:var(--acc2);border:1px solid #F6D3B2;color:#8A4B17;border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;gap:8px;align-items:center}
+.hint b{font-weight:700}
+nav{position:sticky;top:0;z-index:5;background:rgba(251,246,238,.96);backdrop-filter:blur(6px);display:flex;gap:8px;overflow-x:auto;padding:10px 16px;scrollbar-width:none;border-bottom:1px solid var(--line)}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:600}
+nav button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+section{padding:6px 16px 4px;scroll-margin-top:62px}
+h2{font-size:17px;margin:16px 2px 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.p{background:var(--card);border:2px solid transparent;border-radius:var(--r);overflow:hidden;box-shadow:0 1px 2px rgba(42,31,22,.06);position:relative;transition:border-color .15s,transform .1s}
+.p:active{transform:scale(.985)}
+.p.sel{border-color:var(--acc)}
+.ph{aspect-ratio:1/1;background:#F1E7DA;display:block;width:100%;border:0;padding:0;cursor:pointer;position:relative}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.badge{position:absolute;top:8px;right:8px;min-width:30px;height:30px;border-radius:999px;background:var(--acc);color:#fff;font-weight:800;font-size:14px;display:none;align-items:center;justify-content:center;padding:0 8px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.p.sel .badge{display:flex}
+.plus{position:absolute;bottom:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.95);color:var(--acc);font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.p.sel .plus{background:var(--acc);color:#fff;font-size:17px}
+.info{padding:9px 10px 10px}
+.nm{font-size:14px;font-weight:700;line-height:1.25}
+.ds{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pr{font-size:14.5px;font-weight:800;margin-top:6px}
+.step{display:none;align-items:center;justify-content:space-between;margin-top:8px;background:var(--acc2);border-radius:10px;padding:3px}
+.p.sel .step{display:flex}
+.step button{width:34px;height:32px;border:0;border-radius:8px;background:#fff;color:var(--acc);font-size:19px;font-weight:800}
+.step span{font-weight:800}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:10;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--bg) 70%,rgba(251,246,238,0))}
+.bar button{width:100%;border:0;border-radius:14px;background:var(--ink);color:#fff;padding:15px 16px;font-size:16px;font-weight:700;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 18px rgba(42,31,22,.25)}
+.bar button:disabled{background:#CDBFAF;box-shadow:none}
+.bar .cnt{background:var(--acc);border-radius:999px;padding:2px 9px;margin-right:8px;font-size:14px}
+.sheet-bg,.modal-bg{position:fixed;inset:0;background:rgba(20,14,9,.45);z-index:20;display:none}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:#fff;border-radius:22px 22px 0 0;max-height:86vh;display:none;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet.open,.sheet-bg.open,.modal-bg.open,.modal.open{display:flex}
+.sheet-bg.open,.modal-bg.open{display:block}
+.grab{width:42px;height:5px;border-radius:9px;background:var(--line);margin:9px auto 4px}
+.sh-head{display:flex;justify-content:space-between;align-items:center;padding:6px 18px 10px}
+.sh-head h3{margin:0;font-size:18px}
+.x{border:0;background:none;font-size:26px;color:var(--muted);line-height:1}
+.list{overflow-y:auto;padding:0 18px}
+.li{display:flex;gap:10px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.li img{width:54px;height:54px;border-radius:12px;object-fit:cover;background:#F1E7DA;flex:0 0 auto}
+.li .t{flex:1;min-width:0}
+.li .t b{font-size:14.5px;display:block}
+.li .t small{color:var(--muted)}
+.li input{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:9px;padding:7px 9px;font-size:13px;background:#FFFCF8;color:var(--ink)}
+.li .q{display:flex;align-items:center;gap:6px}
+.li .q button{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:17px;font-weight:800;color:var(--acc)}
+.rm{border:0;background:none;color:var(--danger);font-size:12.5px;font-weight:700;margin-top:6px;padding:0}
+.tot{display:flex;justify-content:space-between;font-size:17px;font-weight:800;padding:14px 18px 4px;border-top:1px solid var(--line)}
+.acts{padding:10px 18px 16px;display:flex;flex-direction:column;gap:8px}
+.btn{border:0;border-radius:13px;padding:15px;font-size:16px;font-weight:800}
+.btn.go{background:var(--acc);color:#fff}
+.btn.ghost{background:none;color:var(--danger);font-weight:700;padding:10px}
+.modal{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:20px}
+.mbox{background:#fff;border-radius:20px;padding:22px 20px 16px;max-width:360px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.mbox .ic{font-size:40px}
+.mbox h4{font-size:18px;margin:8px 0 6px}
+.mbox p{color:var(--muted);font-size:14px;margin:0 0 16px;line-height:1.45}
+.mbox .row{display:flex;gap:10px}
+.mbox .row .btn{flex:1;padding:13px}
+.btn.no{background:#F3ECE3;color:var(--ink)}
+.toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;z-index:40;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90%;text-align:center}
+.toast.on{opacity:1}
+.center{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted)}
+.center .big{font-size:48px}
+.center h3{color:var(--ink);margin:10px 0 6px}
+.spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:s .8s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="app"><div class="center"><div class="spin"></div><p>Carregando o cardápio…</p></div></div>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet" role="dialog" aria-label="Seu pedido">
+  <div class="grab"></div>
+  <div class="sh-head"><h3>Seu pedido</h3><button class="x" id="closeSheet" aria-label="Fechar">×</button></div>
+  <div class="list" id="list"></div>
+  <div class="tot"><span>Total</span><span id="total">R$ 0,00</span></div>
+  <div class="acts">
+    <button class="btn go" id="send">Enviar pedido</button>
+    <button class="btn ghost" id="cancel">Cancelar pedido</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg"></div>
+<div class="modal" id="modal" role="alertdialog" aria-modal="true">
+  <div class="mbox">
+    <div class="ic">👨‍🍳</div>
+    <h4>Tudo certo com o pedido?</h4>
+    <p>Confirma que conferiu seu pedido e enviar para a cozinha?</p>
+    <div class="row">
+      <button class="btn no" id="no">Não, revisar</button>
+      <button class="btn go" id="yes">Sim, enviar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var API = "https://nkmyunxjoeqpmwolefbj.supabase.co/functions/v1/menu";
+  var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rbXl1bnhqb2VxcG13b2xlZmJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMzA0ODcsImV4cCI6MjEwNDgwNjQ4N30.al8MlVXdxIEKVixhm65k5TraKq7f2mntUjVWDavbxU8";
+  var token = new URLSearchParams(location.search).get("t") || "";
+  var app = document.getElementById("app");
+  var data = null, cart = {}, order = [];
+  var CART_KEY = "lumos_cart_" + token.slice(0, 12);
+
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+  function brl(n) { return Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+  function store(k, v) { try { v === undefined ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+  function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function toast(t) { var el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, 2600); }
+
+  function call(body, tries) {
+    tries = tries || 0;
+    return fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: KEY, Authorization: "Bearer " + KEY },
+      body: JSON.stringify(Object.assign({ t: token }, body))
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || "Erro"); return j; }); })
+      .catch(function (err) {
+        // Internet instável: tenta de novo algumas vezes antes de desistir
+        if (tries < 2 && !/expirou|encerrada|vazio/.test(err.message)) return new Promise(function (ok) { setTimeout(ok, 1200 * (tries + 1)); }).then(function () { return call(body, tries + 1); });
+        throw err;
+      });
+  }
+
+  function fail(msg) {
+    app.innerHTML = '<div class="center"><div class="big">🍽️</div><h3>Ops!</h3><p>' + esc(msg) + '</p></div>';
+  }
+
+  if (!token) return fail("Link inválido. Peça o cardápio de novo no WhatsApp.");
+
+  call({ action: "get" }).then(function (d) {
+    data = d;
+    document.title = d.loja + " · Cardápio";
+    try { cart = JSON.parse(read(CART_KEY) || "{}"); } catch (e) { cart = {}; }
+    // Remove do carrinho salvo o que não existe mais no cardápio
+    var ids = {}; d.products.forEach(function (p) { ids[p.id] = p; });
+    Object.keys(cart).forEach(function (id) { if (!ids[id]) delete cart[id]; });
+    render();
+  }).catch(function (e) { fail(e.message); });
+
+  function cats() {
+    var seen = {}, list = [];
+    data.products.forEach(function (p) { if (!seen[p.category]) { seen[p.category] = 1; list.push(p.category); } });
+    return list;
+  }
+  function slug(s) { return "c-" + s.normalize("NFD").replace(/[^\w]/g, "").toLowerCase(); }
+
+  function render() {
+    var c = cats();
+    var hint = read("lumos_menu_hint") ? "" : '<div class="hint" id="hint">👆 <span><b>Toque na foto</b> para adicionar ao pedido. Toque de novo para tirar.</span></div>';
+    var html = '<header><div><h1>' + esc(data.loja) + '</h1><div class="sub">' + (data.cliente ? "Olá, " + esc(data.cliente) + "! " : "") + 'Monte seu pedido 😋</div></div><div class="pill">' + esc(data.mesa) + '</div></header>' + hint +
+      '<nav id="nav">' + c.map(function (x, i) { return '<button data-c="' + slug(x) + '"' + (i === 0 ? ' class="on"' : "") + '>' + esc(x) + '</button>'; }).join("") + '</nav>';
+    c.forEach(function (cat, ci) {
+      html += '<section id="' + slug(cat) + '"><h2>' + esc(cat) + '</h2><div class="grid">';
+      data.products.forEach(function (p, pi) {
+        if (p.category !== cat) return;
+        html += '<div class="p" data-id="' + p.id + '">' +
+          '<button class="ph" data-tap="' + p.id + '" aria-label="Adicionar ' + esc(p.name) + '">' +
+          (p.img ? '<img src="' + esc(p.img) + '" alt="" width="360" height="360" decoding="async" loading="' + (ci === 0 && pi < 4 ? "eager" : "lazy") + '">' : "") +
+          '<span class="badge"></span><span class="plus">+</span></button>' +
+          '<div class="info"><div class="nm">' + esc(p.name) + '</div><div class="ds">' + esc(p.description) + '</div><div class="pr">' + brl(p.price) + '</div>' +
+          '<div class="step"><button data-dec="' + p.id + '" aria-label="Menos">−</button><span></span><button data-inc="' + p.id + '" aria-label="Mais">+</button></div></div></div>';
+      });
+      html += '</div></section>';
+    });
+    html += '<div style="height:10px"></div><div class="bar"><button id="openSheet" disabled><span><span class="cnt" id="cnt">0</span>Ver meu pedido</span><span id="barTotal">R$ 0,00</span></button></div>';
+    app.innerHTML = html;
+    bind();
+    refresh();
+  }
+
+  function product(id) { for (var i = 0; i < data.products.length; i++) if (data.products[i].id === id) return data.products[i]; }
+
+  function setQty(id, q) {
+    if (q <= 0) delete cart[id]; else cart[id] = { qty: Math.min(50, q), obs: (cart[id] && cart[id].obs) || "" };
+    store(CART_KEY, JSON.stringify(cart));
+    refresh();
+  }
+
+  function refresh() {
+    var count = 0, total = 0;
+    Object.keys(cart).forEach(function (id) { var p = product(id); if (p) { count += cart[id].qty; total += p.price * cart[id].qty; } });
+    document.querySelectorAll(".p").forEach(function (el) {
+      var it = cart[el.getAttribute("data-id")];
+      el.classList.toggle("sel", !!it);
+      el.querySelector(".badge").textContent = it ? it.qty : "";
+      el.querySelector(".plus").textContent = it ? "✓" : "+";
+      el.querySelector(".step span").textContent = it ? it.qty : "";
+    });
+    $("cnt").textContent = count;
+    $("barTotal").textContent = brl(total);
+    $("openSheet").disabled = !count;
+    $("total").textContent = brl(total);
+    renderList();
+  }
+
+  function renderList() {
+    var ids = Object.keys(cart);
+    $("list").innerHTML = ids.length ? ids.map(function (id) {
+      var p = product(id), it = cart[id];
+      return '<div class="li"><img src="' + esc(p.img) + '" alt="" loading="lazy">' +
+        '<div class="t"><b>' + esc(p.name) + '</b><small>' + brl(p.price) + ' cada · ' + brl(p.price * it.qty) + '</small>' +
+        '<input data-obs="' + id + '" placeholder="Observação (ex.: sem cebola, sem gelo)" maxlength="140" value="' + esc(it.obs) + '">' +
+        '<button class="rm" data-rm="' + id + '">Remover</button></div>' +
+        '<div class="q"><button data-dec="' + id + '">−</button><b>' + it.qty + '</b><button data-inc="' + id + '">+</button></div></div>';
+    }).join("") : '<p style="color:var(--muted);text-align:center;padding:20px 0;">Seu pedido está vazio.</p>';
+  }
+
+  function openSheet() { if (!Object.keys(cart).length) return; $("sheet").classList.add("open"); $("sheetBg").classList.add("open"); }
+  function closeSheet() { $("sheet").classList.remove("open"); $("sheetBg").classList.remove("open"); }
+  function openModal() { $("modal").classList.add("open"); $("modalBg").classList.add("open"); }
+  function closeModal() { $("modal").classList.remove("open"); $("modalBg").classList.remove("open"); }
+
+  function bind() {
+    document.addEventListener("click", onClick);
+    $("openSheet").onclick = openSheet;
+    // Categoria ativa acompanha a rolagem
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          document.querySelectorAll("#nav button").forEach(function (b) {
+            var on = b.getAttribute("data-c") === e.target.id;
+            b.classList.toggle("on", on);
+            if (on && b.scrollIntoView) b.scrollIntoView({ block: "nearest", inline: "center" });
+          });
+        });
+      }, { rootMargin: "-45% 0px -50% 0px" });
+      document.querySelectorAll("section").forEach(function (s) { io.observe(s); });
+    }
+  }
+
+  function onClick(e) {
+    var t = e.target.closest("[data-tap],[data-inc],[data-dec],[data-rm],[data-c]");
+    if (!t) return;
+    var id;
+    if ((id = t.getAttribute("data-tap"))) {
+      // Toque na foto: adiciona; se já estava, tira
+      if (cart[id]) { setQty(id, 0); toast("Removido do pedido"); }
+      else {
+        setQty(id, 1); toast("Adicionado! Use + e − para a quantidade");
+        if (!read("lumos_menu_hint")) { store("lumos_menu_hint", "1"); var h = $("hint"); if (h) h.remove(); }
+      }
+    } else if ((id = t.getAttribute("data-inc"))) setQty(id, (cart[id] ? cart[id].qty : 0) + 1);
+    else if ((id = t.getAttribute("data-dec"))) { setQty(id, (cart[id] ? cart[id].qty : 0) - 1); if (!Object.keys(cart).length) closeSheet(); }
+    else if ((id = t.getAttribute("data-rm"))) { setQty(id, 0); if (!Object.keys(cart).length) closeSheet(); }
+    else if ((id = t.getAttribute("data-c"))) { var s = document.getElementById(id); if (s) s.scrollIntoView({ behavior: "smooth" }); }
+  }
+
+  document.addEventListener("input", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-obs");
+    if (id && cart[id]) { cart[id].obs = e.target.value; store(CART_KEY, JSON.stringify(cart)); }
+  });
+
+  $("closeSheet").onclick = closeSheet;
+  $("sheetBg").onclick = closeSheet;
+  $("send").onclick = function () { if (Object.keys(cart).length) openModal(); };
+  $("no").onclick = function () { closeModal(); openSheet(); };
+  $("modalBg").onclick = function () { closeModal(); openSheet(); };
+  $("cancel").onclick = function () {
+    cart = {}; store(CART_KEY); refresh(); closeSheet();
+    toast("Pedido cancelado. Estamos à disposição se quiser alguma coisa 😊");
+  };
+  $("yes").onclick = function () {
+    var btn = $("yes"); btn.disabled = true; btn.textContent = "Enviando…";
+    var items = Object.keys(cart).map(function (id) { return { id: id, qty: cart[id].qty, obs: cart[id].obs }; });
+    call({ action: "submit", items: items }).then(function (r) {
+      cart = {}; store(CART_KEY);
+      closeModal(); closeSheet();
+      clearTimeout(toast.t); $("toast").classList.remove("on");
+      var wa = "https://wa.me/" + (r.whatsapp || data.whatsapp);
+      app.innerHTML = '<div class="center"><div class="big">✅</div><h3>Pedido enviado para a cozinha!</h3><p>Em breve o atendente leva até você.<br>Voltando para o WhatsApp…</p><p><a href="' + wa + '" style="color:var(--acc);font-weight:700;">Voltar agora</a></p></div>';
+      document.querySelector(".bar") && document.querySelector(".bar").remove();
+      setTimeout(function () { location.href = wa; }, 1600);
+    }).catch(function (err) {
+      btn.disabled = false; btn.textContent = "Sim, enviar";
+      closeModal(); openSheet();
+      toast(err.message || "Não consegui enviar. Verifique a internet e tente de novo.");
+    });
+  };
+})();
+</script>
+</body>
+</html>

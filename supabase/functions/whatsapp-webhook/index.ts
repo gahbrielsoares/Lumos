@@ -842,6 +842,49 @@ function buildOrderItems(matches: RegExpMatchArray[], products: any[]) {
   });
 }
 
+// ---------- Mesa: boas-vindas, número da mesa e cardápio digital ----------
+const SITE_URL = (Deno.env.get("SITE_URL") || "https://gahbrielsoares.github.io/Lumos").replace(/\/$/, "");
+
+// Envia texto com botões (UAZAPI /send/menu). Se o botão não for aceito, manda o texto com a instrução.
+// deno-lint-ignore no-explicit-any
+async function sendButtons(wa: any, payload: any, to: string, text: string, choices: string[], footer = "") {
+  const base = wa?.base_url || payload?.BaseUrl;
+  const token = wa?.api_key || payload?.token;
+  if (base && token && (wa?.vendor || "uazapi") === "uazapi") {
+    try {
+      const res = await fetch(`${base}/send/menu`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", token },
+        body: JSON.stringify({ number: to, type: "button", text, choices, ...(footer ? { footerText: footer } : {}) }),
+      });
+      if (res.ok) return true;
+      console.error("Botões não aceitos, enviando como texto:", res.status, await res.text());
+    } catch (err) {
+      console.error("Falha ao enviar botões:", err);
+    }
+  }
+  return sendWhatsAppReply(wa, payload?.BaseUrl, payload?.token, to, `${text}\n\nResponda *${choices.join("* ou *")}*.`);
+}
+
+// Mesa pelo número ("5", "mesa 5", "Mesa 05")
+// deno-lint-ignore no-explicit-any
+async function findTable(owner_id: string, n: string): Promise<any> {
+  const { data: tables } = await supabase.from("restaurant_tables").select("*").eq("owner_id", owner_id);
+  return (tables || []).find((t) => Number(onlyDigits(t.label)) === Number(n)) || null;
+}
+
+// deno-lint-ignore no-explicit-any
+async function openTableSession(owner_id: string, table: any, leadId: string) {
+  let { data: session } = await supabase.from("table_sessions").select("*").eq("table_id", table.id).eq("status", "ativa").maybeSingle();
+  if (!session) {
+    const { data: created } = await supabase.from("table_sessions").insert({ table_id: table.id, owner_id, status: "ativa" }).select().single();
+    session = created;
+    await supabase.from("restaurant_tables").update({ status: "ocupada" }).eq("id", table.id);
+  }
+  await supabase.from("leads").update({ table_session_id: session.id, visit_status: "conversando" }).eq("id", leadId);
+  return session;
+}
+
 // ---------- Reservas ----------
 function parseReserva(reply: string): Record<string, string> | null {
   const m = reply.match(/\[RESERVA:\s*([^\]]+)\]/i);
@@ -983,6 +1026,13 @@ Deno.serve(async (req) => {
 
     const isImage = msg?.messageType === "ImageMessage";
     const isAudio = msg?.messageType === "AudioMessage";
+
+    // Clique em botão/lista (Sim/Não, opções) chega como mensagem interativa: tratamos como texto
+    const isChoice = /button|list|interactive|templatebutton/i.test(String(msg?.messageType || ""));
+    if (isChoice && msg) {
+      msg.text = msg.text || msg.buttonOrListid || msg.content?.selectedDisplayText || msg.content?.selectedButtonId || msg.vote || "";
+      msg.type = "text";
+    }
 
     if (!msg || msg.fromMe || (msg.type !== "text" && !isImage && !isAudio)) {
       return new Response("ignored", { status: 200 });
@@ -1148,7 +1198,7 @@ Deno.serve(async (req) => {
 
     const { data: bizConfig } = await supabase
       .from("business_config")
-      .select("business_type, disabled_stages")
+      .select("business_type, disabled_stages, business_name")
       .eq("owner_id", owner_id)
       .maybeSingle();
 
@@ -1160,6 +1210,7 @@ Deno.serve(async (req) => {
     const effIntegrations = effectiveIntegrations(agent, integrations || []);
     const storeInfo = buildStoreInfo(effIntegrations);
     const disabledStages: string[] = bizConfig?.disabled_stages || [];
+    const canStage = (st: string) => !disabledStages.includes(st);
     const businessType = agent.is_simulator ? (agent.sim_business_type || "materiais_construcao") : bizConfig?.business_type;
     const isRestaurant = businessType === "restaurante";
     // deno-lint-ignore no-explicit-any
@@ -1174,6 +1225,78 @@ Deno.serve(async (req) => {
     const modalidades: string[] = isRestaurant ? (restCfg?.modalidades?.length ? restCfg.modalidades : ["mesa"]) : [];
     // Fluxo de venda (orçamento -> pedido -> pagamento): lojas sempre; restaurante no delivery/retirada (não na mesa)
     const salesFlow = !isRestaurant || ((modalidades.includes("delivery") || modalidades.includes("retirada")) && !lead.table_session_id);
+
+    // ---------- Mesa: boas-vindas, número da mesa e cardápio (controlado pelo código, não pela IA) ----------
+    if (isRestaurant && modalidades.includes("mesa") && text) {
+      const lojaNome = agent.is_simulator ? "Lumos Bar & Cozinha" : (bizConfig?.business_name || agent.name || "nossa casa");
+      const tn = norm(text);
+      // "Estou na mesa 5" (não confundir com reserva: "a mesa 5 no sábado")
+      const falaDeReserva = /reserv|amanha|sabado|domingo|segunda|terca|quarta|quinta|sexta|\bdia \d/.test(tn);
+      const mesaNoTexto = falaDeReserva ? undefined : tn.match(/\bmesa\s*(?:n(?:o|umero)?\s*)?(\d{1,3})\b/)?.[1];
+      const soNumero = tn.match(/^(?:e |eh |e a |a )?(\d{1,3})$/)?.[1];
+      // Chegou ao local (QR padrão manda "Olá! Estou no salão 🍽️")
+      const chegou = /\b(estou|to|cheguei|estamos|chegamos)\s+(no|na|ao|aqui no|aqui na)\s+(salao|restaurante|bar|casa)\b/.test(tn);
+      const { data: waCfg } = await supabase.from("whatsapp_provider_config").select("*").eq("agent_id", agent_id).maybeSingle();
+      const say = async (t: string) => {
+        await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "ia", text: t });
+        await sendWhatsAppReply(waCfg, payload.BaseUrl, payload.token, customerNumber, t);
+      };
+      const askMenu = async (prefix: string) => {
+        const q = `${prefix}Quer ver nosso cardápio? 📖`;
+        await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "ia", text: q });
+        await sendButtons(waCfg, payload, customerNumber, q, ["Sim", "Não"]);
+      };
+      const sendMenuLink = async () => {
+        const menuToken = crypto.randomUUID().replace(/-/g, "");
+        await supabase.from("leads").update({ menu_token: menuToken }).eq("id", lead.id);
+        await say(`Aqui está o nosso cardápio! 😋\n👉 ${SITE_URL}/cardapio.html?t=${menuToken}\n\nÉ só tocar nas fotos pra montar seu pedido e enviar direto pra cozinha.`);
+      };
+      const done = async (visit?: string) => {
+        await supabase.from("leads").update({
+          last_message_at: new Date().toISOString(),
+          ...(visit ? { visit_status: visit } : {}),
+          ...(["novo_contato"].includes(lead.stage) && canStage("conversando") ? { stage: "conversando" } : {}),
+        }).eq("id", lead.id);
+        return new Response("mesa flow", { status: 200 });
+      };
+
+      // Informou a mesa (QR da mesa, "mesa 5", ou só "5" quando estávamos esperando o número)
+      const mesaN = mesaNoTexto || (lead.visit_status === "aguardando_mesa" && !lead.table_session_id ? soNumero || tn.match(/\b(\d{1,3})\b/)?.[1] : null);
+      if (mesaN && (!lead.table_session_id || mesaNoTexto)) {
+        const table = await findTable(owner_id, mesaN);
+        if (!table) {
+          await say(`Hmm, não encontrei a mesa ${mesaN} por aqui 🤔 Confere o número na plaquinha da mesa e me manda de novo?`);
+          return await done("aguardando_mesa");
+        }
+        const session = await openTableSession(owner_id, table, lead.id);
+        lead.table_session_id = session.id;
+        if (!(history || []).some((m) => m.direction === "out")) await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
+        await askMenu(`Perfeito, você está na *${table.label}*! 🍽️\n`);
+        return await done("conversando");
+      }
+
+      // Chegou pelo QR padrão: boas-vindas e, em seguida, o número da mesa
+      if (chegou && !lead.table_session_id) {
+        await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
+        await say("Para começarmos, me fale o número da sua *MESA* 🍽️");
+        return await done("aguardando_mesa");
+      }
+
+      // Já está na mesa: resposta ao "Quer ver nosso cardápio?" ou pedido do cardápio a qualquer momento
+      if (lead.table_session_id) {
+        const lastOut = [...(history || [])].reverse().find((m) => m.direction === "out")?.text || "";
+        const perguntouCardapio = /quer ver nosso cardapio/i.test(norm(lastOut));
+        const pedeCardapio = /\b(cardapio|menu)\b/.test(tn) && tn.split(" ").length <= 8;
+        if ((perguntouCardapio && /^(sim|s|quero|pode|claro|bora|manda|ok|beleza|por favor)\b/.test(tn)) || pedeCardapio) {
+          await sendMenuLink();
+          return await done();
+        }
+        if (perguntouCardapio && /^(nao|n|agora nao|depois)\b/.test(tn)) {
+          await say("Tudo bem! 😊 Quando quiser, é só pedir o *cardápio* ou me dizer o que deseja.");
+          return await done();
+        }
+      }
+    }
 
     // Entrega/frete: o código descobre na conversa (CEP -> bairro pelo ViaCEP) e passa pronto pra IA
     // (o histórico já foi invertido pra ordem cronológica; aqui queremos o mais recente primeiro)
@@ -1202,7 +1325,6 @@ Deno.serve(async (req) => {
     const entregaTipo = knownDelivery?.tipo || null;
     const missingBefore = missingDados(dadosCliente, entregaTipo, nfAtiva, isRestaurant);
     const dadosInfo = salesFlow && (freteInt || isRestaurant) ? describeDados(dadosCliente, missingBefore, entregaTipo) : "";
-    const canStage = (st: string) => !disabledStages.includes(st);
 
     const stageInstructions = !salesFlow ? "" : `
 

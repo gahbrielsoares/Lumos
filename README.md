@@ -882,6 +882,33 @@ Cada loja recebe no máximo 1 envio por intervalo (padrão: 1 por minuto), só d
 O follow-up para quando o cliente responde, quando a IA está pausada no contato, quando o pedido é
 fechado/perdido ou quando o cliente pede pra não receber mais mensagens.
 
+## 27. Cardápio digital da mesa e QR Codes
+
+No **SQL Editor**:
+
+```sql
+alter table public.leads add column if not exists menu_token text;
+create index if not exists leads_menu_token_idx on public.leads(menu_token);
+alter table public.leads drop constraint if exists leads_visit_status_check;
+alter table public.leads add constraint leads_visit_status_check
+  check (visit_status in ('iniciado','aguardando_mesa','conversando','aguardando_pagamento'));
+```
+
+### Edge Function `menu`
+Crie a função `menu` com `supabase/functions/menu/index.ts`, **JWT desligado** (o cardápio é uma página pública;
+o acesso é pelo token do link, que vale enquanto o cliente estiver na mesa).
+
+### Como funciona
+1. **QR Codes** (aba Mesas → "QR Codes"): um QR igual pra todas as mesas ("Olá! Estou no salão 🍽️")
+   ou um por mesa ("Olá! Estou na Mesa 5 🍽️"). Dá pra imprimir direto.
+2. QR padrão: boas-vindas e, na mensagem seguinte, "me fale o número da sua MESA". QR da mesa: já vincula a mesa.
+3. "Quer ver nosso cardápio?" com botões **Sim / Não** (se o aparelho não mostrar botões, vai como texto).
+4. **Sim** → link do cardápio digital (`cardapio.html`, ~19 KB, sem bibliotecas, fotos leves e carregamento sob demanda).
+5. No cardápio: toque na foto pra adicionar/tirar, + e − pra quantidade, observação por item, lista do pedido,
+   **Enviar pedido** → "Confirma que conferiu seu pedido e enviar para a cozinha?" (Sim volta pro WhatsApp; Não volta pra lista),
+   **Cancelar pedido** limpa a lista.
+6. O pedido cai na Cozinha e o cliente recebe a confirmação no WhatsApp. "Cardápio" a qualquer momento reenvia o link.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

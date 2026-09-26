@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=38" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=38" />
+  <script src="js/logo.js?v=39" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=39" />
 </head>
 <body>
 
@@ -248,20 +248,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=38";
-    import { initThemeToggle } from "./js/theme.js?v=38";
-    import { initMobileNav } from "./js/mobileNav.js?v=38";
-    import { renderSidebar } from "./js/sidebar.js?v=38";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=38";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=38";
+    import { requireSession, signOut } from "./js/auth.js?v=39";
+    import { initThemeToggle } from "./js/theme.js?v=39";
+    import { initMobileNav } from "./js/mobileNav.js?v=39";
+    import { renderSidebar } from "./js/sidebar.js?v=39";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=39";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=39";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=38";
+    } from "./js/agents.js?v=39";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=38";
+    } from "./js/simulator.js?v=39";
 
     await requireSession();
     initThemeToggle();

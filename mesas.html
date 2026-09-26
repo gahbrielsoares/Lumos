@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=38" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=38" />
+  <script src="js/logo.js?v=39" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=39" />
 </head>
 <body>
 
@@ -38,9 +38,12 @@
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
         <div>
           <h1 style="font-size: 28px;">Mesas</h1>
-          <p style="margin-top: 6px;">Cada coluna é uma mesa. O cliente informa o número pelo WhatsApp — sem QR code, sem papel.</p>
+          <p style="margin-top: 6px;">Cada coluna é uma mesa. O cliente escaneia o QR Code, chega no WhatsApp e recebe o cardápio digital.</p>
         </div>
-        <button class="btn btn-primary" id="new-table-btn">+ Nova mesa</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="qr-btn">▦ QR Codes</button>
+          <button class="btn btn-primary" id="new-table-btn">+ Nova mesa</button>
+        </div>
       </div>
 
       <div class="kanban-board" id="tables-board" style="margin-top:24px;"></div>
@@ -53,6 +56,44 @@
   </div>
 
   <!-- Modal: nova mesa -->
+  <!-- QR Codes das mesas -->
+  <div class="modal-backdrop" id="qr-modal" style="display:none;">
+    <div class="modal-box" style="max-width:760px; max-height:88vh; overflow:auto;">
+      <h3 style="font-size:18px;">QR Codes das mesas</h3>
+      <p>O cliente escaneia, o WhatsApp abre com a mensagem pronta e a IA dá as boas-vindas.</p>
+      <div class="field" style="margin-bottom:10px;">
+        <label style="font-size:13px;">WhatsApp do agente</label>
+        <select class="panel-select" id="qr-agent" style="width:100%;"></select>
+      </div>
+      <div class="pill-tabs" style="margin:6px 0 12px;">
+        <button type="button" class="pill-tab active" data-qr="padrao">Um QR para todas as mesas</button>
+        <button type="button" class="pill-tab" data-qr="mesa">Um QR por mesa</button>
+      </div>
+      <p class="settings-hint" id="qr-explain"></p>
+      <div id="qr-sheet" class="qr-sheet"></div>
+      <div class="modal-actions" style="margin-top:14px;">
+        <button class="btn btn-ghost" id="qr-close">Fechar</button>
+        <button class="btn btn-primary" id="qr-print">Imprimir</button>
+      </div>
+    </div>
+  </div>
+  <style>
+    #qr-modal .pill-tab { background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text-muted); }
+    #qr-modal .pill-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #1C2B3A; }
+    .qr-sheet { display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:14px; }
+    .qr-card { border:1px dashed #C9B8A3; border-radius:14px; padding:14px 12px; text-align:center; background:#fff; color:#2A1F16; break-inside: avoid; }
+    .qr-card .qr-t { font-weight:800; font-size:17px; margin-bottom:8px; }
+    .qr-card .qr-s { font-size:12.5px; color:#6B5B4B; margin-top:8px; line-height:1.35; }
+    .qr-card canvas, .qr-card img { margin:0 auto; display:block; }
+    @media print {
+      body * { visibility:hidden !important; }
+      #qr-sheet, #qr-sheet * { visibility:visible !important; }
+      #qr-sheet { position:absolute; left:0; top:0; width:100%; grid-template-columns: repeat(3, 1fr); }
+      .qr-card { border:1px dashed #999; }
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+
   <div class="modal-backdrop" id="new-table-modal" style="display:none;">
     <div class="modal-box">
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Nova mesa</h3>
@@ -81,15 +122,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=38";
-    import { initThemeToggle } from "./js/theme.js?v=38";
-    import { initMobileNav } from "./js/mobileNav.js?v=38";
-    import { renderSidebar } from "./js/sidebar.js?v=38";
+    import { requireSession, signOut } from "./js/auth.js?v=39";
+    import { initThemeToggle } from "./js/theme.js?v=39";
+    import { initMobileNav } from "./js/mobileNav.js?v=39";
+    import { renderSidebar } from "./js/sidebar.js?v=39";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession, chargeSession, chargeLead, VISIT_STATUS_LABELS,
-    } from "./js/tables.js?v=38";
-    import { listOrdersBySession } from "./js/orders.js?v=38";
+    } from "./js/tables.js?v=39";
+    import { listOrdersBySession } from "./js/orders.js?v=39";
+    import { listAgents } from "./js/agents.js?v=39";
 
     await requireSession();
     initThemeToggle();
@@ -102,6 +144,44 @@
 
     const board = document.getElementById("tables-board");
     let pendingChargeSession = null;
+
+    // ---------- QR Codes ----------
+    let qrMode = "padrao";
+    const qrAgents = (await listAgents()).filter((a) => a.phone_number);
+    document.getElementById("qr-agent").innerHTML = qrAgents.map((a) =>
+      `<option value="${a.phone_number.replace(/\D/g, "")}" ${a.enabled ? "selected" : ""}>${a.name} — ${a.phone_number}${a.enabled ? "" : " (inativo)"}</option>`).join("")
+      || `<option value="">Cadastre um agente com número de WhatsApp</option>`;
+
+    async function renderQr() {
+      const phone = document.getElementById("qr-agent").value;
+      const sheet = document.getElementById("qr-sheet");
+      document.getElementById("qr-explain").textContent = qrMode === "padrao"
+        ? "O mesmo QR em todas as mesas. A IA dá as boas-vindas e pergunta o número da mesa."
+        : "Cada mesa com o seu QR. A IA já sabe a mesa e vai direto para o cardápio.";
+      if (!phone) { sheet.innerHTML = ""; return; }
+      const tables = qrMode === "mesa" ? await listTables() : [null];
+      sheet.innerHTML = tables.map((t, i) => `
+        <div class="qr-card">
+          <div class="qr-t">${t ? t.label : "Peça pelo WhatsApp"}</div>
+          <div id="qr-${i}"></div>
+          <div class="qr-s">📱 Aponte a câmera, envie a mensagem<br>e veja o cardápio 🍽️</div>
+        </div>`).join("");
+      tables.forEach((t, i) => {
+        const msg = t ? `Olá! Estou na ${t.label} 🍽️` : "Olá! Estou no salão 🍽️";
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        if (window.QRCode) new QRCode(document.getElementById(`qr-${i}`), { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+        else document.getElementById(`qr-${i}`).innerHTML = `<a href="${url}" target="_blank" rel="noopener">${url}</a>`;
+      });
+    }
+    document.getElementById("qr-btn").addEventListener("click", () => { document.getElementById("qr-modal").style.display = "flex"; renderQr(); });
+    document.getElementById("qr-close").addEventListener("click", () => (document.getElementById("qr-modal").style.display = "none"));
+    document.getElementById("qr-print").addEventListener("click", () => window.print());
+    document.getElementById("qr-agent").addEventListener("change", renderQr);
+    document.querySelectorAll("[data-qr]").forEach((b) => b.addEventListener("click", () => {
+      qrMode = b.dataset.qr;
+      document.querySelectorAll("[data-qr]").forEach((x) => x.classList.toggle("active", x === b));
+      renderQr();
+    }));
 
     async function loadBoard() {
       const tables = await listTables();
