@@ -866,6 +866,23 @@ async function sendButtons(wa: any, payload: any, to: string, text: string, choi
   return sendWhatsAppReply(wa, payload?.BaseUrl, payload?.token, to, `${text}\n\nResponda *${choices.join("* ou *")}*.`);
 }
 
+// "meu nome é Gabriel", "sou a Ana", "Gabriel Soares" -> "Gabriel Soares"
+function extractName(raw: string): string {
+  const t = String(raw || "").trim()
+    .replace(/^(oi|ol[aá]|boa (noite|tarde)|bom dia)[\s,!.]*/i, "")
+    .replace(/^(meu nome [ée]|me chamo|pode me chamar de|pode colocar|coloca|sou (o|a)|sou|aqui [ée] (o|a)|[ée] (o|a))\s+/i, "")
+    .replace(/[.!?,;:)(\d]+/g, " ").trim();
+  const all = t.split(/\s+/).filter(Boolean);
+  if (!all.length || all.length > 5) return "";
+  // Frase que não é nome ("quero ver o cardápio", "sim", "não")
+  if (all.some((w) => /^(sim|n[aã]o|ok|quero|queria|ver|cardapio|cardápio|menu|mesa|pedido|conta|oi|ol[aá]|obrigad[oa])$/i.test(w))) return "";
+  if (!all.every((w) => /^[A-Za-zÀ-ÿ'-]+$/.test(w))) return "";
+  const conectivo = /^(da|de|do|das|dos|e)$/i;
+  const words = all.filter((w, i, arr) => !(conectivo.test(w) && (i === 0 || i === arr.length - 1)));
+  if (!words.length || words.join("").length < 2) return "";
+  return words.map((w) => conectivo.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
+
 // Mesa pelo número ("5", "mesa 5", "Mesa 05")
 // deno-lint-ignore no-explicit-any
 async function findTable(owner_id: string, n: string): Promise<any> {
@@ -1302,7 +1319,12 @@ Deno.serve(async (req) => {
         const session = await openTableSession(owner_id, table, lead.id);
         lead.table_session_id = session.id;
         if (newVisit || !(history || []).some((m) => m.direction === "out")) await say(`Olá! Seja muito bem-vindo(a) ao ${lojaNome}! 😊`);
-        await askMenu(`Perfeito, você está na *${table.label}*! 🍽️\n`);
+        const nomeConhecido = String(lead.dados_cliente?.nome || "").split(" ")[0];
+        if (nomeConhecido) {
+          await askMenu(`Perfeito, ${nomeConhecido}! Você está na *${table.label}* 🍽️\n`);
+        } else {
+          await say(`Perfeito, você está na *${table.label}*! 🍽️\nQual é o seu nome pra eu colocar na comanda?`);
+        }
         return await done("conversando");
       }
 
@@ -1321,9 +1343,21 @@ Deno.serve(async (req) => {
         return await done("aguardando_mesa");
       }
 
-      // Já está na mesa: resposta ao "Quer ver nosso cardápio?" ou pedido do cardápio a qualquer momento
+      // Já está na mesa: nome pra comanda, resposta ao "Quer ver nosso cardápio?" ou pedido do cardápio
       if (lead.table_session_id) {
         const lastOut = (history || []).find((m) => m.direction === "out")?.text || "";
+        if (/nome pra eu colocar na comanda/i.test(lastOut)) {
+          const nome = extractName(text);
+          if (!nome) {
+            await say("Não peguei seu nome 😅 Me fala só como você quer que eu coloque na comanda?");
+            return await done();
+          }
+          const dados = { ...(lead.dados_cliente || {}), nome };
+          await supabase.from("leads").update({ dados_cliente: dados, ...(lead.name ? {} : { name: nome }) }).eq("id", lead.id);
+          lead.dados_cliente = dados;
+          await askMenu(`Prazer, ${nome.split(" ")[0]}! 😊\n`);
+          return await done();
+        }
         const perguntouCardapio = /quer ver nosso cardapio/i.test(norm(lastOut));
         const pedeCardapio = /\b(cardapio|menu)\b/.test(tn) && tn.split(" ").length <= 8;
         if ((perguntouCardapio && /^(sim|s|quero|pode|claro|bora|manda|ok|beleza|por favor)\b/.test(tn)) || pedeCardapio) {

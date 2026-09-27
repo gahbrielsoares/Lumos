@@ -37,6 +37,19 @@ h2{font-size:17px;margin:16px 2px 10px}
 .nm{font-size:14px;font-weight:700;line-height:1.25}
 .ds{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pr{font-size:14.5px;font-weight:800;margin-top:6px}
+.pr-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px}
+.pr-row .pr{margin-top:0}
+.det{border:0;background:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:4px 0 4px 6px;display:inline-flex;align-items:center;gap:3px;text-decoration:underline;text-underline-offset:2px}
+.dbox{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:520px;align-self:flex-end;max-height:88vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+.dbox img{width:100%;aspect-ratio:16/11;object-fit:cover;display:block;background:#F1E7DA;border-radius:22px 22px 0 0}
+.dbody{padding:16px 18px 18px}
+.dbody h4{margin:0;font-size:19px}
+.dbody .dp{font-size:17px;font-weight:800;margin-top:4px}
+.dbody p{color:#5B4C3E;font-size:14.5px;line-height:1.55;margin:12px 0 16px;white-space:pre-line}
+.dbody .tip{font-size:12.5px;color:var(--muted);background:var(--acc2);border-radius:10px;padding:8px 10px;margin-bottom:14px}
+.dclose{position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.92);font-size:22px;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+#detail{align-items:flex-end;padding:0}
+#detail .dwrap{position:relative;width:100%;display:flex;justify-content:center}
 .step{display:none;align-items:center;justify-content:space-between;margin-top:8px;background:var(--acc2);border-radius:10px;padding:3px}
 .p.sel .step{display:flex}
 .step button{width:34px;height:32px;border:0;border-radius:8px;background:#fff;color:var(--acc);font-size:19px;font-weight:800}
@@ -114,6 +127,11 @@ h2{font-size:17px;margin:16px 2px 10px}
   </div>
 </div>
 
+<div class="modal-bg" id="detailBg"></div>
+<div class="modal" id="detail" role="dialog" aria-modal="true" aria-label="Detalhes do produto">
+  <div class="dwrap"><div class="dbox" id="dbox"></div></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -182,7 +200,7 @@ h2{font-size:17px;margin:16px 2px 10px}
           '<button class="ph" data-tap="' + p.id + '" aria-label="Adicionar ' + esc(p.name) + '">' +
           (p.img ? '<img src="' + esc(p.img) + '" alt="" width="360" height="360" decoding="async" loading="' + (ci === 0 && pi < 4 ? "eager" : "lazy") + '">' : "") +
           '<span class="badge"></span><span class="plus">+</span></button>' +
-          '<div class="info"><div class="nm">' + esc(p.name) + '</div><div class="ds">' + esc(p.description) + '</div><div class="pr">' + brl(p.price) + '</div>' +
+          '<div class="info"><div class="nm">' + esc(p.name) + '</div><div class="ds">' + esc(p.description) + '</div><div class="pr-row"><div class="pr">' + brl(p.price) + '</div>' + (p.description ? '<button class="det" data-det="' + p.id + '" aria-label="Detalhes de ' + esc(p.name) + '">ⓘ Detalhes</button>' : "") + '</div>' +
           '<div class="step"><button data-dec="' + p.id + '" aria-label="Menos">−</button><span></span><button data-inc="' + p.id + '" aria-label="Mais">+</button></div></div></div>';
       });
       html += '</div></section>';
@@ -230,6 +248,27 @@ h2{font-size:17px;margin:16px 2px 10px}
     }).join("") : '<p style="color:var(--muted);text-align:center;padding:20px 0;">Seu pedido está vazio.</p>';
   }
 
+  var detailId = null;
+  function openDetail(id) {
+    var p = product(id); if (!p) return;
+    detailId = id;
+    var inCart = !!cart[id];
+    $("dbox").innerHTML = (p.img ? '<img src="' + esc(p.img) + '" alt="">' : "") +
+      '<button class="dclose" id="dclose" aria-label="Fechar">×</button>' +
+      '<div class="dbody"><h4>' + esc(p.name) + '</h4><div class="dp">' + brl(p.price) + '</div>' +
+      '<p>' + esc(p.description) + '</p>' +
+      '<div class="tip">Quer tirar ou trocar algo? Depois de adicionar, escreva na <b>observação</b> do item em "Ver meu pedido".</div>' +
+      '<button class="btn ' + (inCart ? "no" : "go") + '" id="dadd" style="width:100%">' + (inCart ? "Remover do pedido" : "Adicionar ao pedido") + '</button></div>';
+    $("detail").classList.add("open"); $("detailBg").classList.add("open");
+    $("dclose").onclick = closeDetail;
+    $("dadd").onclick = function () {
+      if (cart[detailId]) { setQty(detailId, 0); toast("Removido do pedido"); }
+      else { setQty(detailId, 1); toast("Adicionado! Use + e − para a quantidade"); }
+      closeDetail();
+    };
+  }
+  function closeDetail() { $("detail").classList.remove("open"); $("detailBg").classList.remove("open"); detailId = null; }
+
   function openSheet() { if (!Object.keys(cart).length) return; $("sheet").classList.add("open"); $("sheetBg").classList.add("open"); }
   function closeSheet() { $("sheet").classList.remove("open"); $("sheetBg").classList.remove("open"); }
   function openModal() { $("modal").classList.add("open"); $("modalBg").classList.add("open"); }
@@ -255,9 +294,10 @@ h2{font-size:17px;margin:16px 2px 10px}
   }
 
   function onClick(e) {
-    var t = e.target.closest("[data-tap],[data-inc],[data-dec],[data-rm],[data-c]");
+    var t = e.target.closest("[data-tap],[data-inc],[data-dec],[data-rm],[data-c],[data-det]");
     if (!t) return;
     var id;
+    if ((id = t.getAttribute("data-det"))) { openDetail(id); return; }
     if ((id = t.getAttribute("data-tap"))) {
       // Toque na foto: adiciona; se já estava, tira
       if (cart[id]) { setQty(id, 0); toast("Removido do pedido"); }
@@ -277,6 +317,7 @@ h2{font-size:17px;margin:16px 2px 10px}
   });
 
   $("closeSheet").onclick = closeSheet;
+  $("detailBg").onclick = closeDetail;
   $("sheetBg").onclick = closeSheet;
   $("send").onclick = function () { if (Object.keys(cart).length) openModal(); };
   $("no").onclick = function () { closeModal(); openSheet(); };

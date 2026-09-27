@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=40";
+import { supabase } from "./supabaseClient.js?v=41";
 
 // ---------- Cadastro ----------
 export async function signUp({ name, email, password }) {
