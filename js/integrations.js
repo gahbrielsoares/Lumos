@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=42";
+import { supabase } from "./supabaseClient.js?v=43";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -49,6 +49,13 @@ export const INTEGRATIONS = [
       { key: "taxa_servico", label: "Taxa de serviço na mesa (%)", type: "number", default: 10 },
       { key: "couvert", label: "Couvert artístico por pessoa (R$) — 0 = sem couvert", type: "number", default: 0 },
       { key: "couvert_info", label: "Quando tem couvert / música ao vivo", type: "text", placeholder: "Ex.: música ao vivo sex e sáb a partir das 21h" },
+      { key: "couvert_dias", label: "Dias em que o couvert é cobrado (nenhum marcado = todos)", type: "multi", default: [5, 6],
+        options: [
+          { value: 0, label: "Dom" }, { value: 1, label: "Seg" }, { value: 2, label: "Ter" }, { value: 3, label: "Qua" },
+          { value: 4, label: "Qui" }, { value: 5, label: "Sex" }, { value: 6, label: "Sáb" },
+        ] },
+      { key: "couvert_a_partir", label: "Couvert cobrado a partir de (horário)", type: "text", default: "21:00", placeholder: "21:00",
+        hint: "Vale até o fim da noite (madrugada conta como a noite anterior). Deixe vazio pra cobrar o dia todo." },
       { key: "tempo_preparo", label: "Tempo médio de preparo (min)", type: "number", default: 25 },
       { key: "tempo_entrega", label: "Tempo médio de entrega no delivery (min)", type: "number", default: 40 },
       { key: "pedido_minimo_delivery", label: "Pedido mínimo no delivery (R$)", type: "number", default: 0 },

@@ -177,11 +177,20 @@ async function loadContext(orderId: string) {
 // deno-lint-ignore no-explicit-any
 function orderSummary(order: any) {
   const linhas = (order.itens || []).map((i: any) => {
+    if (i.taxa) return `• ${i.nome} — ${brl(i.subtotal)}`;
     const qtd = i.caixas ? `${i.caixas} cx (${qtyTxt(i.quantidade)} m²)` : `${qtyTxt(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`;
     return `• ${qtd} — ${i.nome} — ${brl(i.subtotal)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`;
   });
   const e = order.entrega || {};
-  if (e.tipo === "mesa") return `${linhas.join("\n")}\n\n*Total: ${brl(order.total)}*`;
+  if (e.tipo === "mesa") {
+    // Conta da mesa: consumo primeiro, depois taxa de serviço e couvert
+    const consumo = (order.itens || []).filter((i: { taxa?: boolean }) => !i.taxa);
+    const extras = (order.itens || []).filter((i: { taxa?: boolean }) => i.taxa);
+    const fmt = (i: { nome: string; quantidade: number; subtotal: number; taxa?: boolean }) =>
+      i.taxa ? `${i.nome}: ${brl(i.subtotal)}` : `• ${qtyTxt(i.quantidade)}x ${i.nome} — ${brl(i.subtotal)}`;
+    const soma = consumo.reduce((t: number, i: { subtotal: number }) => t + Number(i.subtotal), 0);
+    return `${consumo.map(fmt).join("\n")}\n\nConsumo: ${brl(soma)}${extras.length ? `\n${extras.map(fmt).join("\n")}` : ""}\n*Total: ${brl(order.total)}*`;
+  }
   const freteLinha = e.tipo === "retirada"
     ? (e.cozinha ? "Retirada no balcão: sem taxa" : "Retirada na loja: sem custo")
     : e.cozinha ? `Taxa de entrega${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}`

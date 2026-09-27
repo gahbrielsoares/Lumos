@@ -535,7 +535,7 @@ const SIM_RESTAURANTE = {
   restaurante: { kind: "restaurante", provider: null, enabled: true, config: {
     ia_consulta: true, modalidades: ["mesa"],
     horarios: "Seg: fechado\nTer a Qui: 18h às 23h30\nSex e Sáb: 18h às 2h\nDom: 12h às 17h (almoço)",
-    taxa_servico: 10, couvert: 12, couvert_info: "música ao vivo sex e sáb a partir das 21h",
+    taxa_servico: 10, couvert: 12, couvert_info: "música ao vivo sex e sáb a partir das 21h", couvert_dias: [5, 6], couvert_a_partir: "21:00",
     tempo_preparo: 25, tempo_entrega: 35, pedido_minimo_delivery: 40, pagamento_na_entrega: true,
     reserva_max_pessoas: 20, reserva_antecedencia_h: 2, reserva_tolerancia_min: 15,
     eventos: "Happy hour de ter a sex, 18h às 20h: chope Pilsen em dobro. Sexta e sábado: música ao vivo (couvert R$ 12). Aniversariante com reserva ganha um petit gâteau.",
@@ -902,6 +902,89 @@ async function openTableSession(owner_id: string, table: any, leadId: string) {
   return session;
 }
 
+// ---------- Conta da mesa ----------
+// Monta o fechamento (itens + taxa de serviço + couvert) e envia o resumo com o link pela função de pedidos.
+// Chamado quando o cliente pede a conta (direto pelo código) ou quando a IA marca [CONTA].
+// deno-lint-ignore no-explicit-any
+async function sendTableBill(ctx: { owner_id: string; agent_id: string; agent: any; lead: any; customerNumber: string; restCfg: any; canStage: (s: string) => boolean }) {
+  const { owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage } = ctx;
+  await supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead.id);
+
+  const { data: tickets } = await supabase
+    .from("orders").select("id, status, order_items(product_id, product_name, quantity, unit_price)")
+    .eq("table_session_id", lead.table_session_id).eq("lead_id", lead.id).neq("status", "cancelado");
+  const agg: Record<string, { product_id: string | null; nome: string; quantidade: number; preco_unitario: number }> = {};
+  for (const t of tickets || []) {
+    for (const it of t.order_items || []) {
+      const k = `${it.product_name}|${it.unit_price}`;
+      agg[k] = agg[k] || { product_id: it.product_id, nome: it.product_name, quantidade: 0, preco_unitario: Number(it.unit_price) };
+      agg[k].quantidade += Number(it.quantity);
+    }
+  }
+  const itens: Record<string, unknown>[] = Object.values(agg).map((i) => ({
+    ...i, unidade: "unidade", subtotal: Math.round(i.preco_unitario * i.quantidade * 100) / 100,
+  }));
+  const consumo = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
+  if (consumo <= 0) return { empty: true };
+
+  const taxa = Number(restCfg?.taxa_servico || 0);
+  if (taxa > 0) itens.push({ product_id: null, taxa: true, nome: `Taxa de serviço (${taxa}%)`, quantidade: 1, unidade: "unidade", preco_unitario: Math.round(consumo * taxa) / 100, subtotal: Math.round(consumo * taxa) / 100 });
+  const couvert = Number(restCfg?.couvert || 0);
+  if (couvert > 0 && couvertValeAgora(restCfg)) itens.push({ product_id: null, taxa: true, nome: "Couvert artístico", quantidade: 1, unidade: "unidade", preco_unitario: couvert, subtotal: couvert });
+  const subtotal = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
+
+  const { data: sess } = await supabase.from("table_sessions").select("table_id").eq("id", lead.table_session_id).maybeSingle();
+  const { data: tbl } = sess ? await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle() : { data: null };
+
+  // Conta já aberta e não paga? Atualiza em vez de duplicar
+  const { data: openBill } = await supabase.from("sales_orders").select("id, status")
+    .eq("lead_id", lead.id).eq("table_session_id", lead.table_session_id).in("status", ["aguardando_aprovacao", "aguardando_pagamento"]).maybeSingle();
+  if (openBill?.status === "aguardando_pagamento") await supabase.from("sales_orders").update({ status: "cancelado" }).eq("id", openBill.id);
+
+  const billRow = {
+    owner_id, agent_id, lead_id: lead.id, table_session_id: lead.table_session_id,
+    itens, subtotal, frete: 0, total: subtotal, status: "aguardando_aprovacao", simulado: !!agent.is_simulator,
+    entrega: { tipo: "mesa", valor: 0, local: tbl?.label || "Mesa" },
+    cliente: { nome: (lead.dados_cliente?.nome || lead.name || null), telefone: customerNumber },
+  };
+  const { data: bill } = openBill?.status === "aguardando_aprovacao"
+    ? await supabase.from("sales_orders").update(billRow).eq("id", openBill.id).select().single()
+    : await supabase.from("sales_orders").insert(billRow).select().single();
+  if (!bill) return { error: true };
+
+  await supabase.from("leads").update({
+    stage: canStage("aguardando_link") ? "aguardando_link" : lead.stage,
+    orcamento: { itens, total: subtotal, frete: 0, order_id: bill.id, numero: bill.numero, criado_em: new Date().toISOString() },
+  }).eq("id", lead.id);
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+    body: JSON.stringify({ action: "approve", order_id: bill.id }),
+  });
+  if (!res.ok) console.error("Falha ao enviar a conta:", res.status, await res.text());
+  console.log("Conta da mesa enviada:", tbl?.label, "total", subtotal);
+  return { ok: true };
+}
+
+// Couvert só nos dias/horário configurados (ex.: sex e sáb a partir das 21h, atravessando a madrugada)
+// deno-lint-ignore no-explicit-any
+function couvertValeAgora(cfg: any): boolean {
+  const dias: number[] = Array.isArray(cfg?.couvert_dias) && cfg.couvert_dias.length ? cfg.couvert_dias.map(Number) : [];
+  const inicio = String(cfg?.couvert_a_partir || "").trim();
+  if (!dias.length && !inicio) return true; // sem regra: cobra sempre
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+  let dia = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday"));
+  const min = Number(get("hour").replace("24", "00")) * 60 + Number(get("minute"));
+  const [h, m] = (inicio || "00:00").split(":").map(Number);
+  const start = (h || 0) * 60 + (m || 0);
+  // Madrugada (antes das 6h) conta como a noite do dia anterior
+  if (min < 6 * 60 && start >= 12 * 60) dia = (dia + 6) % 7;
+  const noDia = !dias.length || dias.includes(dia);
+  const noHorario = !inicio || min >= start || (min < 6 * 60 && start >= 12 * 60);
+  return noDia && noHorario;
+}
+
 // ---------- Reservas ----------
 function parseReserva(reply: string): Record<string, string> | null {
   const m = reply.match(/\[RESERVA:\s*([^\]]+)\]/i);
@@ -1198,7 +1281,7 @@ Deno.serve(async (req) => {
     const historyLimit = agent?.history_limit || 10;
     const { data: historyRaw } = await supabase
       .from("messages")
-      .select("direction, text, created_at")
+      .select("direction, text, created_at, sender")
       .eq("lead_id", lead.id)
       .order("created_at", { ascending: false })
       .limit(historyLimit);
@@ -1236,7 +1319,7 @@ Deno.serve(async (req) => {
 
     const conversation = [...history]
       .reverse()
-      .map((m) => `${m.direction === "in" ? "Cliente" : "Atendente"}: ${m.text}`)
+      .map((m) => `${m.direction === "in" ? "Cliente" : m.sender === "sistema" ? "[Mensagem automática do sistema — não repita nem imite]" : "Atendente"}: ${m.text}`)
       .join("\n");
 
     // 7. Montar o prompt e chamar o provedor de IA ativo
@@ -1364,6 +1447,15 @@ Deno.serve(async (req) => {
           await sendMenuLink();
           return await done();
         }
+        // "A conta", "fecha a conta", "quero pagar": fecha direto, sem a IA perguntar nada
+        const pedeConta = /\b(a conta|minha conta|fecha(r)? (a )?conta|fechar a mesa|pedir a conta|traz(er)? a conta|quero pagar|vou pagar|como (eu )?pago)\b/.test(tn) || /^conta\b/.test(tn);
+        if (pedeConta) {
+          const primeiro = String(lead.dados_cliente?.nome || "").split(" ")[0];
+          await say(`Claro${primeiro ? `, ${primeiro}` : ""}! Já estou fechando sua conta 😊`);
+          const r = await sendTableBill({ owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage });
+          if (r?.empty) await say("Ainda não tem nenhum pedido na sua comanda por aqui 🤔 Se já consumiu algo, me fala o que foi que eu confiro com o garçom.");
+          return await done();
+        }
         if (perguntouCardapio && /^(nao|n|agora nao|depois)\b/.test(tn)) {
           await say("Tudo bem! 😊 Quando quiser, é só pedir o *cardápio* ou me dizer o que deseja.");
           return await done();
@@ -1426,20 +1518,38 @@ ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
 - Só feche quando os dados OBRIGATÓRIOS abaixo estiverem completos. Se faltar algo, peça antes de fechar.
 - Depois que o pedido foi pago, agradeça e ajude no que precisar (instalação, prazo, dúvidas).${deliveryInfo}${dadosInfo}`;
 
+    // Na mesa: a IA precisa saber onde o cliente está, o nome e o que já foi pra cozinha
+    let mesaInfo = "";
+    if (isRestaurant && lead.table_session_id) {
+      const { data: sess } = await supabase.from("table_sessions").select("table_id").eq("id", lead.table_session_id).maybeSingle();
+      const { data: tbl } = sess ? await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle() : { data: null };
+      const { data: sent } = await supabase.from("orders").select("order_items(product_name, quantity)")
+        .eq("table_session_id", lead.table_session_id).eq("lead_id", lead.id).neq("status", "cancelado");
+      const tot: Record<string, number> = {};
+      for (const o of sent || []) for (const it of o.order_items || []) tot[it.product_name] = (tot[it.product_name] || 0) + Number(it.quantity);
+      const ja = Object.entries(tot).map(([n, q]) => `${q}x ${n}`).join(", ");
+      mesaInfo = `
+
+O cliente ESTÁ NO SALÃO, na ${tbl?.label || "mesa"}${lead.dados_cliente?.nome ? `, nome na comanda: ${lead.dados_cliente.nome}` : ""}. Você já sabe a mesa: NUNCA pergunte o número da mesa.
+Itens JÁ ENVIADOS para a cozinha nesta visita: ${ja || "nenhum ainda"}.
+Em [PEDIDO] vão SOMENTE os itens NOVOS que o cliente acabou de pedir nesta mensagem — nunca repita os itens já enviados.`;
+    }
+
     const modTxt = { mesa: "pedido na mesa (cliente já está no local)", delivery: "delivery", retirada: "retirada no balcão", reservas: "reserva de mesa" } as Record<string, string>;
-    const restaurantInstructions = !isRestaurant ? "" : `
+    const restaurantInstructions = !isRestaurant ? "" : `${mesaInfo}
 
 Você atende um restaurante/bar. A casa oferece pelo WhatsApp: ${modalidades.map((m) => modTxt[m] || m).join(", ")}.
 ${modalidades.length > 1 && !lead.table_session_id ? "Se ainda não estiver claro, descubra de forma natural o que o cliente quer (está no local, delivery, retirada ou reserva) — sem parecer menu de opções." : ""}
 ${restCfg ? `Informações da casa (use exatamente):
 - Horário de funcionamento:\n${String(restCfg.horarios || "").split("\n").map((l: string) => `  ${l}`).join("\n")}
 - Tempo médio de preparo: ${restCfg.tempo_preparo || 25} min${modalidades.includes("delivery") ? `; tempo médio de entrega: ${restCfg.tempo_entrega || 40} min (além do preparo)` : ""}
-${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico}% (opcional, entra na conta da mesa)\n` : ""}${restCfg.couvert > 0 ? `- Couvert artístico: ${brl(restCfg.couvert)} por pessoa${restCfg.couvert_info ? ` (${restCfg.couvert_info})` : ""}\n` : ""}${restCfg.pedido_minimo_delivery > 0 && modalidades.includes("delivery") ? `- Pedido mínimo no delivery: ${brl(restCfg.pedido_minimo_delivery)} (sem contar a taxa de entrega)\n` : ""}${modalidades.includes("delivery") ? `- Pagamento do delivery: online pelo link (Pix ou cartão)${restCfg.pagamento_na_entrega ? " ou na entrega (dinheiro com troco, ou cartão/Pix na maquininha)" : ""}\n` : ""}${restCfg.eventos ? `- Promoções e eventos: ${restCfg.eventos}\n` : ""}Se a casa estiver fechada agora, avise com simpatia e diga quando abre (reservas podem ser feitas a qualquer hora).` : ""}
+${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico}% (opcional, entra na conta da mesa)\n` : ""}${restCfg.couvert > 0 ? `- Couvert artístico: ${brl(restCfg.couvert)} por pessoa${restCfg.couvert_info ? ` (${restCfg.couvert_info})` : ""} — ${couvertValeAgora(restCfg) ? "é cobrado AGORA" : "NÃO é cobrado agora"}\n` : ""}${restCfg.pedido_minimo_delivery > 0 && modalidades.includes("delivery") ? `- Pedido mínimo no delivery: ${brl(restCfg.pedido_minimo_delivery)} (sem contar a taxa de entrega)\n` : ""}${modalidades.includes("delivery") ? `- Pagamento do delivery: online pelo link (Pix ou cartão)${restCfg.pagamento_na_entrega ? " ou na entrega (dinheiro com troco, ou cartão/Pix na maquininha)" : ""}\n` : ""}${restCfg.eventos ? `- Promoções e eventos: ${restCfg.eventos}\n` : ""}Se a casa estiver fechada agora, avise com simpatia e diga quando abre (reservas podem ser feitas a qualquer hora).` : ""}
 ${modalidades.includes("mesa") ? `
 NA MESA (cliente no local):
 - Se o cliente está no local e você ainda não sabe a mesa NESTA visita, pergunte o número da mesa. Quando ele disser, inclua no final: [MESA: número]
-- A cada rodada confirmada, inclua um item por linha: [PEDIDO: Nome Exato do Item | quantidade | observação (opcional)]
-  Confirme a rodada em poucas palavras e diga que já foi pra cozinha/bar. Não use [ORCAMENTO] na mesa.
+- Quando o cliente pedir algo, inclua um item por linha, SÓ com os itens novos: [PEDIDO: Nome Exato do Item | quantidade | observação (opcional)]
+  Confirme em UMA linha curta só o que acabou de ser pedido (ex.: "2 chopes Pilsen a caminho! 🍺"). Não monte listas nem imite as mensagens automáticas do sistema. Não use [ORCAMENTO] na mesa.
+- Se só existe uma opção que combina com o pedido (ex.: um único chope no cardápio), não pergunte "qual"; confirme essa opção.
 - Quando o cliente pedir a conta, inclua: [CONTA] e diga que já está fechando a conta — o sistema manda o resumo com taxa de serviço e o link de pagamento.` : ""}
 ${modalidades.includes("delivery") || modalidades.includes("retirada") ? `
 DELIVERY / RETIRADA: siga a "Condução da venda" — anote itens e observações, sugira bebida/sobremesa com naturalidade,
@@ -1500,6 +1610,9 @@ Tom: converse como uma pessoa no WhatsApp — frases curtas, naturais, uma pergu
 ${isFirstReply ? "Esta é a sua PRIMEIRA resposta nesta conversa: cumprimente e se apresente." : "Você JÁ cumprimentou o cliente nesta conversa: NÃO comece com \"Oi\", \"Olá\" nem se apresente de novo. Vá direto ao assunto, com naturalidade."}
 Se errar alguma informação, corrija com leveza, sem pedir desculpas em excesso.
 Varie o começo das mensagens: não abra duas respostas seguidas com a mesma palavra ("Perfeito", "Ótimo", "Excelente"...).
+Se o cliente fizer uma pergunta, RESPONDA a pergunta primeiro, antes de pedir qualquer outra informação. Não presuma o que ele quis dizer: na dúvida, pergunte.
+Se a resposta não estiver nas informações que você tem (ex.: tipo exato de um ingrediente), diga com sinceridade que não tem essa informação e que vai confirmar com a equipe/o garçom — nunca invente.
+Se o cliente disser que não entendeu, explique de outro jeito, mais simples — nunca repita a mesma pergunta com as mesmas palavras.
 
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
@@ -1816,7 +1929,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
       // [PEDIDO: item | qtd] — cria um novo pedido com os itens pedidos
       if (pedidoMatches.length && lead.table_session_id) {
-        const items = pedidoMatches.map((m) => {
+        const itemsRaw = pedidoMatches.map((m) => {
           const itemName = m[1].trim();
           const quantity = parseInt(m[2]) || 1;
           const product = (products || []).find(
@@ -1834,9 +1947,26 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
           };
         });
 
+        // Proteção contra pedido repetido: item que JÁ foi pra cozinha nesta visita só entra de novo
+        // se foi mencionado na conversa depois do último envio (ex.: "mais 2 chopes").
+        const { data: prevOrders } = await supabase.from("orders").select("created_at, order_items(product_id, product_name)")
+          .eq("table_session_id", lead.table_session_id).eq("lead_id", lead.id).neq("status", "cancelado")
+          .order("created_at", { ascending: false });
+        const jaPedidos = new Set((prevOrders || []).flatMap((o) => (o.order_items || []).map((i: { product_id: string | null; product_name: string }) => i.product_id || i.product_name)));
+        const desde = prevOrders?.[0]?.created_at ? new Date(prevOrders[0].created_at).getTime() : 0;
+        const falado = norm((history || []).filter((m) => new Date(m.created_at).getTime() > desde).map((m) => m.text).join(" "));
+        const mencionado = (nome: string) => norm(nome).split(" ")
+          .filter((w) => w.length >= 4 && !/^(com|sem|para|porcao|unidade|lata|casa)$/.test(w))
+          .some((w) => falado.includes(w.slice(0, Math.max(4, w.length - 1))));
+        const items = itemsRaw.filter((it) => {
+          const repetido = jaPedidos.has(it.product_id || it.product_name) && !mencionado(it.product_name);
+          if (repetido) console.log("Item ignorado (já enviado e não pedido de novo):", it.product_name);
+          return !repetido;
+        });
+
         const total = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
 
-        const { data: order } = await supabase
+        const { data: order } = !items.length ? { data: null } : await supabase
           .from("orders")
           .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" })
           .select()
@@ -1850,66 +1980,9 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         }
       }
 
-      // [CONTA] — cliente pediu a conta: o sistema monta o fechamento (itens + taxa de serviço + couvert)
-      // e envia o resumo com o link de pagamento pela função de pedidos
+      // [CONTA] — cliente pediu a conta (a IA marcou): o sistema monta e envia o fechamento
       if (contaMatch && lead.table_session_id) {
-        await supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead.id);
-
-        const { data: tickets } = await supabase
-          .from("orders").select("id, status, order_items(product_id, product_name, quantity, unit_price)")
-          .eq("table_session_id", lead.table_session_id).eq("lead_id", lead.id).neq("status", "cancelado");
-        const agg: Record<string, { product_id: string | null; nome: string; quantidade: number; preco_unitario: number }> = {};
-        for (const t of tickets || []) {
-          for (const it of t.order_items || []) {
-            const k = `${it.product_name}|${it.unit_price}`;
-            agg[k] = agg[k] || { product_id: it.product_id, nome: it.product_name, quantidade: 0, preco_unitario: Number(it.unit_price) };
-            agg[k].quantidade += Number(it.quantity);
-          }
-        }
-        const itens: Record<string, unknown>[] = Object.values(agg).map((i) => ({
-          ...i, unidade: "unidade", subtotal: Math.round(i.preco_unitario * i.quantidade * 100) / 100,
-        }));
-        const consumo = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
-
-        if (consumo > 0) {
-          const taxa = Number(restCfg?.taxa_servico || 0);
-          if (taxa > 0) itens.push({ product_id: null, taxa: true, nome: `Taxa de serviço (${taxa}%)`, quantidade: 1, unidade: "unidade", preco_unitario: Math.round(consumo * taxa) / 100, subtotal: Math.round(consumo * taxa) / 100 });
-          const couvert = Number(restCfg?.couvert || 0);
-          if (couvert > 0) itens.push({ product_id: null, taxa: true, nome: "Couvert artístico", quantidade: 1, unidade: "unidade", preco_unitario: couvert, subtotal: couvert });
-          const subtotal = Math.round(itens.reduce((sum, i) => sum + Number(i.subtotal), 0) * 100) / 100;
-
-          const { data: sess } = await supabase.from("table_sessions").select("table_id").eq("id", lead.table_session_id).maybeSingle();
-          const { data: tbl } = sess ? await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle() : { data: null };
-
-          // Conta já aberta e não paga? Atualiza em vez de duplicar
-          const { data: openBill } = await supabase.from("sales_orders").select("id, status")
-            .eq("lead_id", lead.id).eq("table_session_id", lead.table_session_id).in("status", ["aguardando_aprovacao", "aguardando_pagamento"]).maybeSingle();
-          if (openBill?.status === "aguardando_pagamento") await supabase.from("sales_orders").update({ status: "cancelado" }).eq("id", openBill.id);
-
-          const billRow = {
-            owner_id, agent_id, lead_id: lead.id, table_session_id: lead.table_session_id,
-            itens, subtotal, frete: 0, total: subtotal, status: "aguardando_aprovacao", simulado: !!agent.is_simulator,
-            entrega: { tipo: "mesa", valor: 0, local: tbl?.label || "Mesa" },
-            cliente: { nome: (lead.dados_cliente?.nome || lead.name || null), telefone: customerNumber },
-          };
-          const { data: bill } = openBill?.status === "aguardando_aprovacao"
-            ? await supabase.from("sales_orders").update(billRow).eq("id", openBill.id).select().single()
-            : await supabase.from("sales_orders").insert(billRow).select().single();
-
-          if (bill) {
-            await supabase.from("leads").update({
-              stage: canStage("aguardando_link") ? "aguardando_link" : lead.stage,
-              orcamento: { itens, total: subtotal, frete: 0, order_id: bill.id, numero: bill.numero, criado_em: new Date().toISOString() },
-            }).eq("id", lead.id);
-            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/orders`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
-              body: JSON.stringify({ action: "approve", order_id: bill.id }),
-            });
-            if (!res.ok) console.error("Falha ao enviar a conta:", res.status, await res.text());
-            console.log("Conta da mesa enviada:", tbl?.label, "total", subtotal);
-          }
-        }
+        await sendTableBill({ owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage });
       }
 
       // [RESERVA: ...] — registra a reserva na agenda (aparece em Agendamentos)
