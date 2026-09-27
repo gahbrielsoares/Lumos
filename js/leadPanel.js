@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=41";
+import { supabase } from "./supabaseClient.js?v=42";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=41";
-import { getIntegration } from "./integrations.js?v=41";
+} from "./leads.js?v=42";
+import { getIntegration } from "./integrations.js?v=42";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).

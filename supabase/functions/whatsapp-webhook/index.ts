@@ -1190,7 +1190,7 @@ Deno.serve(async (req) => {
           p.m2_por_caixa ? `caixa com ${String(p.m2_por_caixa).replace(".", ",")} m²` : "",
           p.estoque != null ? (Number(p.estoque) > 0 ? `estoque: ${String(p.estoque).replace(".", ",")} ${p.unit === "m2" ? "m²" : p.unit}` : "SEM ESTOQUE") : "",
         ].filter(Boolean).join("; ");
-        return `- ${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + p.description : ""}`;
+        return `- ${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + String(p.description).replace(/\s*\n+\s*/g, " · ") : ""}`;
       })
       .join("\n");
 

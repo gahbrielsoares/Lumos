@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=41";
+import { supabase } from "./supabaseClient.js?v=42";
 
 async function getUserId() {
   const { data } = await supabase.auth.getUser();

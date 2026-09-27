@@ -200,7 +200,7 @@ h2{font-size:17px;margin:16px 2px 10px}
           '<button class="ph" data-tap="' + p.id + '" aria-label="Adicionar ' + esc(p.name) + '">' +
           (p.img ? '<img src="' + esc(p.img) + '" alt="" width="360" height="360" decoding="async" loading="' + (ci === 0 && pi < 4 ? "eager" : "lazy") + '">' : "") +
           '<span class="badge"></span><span class="plus">+</span></button>' +
-          '<div class="info"><div class="nm">' + esc(p.name) + '</div><div class="ds">' + esc(p.description) + '</div><div class="pr-row"><div class="pr">' + brl(p.price) + '</div>' + (p.description ? '<button class="det" data-det="' + p.id + '" aria-label="Detalhes de ' + esc(p.name) + '">ⓘ Detalhes</button>' : "") + '</div>' +
+          '<div class="info"><div class="nm">' + esc(p.name) + '</div><div class="ds">' + esc(String(p.description || "").split("\n")[0]) + '</div><div class="pr-row"><div class="pr">' + brl(p.price) + '</div>' + (p.description ? '<button class="det" data-det="' + p.id + '" aria-label="Detalhes de ' + esc(p.name) + '">ⓘ Detalhes</button>' : "") + '</div>' +
           '<div class="step"><button data-dec="' + p.id + '" aria-label="Menos">−</button><span></span><button data-inc="' + p.id + '" aria-label="Mais">+</button></div></div></div>';
       });
       html += '</div></section>';

@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=41";
+import { supabase } from "./supabaseClient.js?v=42";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
@@ -52,26 +52,26 @@ const IMG_R = (file) => new URL(`img/simulador/restaurante/${file}.jpg`, window.
 // Produtos de demonstração por nicho
 export const SIM_PRODUCTS = {
   restaurante: [
-    { name: "Batata Frita com Cheddar e Bacon", categoria: "Petiscos", price: 42.9, img: "batata-cheddar-bacon", description: "Porção generosa (serve 2 a 3 pessoas) com cheddar cremoso e bacon crocante." },
-    { name: "Isca de Peixe", categoria: "Petiscos", price: 58.9, img: "isca-de-peixe", description: "Tilápia empanada, crocante, com molho tártaro e limão. Serve 2 a 3 pessoas." },
-    { name: "Bolinho de Costela (6 un.)", categoria: "Petiscos", price: 39.9, img: "bolinho-de-costela", description: "Costela desfiada com catupiry, acompanha maionese da casa." },
-    { name: "Tábua de Frios", categoria: "Petiscos", price: 69.9, img: "tabua-de-frios", description: "Queijos, salame, presunto parma, azeitonas e torradinhas. Serve 3 a 4 pessoas." },
-    { name: "Picanha na Chapa", categoria: "Pratos", price: 119.9, img: "picanha-na-chapa", description: "500 g de picanha fatiada na chapa com arroz, farofa, vinagrete e fritas. Serve 2 pessoas." },
-    { name: "Filé à Parmegiana", categoria: "Pratos", price: 64.9, img: "parmegiana", description: "Filé empanado com molho de tomate e muçarela gratinada, arroz e fritas. Individual." },
-    { name: "Risoto de Cogumelos", categoria: "Pratos", price: 58.9, img: "risoto-de-cogumelos", description: "Arroz arbóreo, mix de cogumelos e parmesão. Opção vegetariana." },
-    { name: "Burger Lumos", categoria: "Lanches", price: 39.9, img: "burger-lumos", description: "Blend de 180 g, cheddar, bacon, cebola caramelizada e maionese da casa, com fritas." },
-    { name: "Pizza Margherita (8 fatias)", categoria: "Lanches", price: 62.9, img: "pizza-margherita", description: "Molho de tomate, muçarela de búfala e manjericão fresco." },
-    { name: "Salada Caesar", categoria: "Pratos", price: 36.9, img: "salada-caesar", description: "Alface americana, frango grelhado, croutons, parmesão e molho caesar." },
-    { name: "Chope Pilsen 500 ml", categoria: "Cervejas e chope", price: 14.9, img: "chope-pilsen", description: "Chope artesanal estilo pilsen, bem gelado. Happy hour: em dobro." },
-    { name: "Balde de Long Neck (6 un.)", categoria: "Cervejas e chope", price: 59.9, img: "balde-long-neck", description: "6 long necks geladas no balde com gelo." },
-    { name: "Caipirinha de Limão", categoria: "Drinks", price: 24.9, img: "caipirinha", description: "Cachaça artesanal, limão e açúcar. Também com vodka (+R$ 4)." },
-    { name: "Gin Tônica", categoria: "Drinks", price: 32.9, img: "gin-tonica", description: "Gin, água tônica, pepino e zimbro." },
-    { name: "Drink da Casa — Luz Vermelha", categoria: "Drinks", price: 34.9, img: "drink-da-casa", description: "Vodka, morango, limão siciliano e espuma de gengibre. O mais pedido da casa." },
-    { name: "Refrigerante Lata", categoria: "Sem álcool", price: 7.9, img: "refrigerante", description: "Coca-Cola, Coca Zero, Guaraná ou Sprite." },
-    { name: "Água Mineral 500 ml", categoria: "Sem álcool", price: 5.9, img: "agua-mineral", description: "Com ou sem gás." },
-    { name: "Suco Natural 400 ml", categoria: "Sem álcool", price: 12.9, img: "suco-natural", description: "Laranja, limão, maracujá ou abacaxi com hortelã." },
-    { name: "Petit Gâteau", categoria: "Sobremesas", price: 29.9, img: "petit-gateau", description: "Bolinho de chocolate com recheio cremoso e sorvete de creme." },
-    { name: "Pudim da Casa", categoria: "Sobremesas", price: 16.9, img: "pudim", description: "Pudim de leite condensado, receita da vó." },
+    { name: "Batata Frita com Cheddar e Bacon", categoria: "Petiscos", price: 42.9, img: "batata-cheddar-bacon", description: "Batata frita crocante coberta com cheddar cremoso e bacon em cubos.\nServe: 2 a 3 pessoas (500 g)\nContém: lactose\nDá para pedir: sem bacon, cheddar à parte" },
+    { name: "Isca de Peixe", categoria: "Petiscos", price: 58.9, img: "isca-de-peixe", description: "Tiras de tilápia empanadas e fritas na hora, bem sequinhas.\nServe: 2 a 3 pessoas (400 g)\nAcompanha: molho tártaro e limão\nContém: peixe, glúten, ovo\nDá para pedir: molho à parte" },
+    { name: "Bolinho de Costela (6 un.)", categoria: "Petiscos", price: 39.9, img: "bolinho-de-costela", description: "Bolinhos de costela bovina desfiada com recheio de catupiry, crocantes por fora.\nServe: 2 pessoas (6 unidades)\nAcompanha: maionese da casa\nContém: glúten, lactose, ovo" },
+    { name: "Tábua de Frios", categoria: "Petiscos", price: 69.9, img: "tabua-de-frios", description: "Seleção de queijos, salame, presunto parma, azeitonas e torradinhas.\nServe: 3 a 4 pessoas\nContém: lactose, glúten (torradas)\nDá para pedir: sem azeitona" },
+    { name: "Picanha na Chapa", categoria: "Pratos", price: 119.9, img: "picanha-na-chapa", description: "500 g de picanha fatiada, servida na chapa quente.\nServe: 2 pessoas\nAcompanha: arroz, farofa, vinagrete e fritas\nContém: glúten (farofa)\nDá para pedir: o ponto da carne (mal, ao ponto ou bem passada), sem farofa" },
+    { name: "Filé à Parmegiana", categoria: "Pratos", price: 64.9, img: "parmegiana", description: "Filé bovino empanado, coberto com molho de tomate da casa e muçarela gratinada.\nServe: 1 pessoa\nAcompanha: arroz e fritas\nContém: glúten, lactose, ovo\nDá para pedir: trocar fritas por salada" },
+    { name: "Risoto de Cogumelos", categoria: "Pratos", price: 58.9, img: "risoto-de-cogumelos", description: "Arroz arbóreo cremoso com mix de cogumelos (paris, shimeji e shiitake) e parmesão.\nServe: 1 pessoa\nVegetariano\nContém: lactose\nDá para pedir: sem parmesão" },
+    { name: "Burger Lumos", categoria: "Lanches", price: 39.9, img: "burger-lumos", description: "Blend bovino de 180 g, cheddar, bacon, cebola caramelizada e maionese da casa no pão brioche.\nServe: 1 pessoa\nAcompanha: fritas\nContém: glúten, lactose, ovo\nDá para pedir: o ponto da carne, sem cebola, sem bacon" },
+    { name: "Pizza Margherita (8 fatias)", categoria: "Lanches", price: 62.9, img: "pizza-margherita", description: "Molho de tomate, muçarela de búfala, tomate e manjericão fresco.\nServe: 2 a 3 pessoas (8 fatias)\nVegetariana\nContém: glúten, lactose" },
+    { name: "Salada Caesar", categoria: "Pratos", price: 36.9, img: "salada-caesar", description: "Alface americana, frango grelhado, croutons, lascas de parmesão e molho caesar.\nServe: 1 pessoa\nContém: glúten, lactose, ovo\nDá para pedir: sem frango (vegetariana), molho à parte" },
+    { name: "Chope Pilsen 500 ml", categoria: "Cervejas e chope", price: 14.9, img: "chope-pilsen", description: "Chope artesanal estilo pilsen, leve e bem gelado.\nTamanho: 500 ml\nTeor alcoólico: 4,8%\nHappy hour de ter a sex, 18h às 20h: em dobro\nContém: glúten" },
+    { name: "Balde de Long Neck (6 un.)", categoria: "Cervejas e chope", price: 59.9, img: "balde-long-neck", description: "6 cervejas long neck no balde com gelo.\nServe: para dividir\nMarcas: consulte as disponíveis no dia\nContém: glúten" },
+    { name: "Caipirinha de Limão", categoria: "Drinks", price: 24.9, img: "caipirinha", description: "Cachaça artesanal, limão taiti e açúcar.\nTamanho: 350 ml\nDá para pedir: com vodka (+R$ 4), com adoçante, pouco gelo" },
+    { name: "Gin Tônica", categoria: "Drinks", price: 32.9, img: "gin-tonica", description: "Gin, água tônica, pepino e zimbro, servido na taça com bastante gelo.\nTamanho: 500 ml\nDá para pedir: tônica zero, sem pepino" },
+    { name: "Drink da Casa — Luz Vermelha", categoria: "Drinks", price: 34.9, img: "drink-da-casa", description: "Vodka, morango, limão siciliano e espuma de gengibre. O mais pedido da casa!\nTamanho: 350 ml\nDá para pedir: sem espuma, versão sem álcool (mocktail)" },
+    { name: "Refrigerante Lata", categoria: "Sem álcool", price: 7.9, img: "refrigerante", description: "Coca-Cola, Coca-Cola Zero, Guaraná ou Sprite.\nTamanho: 350 ml\nDá para pedir: com gelo e limão (informe o sabor na observação)" },
+    { name: "Água Mineral 500 ml", categoria: "Sem álcool", price: 5.9, img: "agua-mineral", description: "Água mineral com ou sem gás.\nTamanho: 500 ml\nDá para pedir: com gás ou sem gás, com gelo e limão" },
+    { name: "Suco Natural 400 ml", categoria: "Sem álcool", price: 12.9, img: "suco-natural", description: "Suco da fruta, feito na hora.\nSabores: laranja, limão, maracujá ou abacaxi com hortelã\nTamanho: 400 ml\nDá para pedir: sem açúcar, com adoçante, sem gelo (informe o sabor na observação)" },
+    { name: "Petit Gâteau", categoria: "Sobremesas", price: 29.9, img: "petit-gateau", description: "Bolinho de chocolate com recheio cremoso, servido quente com sorvete de creme.\nServe: 1 a 2 pessoas\nContém: glúten, lactose, ovo" },
+    { name: "Pudim da Casa", categoria: "Sobremesas", price: 16.9, img: "pudim", description: "Pudim de leite condensado, lisinho e com calda de caramelo. Receita da vó.\nServe: 1 pessoa\nContém: lactose, ovo" },
   ],
   materiais_construcao: [
     { name: "Porcelanato Calacata Branco Polido 90x90", categoria: "Pisos e porcelanatos", price: 139.9, unit: "m2", m2_por_caixa: 1.62, estoque: 380, img: "porcelanato-calacata",
@@ -113,7 +113,7 @@ export async function seedSimulatorProducts(agentId, businessType = "materiais_c
   const owner_id = await userId();
   const items = SIM_PRODUCTS[businessType] || [];
 
-  const { data: existing } = await supabase.from("products").select("id, name, agent_ids, segmento").eq("owner_id", owner_id);
+  const { data: existing } = await supabase.from("products").select("id, name, agent_ids, segmento, description").eq("owner_id", owner_id);
   const { data: cats } = await supabase.from("categories").select("id, name").eq("owner_id", owner_id);
   const catId = {};
   for (const c of cats || []) catId[c.name] = c.id;
@@ -121,7 +121,14 @@ export async function seedSimulatorProducts(agentId, businessType = "materiais_c
   let created = 0;
   for (const it of items) {
     const already = (existing || []).find((p) => p.name === it.name && (p.agent_ids || []).includes(agentId) && (p.segmento || "materiais_construcao") === businessType);
-    if (already) continue;
+    if (already) {
+      // Já existe: só atualiza a descrição (as de demonstração são o modelo a seguir)
+      if (already.description !== it.description) {
+        await supabase.from("products").update({ description: it.description }).eq("id", already.id);
+        created++;
+      }
+      continue;
+    }
 
     if (!catId[it.categoria]) {
       const { data: c } = await supabase.from("categories").insert({ owner_id, name: it.categoria }).select().single();
