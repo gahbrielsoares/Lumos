@@ -909,6 +909,18 @@ o acesso é pelo token do link, que vale enquanto o cliente estiver na mesa).
    **Cancelar pedido** limpa a lista.
 6. O pedido cai na Cozinha e o cliente recebe a confirmação no WhatsApp. "Cardápio" a qualquer momento reenvia o link.
 
+## 28. Pedido pela conversa com confirmação (salão)
+
+No **SQL Editor**:
+
+```sql
+alter table public.leads add column if not exists pedido_pendente jsonb;
+```
+
+Na mesa, quando o cliente pede pela conversa ("mais um chopp"), a IA marca `[CONFIRMAR: item | qtd | obs]`,
+o sistema mostra o item com o preço e pergunta "Posso confirmar?" (Sim/Não). Só o **Sim** manda pra cozinha
+(o pedido pendente vale 30 minutos). Pedido genérico ("uma porção") recebe a lista de opções da categoria.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

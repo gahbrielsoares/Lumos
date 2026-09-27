@@ -44,7 +44,7 @@ function toWhatsAppFormat(text: string): string {
 // de reserva do que arriscar mandar isso pro cliente.
 function looksLikeLeakedReasoning(text: string): boolean {
   // Avalia só o texto que vai pro cliente (sem as marcações internas, que podem ser longas num fechamento)
-  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)[^\]]*\]?/gi, "").trim();
+  const visible = text.replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA|CONFIRMAR)[^\]]*\]?/gi, "").trim();
   const markers = [
     "here's a thinking process",
     "let me think",
@@ -902,6 +902,30 @@ async function openTableSession(owner_id: string, table: any, leadId: string) {
   return session;
 }
 
+// ---------- Pedido pela conversa, na mesa: confirmação antes de ir pra cozinha ----------
+type TableItem = { product_id: string | null; product_name: string; quantity: number; unit_price: number; observacao: string | null };
+
+// deno-lint-ignore no-explicit-any
+function matchProduct(products: any[], name: string) {
+  return products.find((p) => normalizeForMatch(p.name) === normalizeForMatch(name))
+    || products.find((p) => normalizeForMatch(p.name).includes(normalizeForMatch(name)) || normalizeForMatch(name).includes(normalizeForMatch(p.name)));
+}
+
+// deno-lint-ignore no-explicit-any
+async function insertTableOrder(owner_id: string, lead: any, items: TableItem[]) {
+  const total = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
+  const { data: order } = await supabase.from("orders")
+    .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" }).select().single();
+  if (order) await supabase.from("order_items").insert(items.map((it) => ({ order_id: order.id, ...it })));
+  return order;
+}
+
+function confirmCard(items: TableItem[]) {
+  const linhas = items.map((i) => `• ${i.quantity}x *${i.product_name}* — ${brl(i.unit_price * i.quantity)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`);
+  const total = items.reduce((t, i) => t + i.unit_price * i.quantity, 0);
+  return `${linhas.join("\n")}${items.length > 1 ? `\n\nTotal: *${brl(total)}*` : ""}\n\nPosso confirmar e mandar pra cozinha? 👇`;
+}
+
 // ---------- Conta da mesa ----------
 // Monta o fechamento (itens + taxa de serviço + couvert) e envia o resumo com o link pela função de pedidos.
 // Chamado quando o cliente pede a conta (direto pelo código) ou quando a IA marca [CONTA].
@@ -1255,7 +1279,7 @@ Deno.serve(async (req) => {
     // 5. Buscar o catálogo de produtos do dono
     const { data: productsRaw } = await supabase
       .from("products")
-      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque, segmento")
+      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque, segmento, product_categories(categories(name))")
       .eq("owner_id", owner_id)
       .eq("active", true)
       // O simulador só mostra os produtos vinculados a ele; os outros agentes veem também os "de todos"
@@ -1267,13 +1291,15 @@ Deno.serve(async (req) => {
       ? (productsRaw || []).filter((p) => (p.segmento || "materiais_construcao") === (agent.sim_business_type || "materiais_construcao"))
       : productsRaw;
 
+    // deno-lint-ignore no-explicit-any
+    const catOf = (p: any) => (p.product_categories || []).map((pc: any) => pc.categories?.name).filter(Boolean)[0] || "";
     const catalogText = (products || [])
       .map((p) => {
         const extras = [
           p.m2_por_caixa ? `caixa com ${String(p.m2_por_caixa).replace(".", ",")} m²` : "",
           p.estoque != null ? (Number(p.estoque) > 0 ? `estoque: ${String(p.estoque).replace(".", ",")} ${p.unit === "m2" ? "m²" : p.unit}` : "SEM ESTOQUE") : "",
         ].filter(Boolean).join("; ");
-        return `- ${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + String(p.description).replace(/\s*\n+\s*/g, " · ") : ""}`;
+        return `- ${catOf(p) ? `[${catOf(p)}] ` : ""}${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + String(p.description).replace(/\s*\n+\s*/g, " · ") : ""}`;
       })
       .join("\n");
 
@@ -1429,6 +1455,22 @@ Deno.serve(async (req) => {
       // Já está na mesa: nome pra comanda, resposta ao "Quer ver nosso cardápio?" ou pedido do cardápio
       if (lead.table_session_id) {
         const lastOut = (history || []).find((m) => m.direction === "out")?.text || "";
+
+        // Pedido pela conversa aguardando o "Sim" do cliente (vale por 30 min)
+        const pend = lead.pedido_pendente;
+        const pendValido = pend?.itens?.length && Date.now() - new Date(pend.criado_em).getTime() < 30 * 60e3;
+        if (pendValido && /^(sim|s|pode|confirma|confirmo|confirmado|isso|isso mesmo|ok|manda|pode mandar|pode confirmar|claro|beleza|fechado|bora)\b/.test(tn)) {
+          const order = await insertTableOrder(owner_id, lead, pend.itens);
+          await supabase.from("leads").update({ pedido_pendente: null }).eq("id", lead.id);
+          const resumo = pend.itens.map((i: TableItem) => `${i.quantity}x ${i.product_name}`).join(", ");
+          await say(order ? `✅ Pedido confirmado e enviado pra cozinha: ${resumo}. Já já chega aí! 😋` : "Não consegui enviar agora 😕 Me manda de novo, por favor?");
+          return await done();
+        }
+        if (pendValido && /^(nao|n|nao quero|cancela|cancelar|errado|espera|pera)\b/.test(tn)) {
+          await supabase.from("leads").update({ pedido_pendente: null }).eq("id", lead.id);
+          await say("Tudo bem, não enviei nada. 😊 Quer ajustar alguma coisa ou escolher outro item?");
+          return await done();
+        }
         if (/nome pra eu colocar na comanda/i.test(lastOut)) {
           const nome = extractName(text);
           if (!nome) {
@@ -1532,7 +1574,8 @@ ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
 
 O cliente ESTÁ NO SALÃO, na ${tbl?.label || "mesa"}${lead.dados_cliente?.nome ? `, nome na comanda: ${lead.dados_cliente.nome}` : ""}. Você já sabe a mesa: NUNCA pergunte o número da mesa.
 Itens JÁ ENVIADOS para a cozinha nesta visita: ${ja || "nenhum ainda"}.
-Em [PEDIDO] vão SOMENTE os itens NOVOS que o cliente acabou de pedir nesta mensagem — nunca repita os itens já enviados.`;
+Em [CONFIRMAR] vão SOMENTE os itens NOVOS que o cliente acabou de pedir — nunca repita os itens já enviados.${lead.pedido_pendente?.itens?.length && Date.now() - new Date(lead.pedido_pendente.criado_em).getTime() < 30 * 60e3 ? `
+Pedido AGUARDANDO a confirmação do cliente: ${lead.pedido_pendente.itens.map((i: { quantity: number; product_name: string }) => `${i.quantity}x ${i.product_name}`).join(", ")}. Se o cliente ajustar, mande um novo [CONFIRMAR] com o pedido completo corrigido.` : ""}`;
     }
 
     const modTxt = { mesa: "pedido na mesa (cliente já está no local)", delivery: "delivery", retirada: "retirada no balcão", reservas: "reserva de mesa" } as Record<string, string>;
@@ -1547,9 +1590,14 @@ ${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico
 ${modalidades.includes("mesa") ? `
 NA MESA (cliente no local):
 - Se o cliente está no local e você ainda não sabe a mesa NESTA visita, pergunte o número da mesa. Quando ele disser, inclua no final: [MESA: número]
-- Quando o cliente pedir algo, inclua um item por linha, SÓ com os itens novos: [PEDIDO: Nome Exato do Item | quantidade | observação (opcional)]
-  Confirme em UMA linha curta só o que acabou de ser pedido (ex.: "2 chopes Pilsen a caminho! 🍺"). Não monte listas nem imite as mensagens automáticas do sistema. Não use [ORCAMENTO] na mesa.
-- Se só existe uma opção que combina com o pedido (ex.: um único chope no cardápio), não pergunte "qual"; confirme essa opção.
+- Quando o cliente pedir um item específico (mesmo que só exista uma opção, ex.: "mais um chopp"), NÃO envie direto:
+  inclua um item por linha, SÓ com os itens novos: [CONFIRMAR: Nome Exato do Item | quantidade | observação (opcional)]
+  O sistema mostra o item com o preço e pergunta "Posso confirmar?" com botões Sim/Não — o pedido só vai pra cozinha depois do Sim.
+  Quando usar [CONFIRMAR], não escreva mais nada além das marcações (no máximo uma frase curta tipo "Boa escolha!").
+- Se o pedido for genérico e houver mais de uma opção (ex.: "quero uma porção", "um drink", "uma sobremesa"), responda
+  educadamente "Claro! Seguem as opções de [tipo]:" e liste, um por linha, "• Nome — R$ preço", usando a categoria do cardápio; depois pergunte qual ele quer.
+- Se o cliente mudar o pedido antes de confirmar (ex.: "na verdade são 2"), mande um novo [CONFIRMAR] com o pedido certo.
+- Não use [PEDIDO] nem [ORCAMENTO] na mesa. Não imite as mensagens automáticas do sistema.
 - Quando o cliente pedir a conta, inclua: [CONTA] e diga que já está fechando a conta — o sistema manda o resumo com taxa de serviço e o link de pagamento.` : ""}
 ${modalidades.includes("delivery") || modalidades.includes("retirada") ? `
 DELIVERY / RETIRADA: siga a "Condução da venda" — anote itens e observações, sugira bebida/sobremesa com naturalidade,
@@ -1731,10 +1779,11 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       .replace(/\[ENTREGA:[^\]]*\]/gi, "")
       .replace(/\[DADOS:[^\]]*\]/gi, "")
       .replace(/\[RESERVA:[^\]]*\]/gi, "")
+      .replace(/\[CONFIRMAR:[^\]]*\]/gi, "")
       // Rede de segurança final: qualquer marcação nossa que sobrou por algum motivo
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)[^\]]*\]/gi, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA|CONFIRMAR)[^\]]*\]/gi, "")
       // Marcação cortada (a resposta terminou antes do "]"): remove até o fim da linha
-      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA)\b[^\]\n]*$/gim, "")
+      .replace(/\[(FOTO|MESA|PEDIDO|CONTA|CONTEXTO|IMAGEM|ETAPA|ORCAMENTO|ENTREGA|DADOS|RESERVA|CONFIRMAR)\b[^\]\n]*$/gim, "")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
 
@@ -1753,6 +1802,27 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         : `[Imagem enviada pelo cliente, sem descrição disponível]${caption}`;
       await supabase.from("messages").update({ text: newText }).eq("id", incomingMsg.id);
       console.log("Descrição da imagem salva no histórico:", newText);
+    }
+
+    // Pedido pela conversa na mesa: vira "pendente" e o cliente confirma com Sim/Não
+    let confirmButtons = false;
+    const confirmMatches = isRestaurant && lead.table_session_id
+      ? [...rawReplyForMarkers.matchAll(/\[CONFIRMAR:\s*(.+?)\s*\|\s*(\d+)\s*(?:\|\s*([^\]]*?))?\s*\]/gi)] : [];
+    if (confirmMatches.length) {
+      const itensPend: TableItem[] = confirmMatches.map((m) => {
+        const product = matchProduct(products || [], m[1].trim());
+        return {
+          product_id: product?.id || null, product_name: product?.name || m[1].trim(),
+          quantity: Math.min(50, Math.max(1, parseInt(m[2]) || 1)), unit_price: Number(product?.price || 0),
+          observacao: (m[3] || "").trim() || null,
+        };
+      }).filter((i) => i.product_id);
+      if (itensPend.length) {
+        await supabase.from("leads").update({ pedido_pendente: { itens: itensPend, criado_em: new Date().toISOString() } }).eq("id", lead.id);
+        const intro = reply.trim().length && reply.trim().length <= 80 && !reply.includes("?") ? `${reply.trim()}\n\n` : "";
+        reply = `${intro}${confirmCard(itensPend)}`;
+        confirmButtons = true;
+      }
     }
 
     // 8. Salvar a resposta e atualizar o lead
@@ -1856,7 +1926,8 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
     console.log("Config de WhatsApp usada:", JSON.stringify({ ...waConfig, api_key: waConfig?.api_key ? "(definida)" : null }));
 
-    await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
+    if (confirmButtons) await sendButtons(waConfig, payload, customerNumber, reply, ["Sim", "Não"]);
+    else await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
     if (enteredAwaiting && newOrder) {
       const freteDefinido = newOrder.frete != null || newOrder.entrega?.tipo === "retirada";
@@ -1928,7 +1999,8 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       }
 
       // [PEDIDO: item | qtd] — cria um novo pedido com os itens pedidos
-      if (pedidoMatches.length && lead.table_session_id) {
+      // (se a IA pediu confirmação, nada vai direto pra cozinha)
+      if (pedidoMatches.length && lead.table_session_id && !confirmButtons) {
         const itemsRaw = pedidoMatches.map((m) => {
           const itemName = m[1].trim();
           const quantity = parseInt(m[2]) || 1;
