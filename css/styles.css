@@ -2262,3 +2262,14 @@ img, svg { display: block; max-width: 100%; }
 .modal-box .toggle-input { background: var(--panel-border); }
 .modal-box .toggle-input:checked { background: var(--panel-accent); }
 .modal-box .toggle-input::before { background: var(--panel-card); }
+
+/* Botões "ghost" dentro de modais (ficam fora do .dash-main e perdiam a cor) */
+.modal-box .btn-ghost {
+  color: var(--panel-text);
+  border-color: var(--panel-border);
+  font-family: var(--panel-font-body);
+}
+.modal-box .btn-ghost:hover { border-color: var(--panel-accent); color: var(--panel-accent); }
+
+/* Interruptor travado (opção que não pode ser desligada) */
+.toggle-input:disabled { opacity: .45; cursor: not-allowed; }
