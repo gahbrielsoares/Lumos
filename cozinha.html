@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=44" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=44" />
+  <script src="js/logo.js?v=45" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=45" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
@@ -56,20 +56,18 @@
 
   <!-- Modal: novo pedido manual -->
   <div class="modal-backdrop" id="new-order-modal" style="display:none;">
-    <div class="modal-box" style="max-width:460px;">
+    <div class="modal-box no-box">
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Novo pedido</h3>
+      <p style="margin:6px 0 14px;">Lance um pedido feito direto com o garçom. Ele entra na comanda da mesa e aparece aqui na Cozinha.</p>
 
-      <div class="detail-field" style="margin-top:16px;">
-        <div class="k">Cliente (mesa ativa)</div>
-        <select class="panel-select" id="order-lead" style="width:100%;"></select>
-      </div>
+      <label class="no-label" for="order-lead">Mesa e cliente</label>
+      <select class="panel-select no-full" id="order-lead"></select>
 
-      <div class="detail-field">
-        <div class="k">Itens</div>
-        <div id="order-items-list" style="display:flex; flex-direction:column; gap:8px;"></div>
-        <button type="button" class="btn btn-ghost" id="add-item-row" style="margin-top:8px;">+ Adicionar item</button>
-      </div>
+      <label class="no-label" style="margin-top:14px;">Itens</label>
+      <div id="order-items-list" class="no-items"></div>
+      <button type="button" class="btn btn-ghost btn-sm" id="add-item-row" style="margin-top:8px;">+ Adicionar item</button>
 
+      <div class="no-total"><span>Total do pedido</span><strong id="order-total">R$ 0,00</strong></div>
       <div id="new-order-msg" class="form-msg"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="new-order-cancel">Cancelar</button>
@@ -77,6 +75,23 @@
       </div>
     </div>
   </div>
+  <style>
+    .no-box { max-width: 540px !important; width: 94%; max-height: 88vh; overflow-y: auto; }
+    .no-label { display:block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--panel-text-muted); margin-bottom: 6px; }
+    .no-full { width: 100%; min-width: 0; }
+    .no-items { display:flex; flex-direction:column; gap:10px; }
+    .no-row { border: 1px solid var(--panel-border); border-radius: 12px; padding: 10px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .no-row select { width:100%; min-width:0; }
+    .no-line { display:flex; gap:8px; align-items:center; min-width:0; }
+    .no-line input.no-obs { flex:1; min-width:0; padding:8px 10px; border-radius:9px; border:1px solid var(--panel-border); background: var(--panel-bg); color: var(--panel-text); font-size:13px; }
+    .no-qty { display:flex; align-items:center; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; flex:0 0 auto; }
+    .no-qty button { width:30px; height:34px; border:0; background:transparent; color: var(--panel-text); font-size:17px; font-weight:700; cursor:pointer; }
+    .no-qty span { min-width:26px; text-align:center; font-weight:700; }
+    .no-del { flex:0 0 auto; width:34px; height:34px; border-radius:9px; border:1px solid rgba(185,64,64,.4); background:transparent; color:#B94040; cursor:pointer; }
+    .no-sub { font-size:12.5px; color: var(--panel-text-muted); }
+    .no-total { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--panel-border); }
+    .no-total strong { font-size:17px; }
+  </style>
 
   <!-- Modal: colunas visíveis da Cozinha -->
   <div class="modal-backdrop" id="cols-modal" style="display:none;">
@@ -92,14 +107,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=44";
-    import { initThemeToggle } from "./js/theme.js?v=44";
-    import { initMobileNav } from "./js/mobileNav.js?v=44";
-    import { renderSidebar } from "./js/sidebar.js?v=44";
-    import { supabase } from "./js/supabaseClient.js?v=44";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=44";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=44";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=44";
+    import { requireSession, signOut } from "./js/auth.js?v=45";
+    import { initThemeToggle } from "./js/theme.js?v=45";
+    import { initMobileNav } from "./js/mobileNav.js?v=45";
+    import { renderSidebar } from "./js/sidebar.js?v=45";
+    import { supabase } from "./js/supabaseClient.js?v=45";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=45";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=45";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=45";
 
     await requireSession();
     initThemeToggle();
@@ -219,87 +234,136 @@
     // Atualiza sozinho a cada 20s (pedidos novos chegando pelo WhatsApp)
     setInterval(() => { if (!document.querySelector(".dragging")) loadBoard(); }, 20000);
 
-    // ---------- Novo pedido manual ----------
+    // ---------- Novo pedido manual (feito com o garçom) ----------
+    let productsAll = [];
     let productsCache = [];
-    let leadSessionMap = {}; // lead_id -> table_session_id
+    let agentsById = {};
+    let leadInfo = {}; // lead_id -> { session, agent_id }
+    const esc2 = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    // Só o cardápio do agente daquela mesa (o simulador só vê o próprio cardápio do nicho)
+    function productsForLead(leadId) {
+      const agent = agentsById[leadInfo[leadId]?.agent_id];
+      return productsAll.filter((p) => {
+        const ids = p.agent_ids || [];
+        if (agent?.is_simulator) return ids.includes(agent.id) && (p.segmento || "materiais_construcao") === (agent.sim_business_type || "restaurante");
+        return !ids.length || !agent || ids.includes(agent.id);
+      });
+    }
+
+    function productOptions() {
+      const groups = {};
+      productsCache.forEach((p) => {
+        const cat = (p.product_categories || []).map((pc) => pc.categories?.name).filter(Boolean)[0] || "Outros";
+        (groups[cat] = groups[cat] || []).push(p);
+      });
+      return Object.entries(groups).map(([cat, list]) =>
+        `<optgroup label="${esc2(cat)}">${list.map((p) => `<option value="${p.id}">${esc2(p.name)} — ${brl(p.price)}</option>`).join("")}</optgroup>`).join("");
+    }
+
+    function updateTotal() {
+      let total = 0;
+      document.querySelectorAll(".no-row").forEach((row) => {
+        const p = productsCache.find((x) => x.id === row.querySelector("select").value);
+        total += Number(p?.price || 0) * Number(row.dataset.qty || 1);
+      });
+      document.getElementById("order-total").textContent = brl(total);
+    }
+
+    function addItemRow() {
+      if (!productsCache.length) {
+        document.getElementById("order-items-list").innerHTML = `<div class="no-sub">Nenhum produto no cardápio deste agente. Cadastre em Produtos.</div>`;
+        return;
+      }
+      const row = document.createElement("div");
+      row.className = "no-row";
+      row.dataset.qty = "1";
+      row.innerHTML = `
+        <select class="panel-select">${productOptions()}</select>
+        <div class="no-line">
+          <input class="no-obs" placeholder="Observação (ex.: sem gelo, ao ponto)" maxlength="140" />
+          <div class="no-qty"><button type="button" data-q="-1" aria-label="Menos">−</button><span>1</span><button type="button" data-q="1" aria-label="Mais">+</button></div>
+          <button type="button" class="no-del" title="Remover item" aria-label="Remover item">✕</button>
+        </div>`;
+      row.querySelector("select").addEventListener("change", updateTotal);
+      row.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => {
+        const q = Math.min(50, Math.max(1, Number(row.dataset.qty) + Number(b.dataset.q)));
+        row.dataset.qty = String(q);
+        row.querySelector(".no-qty span").textContent = q;
+        updateTotal();
+      }));
+      row.querySelector(".no-del").addEventListener("click", () => { row.remove(); updateTotal(); });
+      document.getElementById("order-items-list").appendChild(row);
+      updateTotal();
+    }
+
+    function resetItems() {
+      productsCache = productsForLead(document.getElementById("order-lead").value);
+      document.getElementById("order-items-list").innerHTML = "";
+      addItemRow();
+    }
 
     document.getElementById("new-order-btn").addEventListener("click", async () => {
-      const tables = await listTables();
-      const leadOptions = [];
-      leadSessionMap = {};
+      const [tables, agentsRes, prodRes] = await Promise.all([
+        listTables(),
+        supabase.from("agents").select("id, name, is_simulator, sim_business_type"),
+        supabase.from("products").select("id, name, price, agent_ids, segmento, product_categories(categories(name))").eq("active", true).order("created_at"),
+      ]);
+      agentsById = Object.fromEntries((agentsRes.data || []).map((a) => [a.id, a]));
+      productsAll = prodRes.data || [];
 
+      const options = [];
+      leadInfo = {};
       for (const t of tables) {
         const session = await getActiveSession(t.id);
         if (!session) continue;
         const leads = await listSessionLeads(session.id);
         leads.forEach((l) => {
-          leadOptions.push(`<option value="${l.id}">${t.label} — ${l.name || l.phone}</option>`);
-          leadSessionMap[l.id] = session.id;
+          const nome = l.dados_cliente?.nome || l.name || l.phone;
+          options.push(`<option value="${l.id}">${esc2(t.label)} — ${esc2(nome)}</option>`);
+          leadInfo[l.id] = { session: session.id, agent_id: l.agent_id };
         });
       }
-
       const leadSelect = document.getElementById("order-lead");
-      leadSelect.innerHTML = leadOptions.length ? leadOptions.join("") : `<option value="">Nenhum cliente sentado em nenhuma mesa</option>`;
+      leadSelect.innerHTML = options.length ? options.join("") : `<option value="">Nenhum cliente sentado em nenhuma mesa</option>`;
+      leadSelect.onchange = resetItems;
 
-      const { data: products } = await supabase.from("products").select("*").eq("active", true);
-      productsCache = products || [];
-
-      document.getElementById("order-items-list").innerHTML = "";
-      addItemRow();
+      resetItems();
       document.getElementById("new-order-msg").textContent = "";
       document.getElementById("new-order-modal").style.display = "flex";
     });
 
-    function addItemRow() {
-      const row = document.createElement("div");
-      row.className = "item-row";
-      row.style.cssText = "display:flex; gap:8px; align-items:center;";
-      row.innerHTML = `
-        <select class="panel-select item-product" style="flex:1;">
-          ${productsCache.map((p) => `<option value="${p.id}" data-price="${p.price}">${p.name} (R$ ${Number(p.price).toFixed(2)})</option>`).join("")}
-        </select>
-        <input type="number" class="panel-select item-qty" value="1" min="1" style="width:60px;" />
-        <button type="button" class="btn btn-ghost btn-sm remove-item-row">✕</button>
-      `;
-      row.querySelector(".remove-item-row").addEventListener("click", () => row.remove());
-      document.getElementById("order-items-list").appendChild(row);
-    }
-
     document.getElementById("add-item-row").addEventListener("click", addItemRow);
-
     document.getElementById("new-order-cancel").addEventListener("click", () => {
       document.getElementById("new-order-modal").style.display = "none";
     });
 
     document.getElementById("new-order-confirm").addEventListener("click", async () => {
       const msg = document.getElementById("new-order-msg");
+      const btn = document.getElementById("new-order-confirm");
       const lead_id = document.getElementById("order-lead").value;
-      const table_session_id = leadSessionMap[lead_id];
-
+      const table_session_id = leadInfo[lead_id]?.session;
       if (!lead_id || !table_session_id) {
         msg.textContent = "Escolha um cliente com mesa ativa.";
         msg.className = "form-msg error";
         return;
       }
-
-      const items = [...document.querySelectorAll(".item-row")].map((row) => {
-        const select = row.querySelector(".item-product");
-        const product = productsCache.find((p) => p.id === select.value);
-        return {
-          product_id: product?.id,
-          product_name: product?.name || "Item",
-          unit_price: Number(select.selectedOptions[0]?.dataset.price || 0),
-          quantity: parseInt(row.querySelector(".item-qty").value) || 1,
+      const items = [...document.querySelectorAll(".no-row")].map((row) => {
+        const p = productsCache.find((x) => x.id === row.querySelector("select").value);
+        return p && {
+          product_id: p.id, product_name: p.name, unit_price: Number(p.price || 0),
+          quantity: Number(row.dataset.qty) || 1, observacao: row.querySelector(".no-obs").value.trim() || null,
         };
-      });
-
+      }).filter(Boolean);
       if (!items.length) {
         msg.textContent = "Adicione pelo menos um item.";
         msg.className = "form-msg error";
         return;
       }
-
+      btn.disabled = true;
       const { error } = await createOrder({ table_session_id, lead_id, items });
+      btn.disabled = false;
       if (error) {
         msg.textContent = `Erro: ${error.message}`;
         msg.className = "form-msg error";

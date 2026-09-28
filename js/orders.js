@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=44";
+import { supabase } from "./supabaseClient.js?v=45";
 
 async function getUserId() {
   const { data } = await supabase.auth.getUser();
@@ -33,7 +33,7 @@ export async function createOrder({ table_session_id, lead_id, items }) {
 
   const { data: order, error } = await supabase
     .from("orders")
-    .insert({ owner_id, table_session_id, lead_id, total })
+    .insert({ owner_id, table_session_id, lead_id, total, tipo: "mesa" })
     .select()
     .single();
 
@@ -46,6 +46,7 @@ export async function createOrder({ table_session_id, lead_id, items }) {
       product_name: it.product_name,
       quantity: it.quantity,
       unit_price: it.unit_price,
+      observacao: it.observacao || null,
     }))
   );
 
