@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notas fiscais — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=46" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=46" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">Notas fiscais</h1>
+        <p style="margin-top: 6px;">Notas das vendas pagas.</p>
+      </div>
+      <div class="settings-block" style="margin-top:18px; max-width:760px;" id="nf-status"></div>
+      <div class="erp-toolbar">
+        <select id="f-periodo"><option value="mes">Este mês</option><option value="mes_passado">Mês passado</option><option value="90">Últimos 90 dias</option></select>
+      </div>
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Venda</th><th>Data</th><th>Cliente</th><th>Total</th><th>Nota</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=46";
+    import { initThemeToggle } from "./js/theme.js?v=46";
+    import { initMobileNav } from "./js/mobileNav.js?v=46";
+    import { renderSidebar } from "./js/sidebar.js?v=46";
+    import { supabase } from "./js/supabaseClient.js?v=46";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=46";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("fiscal");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    const { data: nfInt } = await supabase.from("integrations").select("provider, enabled, config").eq("owner_id", owner_id).eq("kind", "nota_fiscal").maybeSingle();
+    const ativo = nfInt?.enabled && nfInt.provider && nfInt.provider !== "nenhum";
+    document.getElementById("nf-status").innerHTML = `
+      <strong>🧾 Emissão real de NF-e / NFC-e: em breve</strong>
+      <p class="settings-hint" style="margin-top:6px;">A emissão de verdade depende de um emissor (Focus NFe, Bling, Tiny…), do certificado digital da loja e do cadastro na SEFAZ.
+      ${ativo ? `A loja já configurou <strong>${esc(nfInt.provider)}</strong> em Integrações — assim que a conexão estiver pronta, as notas passam a ser emitidas sozinhas após cada venda paga.` : `Configure o emissor em <a href="integracoes.html?tipo=nota_fiscal">Integrações → Nota fiscal</a> para deixar pronto.`}
+      Enquanto isso, a lista abaixo mostra as vendas que precisam de nota (as do simulador aparecem com a nota de demonstração).</p>`;
+
+    function periodo() {
+      const v = document.getElementById("f-periodo").value;
+      if (v === "mes") return monthRange(0);
+      if (v === "mes_passado") return monthRange(-1);
+      return [addDaysISO(todayISO(), -89), todayISO()];
+    }
+    async function load() {
+      const [a, b] = periodo();
+      const { data } = await supabase.from("sales_orders").select("numero, paid_at, cliente, total, pagamento, nf_numero, simulado")
+        .eq("owner_id", owner_id).eq("status", "pago").gte("paid_at", `${a}T00:00:00-03:00`).lte("paid_at", `${b}T23:59:59-03:00`).order("paid_at", { ascending: false });
+      document.getElementById("rows").innerHTML = (data || []).map((o) => `<tr>
+        <td>#${o.numero}</td>
+        <td>${new Date(o.paid_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+        <td>${esc(o.cliente?.razao_social || o.cliente?.nome || "—")}</td>
+        <td>${brl(o.pagamento?.valor_cobrado || o.total)}</td>
+        <td>${o.nf_numero ? `<span class="erp-badge info">Nº ${esc(o.nf_numero)}${o.simulado ? " · demonstração" : ""}</span>` : '<span class="erp-badge warn">Não emitida</span>'}</td></tr>`).join("")
+        || `<tr><td colspan="5" style="opacity:.7;">Nenhuma venda paga no período.</td></tr>`;
+    }
+    document.getElementById("f-periodo").addEventListener("change", load);
+    load();
+  </script>
+</body>
+</html>

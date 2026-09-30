@@ -1,6 +1,7 @@
-import { supabase } from "./supabaseClient.js?v=45";
+import { supabase } from "./supabaseClient.js?v=46";
 
-// Itens fixos (sempre visíveis, não desativáveis): dashboard, agents, settings, logout.
+// Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
+// group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
 // Os demais podem ser desativados via Configurações → Gerenciar Abas.
 export const NAV_ITEMS = [
   {
@@ -8,36 +9,56 @@ export const NAV_ITEMS = [
     icon: `<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>`,
   },
   {
-    key: "kanban", href: "kanban.html", label: "Kanban",
+    key: "kanban", group: "crm", href: "kanban.html", label: "Kanban",
     icon: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>`,
   },
   {
-    key: "leads", href: "leads.html", label: "Leads",
+    key: "leads", group: "crm", href: "leads.html", label: "Leads",
     icon: `<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><circle cx="18" cy="8.5" r="2.5"/><path d="M16 20v-1a5 5 0 0 1 6.5-4.8"/>`,
   },
   {
-    key: "clientes", href: "clientes.html", label: "Clientes",
+    key: "clientes", group: "crm", href: "clientes.html", label: "Clientes",
     icon: `<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M16.5 9l1.7 1.7L21.5 7"/>`,
   },
   {
-    key: "follow_up", href: "follow-up.html", label: "Follow Up",
+    key: "follow_up", group: "crm", href: "follow-up.html", label: "Follow Up",
     icon: `<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>`,
   },
   {
-    key: "agendamentos", href: "agendamentos.html", label: "Agendamentos",
+    key: "agendamentos", group: "crm", href: "agendamentos.html", label: "Agendamentos",
     icon: `<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/>`,
   },
   {
-    key: "produtos", href: "products.html", label: "Produtos",
+    key: "produtos", group: "erp", href: "products.html", label: "Produtos",
     icon: `<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/>`,
   },
   {
-    key: "mesas", href: "mesas.html", label: "Mesas",
+    key: "mesas", group: "erp", href: "mesas.html", label: "Mesas",
     icon: `<rect x="3" y="9" width="18" height="4" rx="1"/><path d="M5 13v6M19 13v6"/>`,
   },
   {
-    key: "cozinha", href: "cozinha.html", label: "Cozinha",
+    key: "cozinha", group: "erp", href: "cozinha.html", label: "Cozinha",
     icon: `<path d="M6 3v6a2 2 0 0 0 4 0V3M8 9v12M16 3v18"/>`,
+  },
+  {
+    key: "estoque", group: "erp", href: "estoque.html", label: "Estoque",
+    icon: `<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4M3 17l9 4 9-4"/>`,
+  },
+  {
+    key: "compras", group: "erp", href: "compras.html", label: "Compras",
+    icon: `<circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.6 12.4a1.5 1.5 0 0 0 1.5 1.1h8.7a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>`,
+  },
+  {
+    key: "financeiro", group: "erp", href: "financeiro.html", label: "Financeiro",
+    icon: `<rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>`,
+  },
+  {
+    key: "relatorios", group: "erp", href: "relatorios.html", label: "Relatórios",
+    icon: `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
+  },
+  {
+    key: "fiscal", group: "erp", href: "fiscal.html", label: "Notas fiscais",
+    icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>`,
   },
   {
     key: "integracoes", href: "integracoes.html", label: "Integrações", core: true,
@@ -78,12 +99,20 @@ export async function renderSidebar(activeKey) {
   const disabled = await getDisabledTabs();
   const items = NAV_ITEMS.filter((item) => item.core || !disabled.includes(item.key));
 
-  nav.innerHTML = items.map((item) => `
+  const link = (item) => `
     <a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${item.icon}</svg>
       ${item.label}
-    </a>
-  `).join("") + `
+    </a>`;
+  const top = items.filter((i) => i.key === "dashboard");
+  const crm = items.filter((i) => i.group === "crm");
+  const erp = items.filter((i) => i.group === "erp");
+  const rest = items.filter((i) => !i.group && i.key !== "dashboard");
+  nav.innerHTML = top.map(link).join("")
+    + (crm.length ? `<div class="nav-group">CRM</div>${crm.map(link).join("")}` : "")
+    + (erp.length ? `<div class="nav-group">ERP</div>${erp.map(link).join("")}` : "")
+    + `<div class="nav-group nav-group-sep"></div>${rest.map(link).join("")}`
+    + `
     <a href="#" id="logout-link">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
       Sair

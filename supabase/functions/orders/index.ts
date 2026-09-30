@@ -92,6 +92,39 @@ function enderecoTxt(e: any): string {
   return [partes.join("\n"), extras.join("\n")].filter(Boolean).join("\n") || e?.local || "";
 }
 
+// ---------- ERP: venda paga -> receita no Financeiro e baixa no Estoque ----------
+// deno-lint-ignore no-explicit-any
+async function registrarVendaNoErp(order: any, metodo: string, valorRecebido: number) {
+  try {
+    const { data: ja } = await supabase.from("fin_lancamentos").select("id").eq("origem", "venda").eq("ref_id", order.id).maybeSingle();
+    if (!ja) {
+      const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+      const onde = order.entrega?.tipo === "mesa" ? ` — ${order.entrega.local || "Mesa"}` : "";
+      await supabase.from("fin_lancamentos").insert({
+        owner_id: order.owner_id, tipo: "receita", descricao: `Venda #${order.numero}${onde}${order.cliente?.nome ? ` — ${order.cliente.nome}` : ""}`,
+        categoria: "Vendas", valor: Math.round(Number(valorRecebido || order.total) * 100) / 100,
+        vencimento: hoje, pago_em: hoje, forma: METODO[metodo] || metodo, origem: "venda", ref_id: order.id,
+      });
+    }
+    // Baixa só dos produtos com estoque controlado (estoque preenchido)
+    const { data: jaBaixou } = await supabase.from("estoque_mov").select("id").eq("origem", "venda").eq("ref_id", order.id).limit(1);
+    if (jaBaixou?.length) return;
+    for (const it of (order.itens || []) as { product_id?: string; quantidade: number; taxa?: boolean }[]) {
+      if (!it.product_id || it.taxa) continue;
+      const { data: prod } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
+      if (!prod || prod.estoque == null) continue;
+      const saldo = Math.round((Number(prod.estoque) - Number(it.quantidade)) * 1000) / 1000;
+      await supabase.from("products").update({ estoque: saldo }).eq("id", prod.id);
+      await supabase.from("estoque_mov").insert({
+        owner_id: order.owner_id, product_id: prod.id, tipo: "saida", quantidade: Number(it.quantidade),
+        saldo_apos: saldo, motivo: `Venda #${order.numero}`, origem: "venda", ref_id: order.id,
+      });
+    }
+  } catch (err) {
+    console.error("Falha ao registrar venda no ERP:", err);
+  }
+}
+
 // Horário previsto (Brasília) daqui a N minutos
 function horaPrevista(min: number) {
   const d = new Date(Date.now() + min * 60000);
@@ -296,6 +329,13 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
 
   const semJuros = Number(ctx.pagamento?.config?.parcelas_sem_juros || 1);
   const cobrado = metodo === "cartao" && parcelas ? valorCartao(Number(order.total), parcelas, semJuros) : Number(order.total);
+  // ERP: receita no Financeiro e baixa no Estoque (vale pra todos os tipos de venda)
+  {
+    const semJurosErp = Number(ctx.pagamento?.config?.parcelas_sem_juros || 1);
+    const recebido = metodo === "cartao" && parcelas ? valorCartao(Number(order.total), parcelas, semJurosErp) : Number(order.total);
+    await registrarVendaNoErp(order, metodo, recebido);
+  }
+
   // Conta da mesa: agradece e libera a mesa
   if (order.entrega?.tipo === "mesa") {
     const forma = METODO[metodo] || metodo;

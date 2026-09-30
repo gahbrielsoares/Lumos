@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compras — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=46" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=46" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Compras</h1>
+          <p style="margin-top: 6px;">Pedidos aos fornecedores. Ao <strong>receber</strong> uma compra, o estoque entra, o custo dos produtos é atualizado e a conta a pagar vai pro Financeiro.</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="new-forn">+ Fornecedor</button>
+          <button class="btn btn-primary" id="new-compra">+ Nova compra</button>
+        </div>
+      </div>
+
+      <div class="panel-stat-grid" style="margin-top:18px;">
+        <div class="panel-stat-card">
+          <div><div class="label">Compras em aberto</div><div class="value" id="c-abertas">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.6 12.4a1.5 1.5 0 0 0 1.5 1.1h8.7a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Recebido este mês</div><div class="value" id="c-recebidas">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 7h13v10H1zM14 10h4l3 3v4h-7"/><circle cx="5.5" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Fornecedores</div><div class="value" id="c-forn">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/></svg></div>
+        </div>
+      </div>
+
+      <h3 class="erp-section-title">Pedidos de compra</h3>
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Nº</th><th>Fornecedor</th><th>Itens</th><th>Total</th><th>Situação</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty-state" id="empty" style="display:none; border:none;"><h3>Nenhuma compra ainda</h3><p>Cadastre um fornecedor e clique em "+ Nova compra".</p></div>
+      </div>
+
+      <h3 class="erp-section-title">Fornecedores</h3>
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Nome</th><th>Contato</th><th>CNPJ</th><th></th></tr></thead>
+          <tbody id="forn-rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=46";
+    import { initThemeToggle } from "./js/theme.js?v=46";
+    import { initMobileNav } from "./js/mobileNav.js?v=46";
+    import { renderSidebar } from "./js/sidebar.js?v=46";
+    import { supabase } from "./js/supabaseClient.js?v=46";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=46";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("compras");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    let compras = [], fornecedores = [], products = [];
+    const STATUS = { aberta: '<span class="erp-badge warn">Em aberto</span>', recebida: '<span class="erp-badge ok">Recebida</span>', cancelada: '<span class="erp-badge muted">Cancelada</span>' };
+
+    async function load() {
+      const [c, f, p] = await Promise.all([
+        supabase.from("compras").select("*").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(200),
+        supabase.from("fornecedores").select("*").eq("owner_id", owner_id).order("nome"),
+        supabase.from("products").select("id, name, unit, custo, estoque").eq("owner_id", owner_id).order("name"),
+      ]);
+      compras = c.data || []; fornecedores = f.data || []; products = p.data || [];
+      const fname = (id) => fornecedores.find((x) => x.id === id)?.nome || "—";
+      const [ini, fim] = monthRange(0);
+      document.getElementById("c-abertas").textContent = `${compras.filter((x) => x.status === "aberta").length} · ${brl(compras.filter((x) => x.status === "aberta").reduce((t, x) => t + Number(x.total), 0))}`;
+      document.getElementById("c-recebidas").textContent = brl(compras.filter((x) => x.status === "recebida" && x.recebida_em && x.recebida_em.slice(0, 10) >= ini && x.recebida_em.slice(0, 10) <= fim).reduce((t, x) => t + Number(x.total), 0));
+      document.getElementById("c-forn").textContent = fornecedores.length;
+
+      document.getElementById("empty").style.display = compras.length ? "none" : "block";
+      document.getElementById("rows").innerHTML = compras.map((x) => `<tr>
+        <td>#${x.numero || "—"}<div style="font-size:12px; opacity:.7;">${fmtDate(x.created_at)}</div></td>
+        <td>${esc(fname(x.fornecedor_id))}</td>
+        <td style="max-width:320px;">${(x.itens || []).map((i) => `${num(i.quantidade, 3)}x ${esc(i.nome)}`).join(", ")}</td>
+        <td><strong>${brl(x.total)}</strong></td>
+        <td>${STATUS[x.status]}${x.status === "aberta" && x.previsao ? `<div style="font-size:12px; opacity:.7;">chega ${fmtDate(x.previsao)}</div>` : ""}${x.status === "recebida" ? `<div style="font-size:12px; opacity:.7;">em ${fmtDate(x.recebida_em)}</div>` : ""}</td>
+        <td><div class="erp-actions">${x.status === "aberta" ? `<button data-rec="${x.id}">Receber</button><button class="danger" data-can="${x.id}">Cancelar</button>` : ""}</div></td></tr>`).join("");
+
+      document.getElementById("forn-rows").innerHTML = fornecedores.map((f) => `<tr>
+        <td><strong>${esc(f.nome)}</strong>${f.observacao ? `<div style="font-size:12px; opacity:.7;">${esc(f.observacao)}</div>` : ""}</td>
+        <td>${esc([f.contato, f.telefone, f.email].filter(Boolean).join(" · ") || "—")}</td>
+        <td>${esc(f.cnpj || "—")}</td>
+        <td><div class="erp-actions"><button data-fedit="${f.id}">Editar</button><button class="danger" data-fdel="${f.id}">Excluir</button></div></td></tr>`).join("")
+        || `<tr><td colspan="4" style="opacity:.7;">Nenhum fornecedor cadastrado.</td></tr>`;
+    }
+
+    function fornForm(f = {}) {
+      const m = modal(`
+        <h3 style="font-size:18px; margin-bottom:12px;">${f.id ? "Editar" : "Novo"} fornecedor</h3>
+        <div class="field"><label>Nome</label><input id="m-nome" value="${esc(f.nome || "")}" /></div>
+        <div class="erp-row2">
+          <div class="field"><label>Contato (vendedor)</label><input id="m-contato" value="${esc(f.contato || "")}" /></div>
+          <div class="field"><label>Telefone / WhatsApp</label><input id="m-tel" value="${esc(f.telefone || "")}" /></div>
+        </div>
+        <div class="erp-row2">
+          <div class="field"><label>E-mail</label><input id="m-email" value="${esc(f.email || "")}" /></div>
+          <div class="field"><label>CNPJ</label><input id="m-cnpj" value="${esc(f.cnpj || "")}" /></div>
+        </div>
+        <div class="field"><label>Observação</label><input id="m-obs" value="${esc(f.observacao || "")}" placeholder="Ex.: entrega às terças, pedido mínimo R$ 500" /></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 480 });
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const v = (id) => m.el.querySelector(id).value.trim() || null;
+        const row = { owner_id, nome: v("#m-nome"), contato: v("#m-contato"), telefone: v("#m-tel"), email: v("#m-email"), cnpj: v("#m-cnpj"), observacao: v("#m-obs") };
+        if (!row.nome) return alert("Informe o nome.");
+        if (f.id) await supabase.from("fornecedores").update(row).eq("id", f.id); else await supabase.from("fornecedores").insert(row);
+        m.close(); load();
+      });
+    }
+
+    function compraForm() {
+      if (!fornecedores.length) { alert("Cadastre um fornecedor primeiro."); return fornForm(); }
+      const opts = products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+      const m = modal(`
+        <h3 style="font-size:18px; margin-bottom:12px;">Nova compra</h3>
+        <div class="field"><label>Fornecedor</label><select id="m-forn">${fornecedores.map((f) => `<option value="${f.id}">${esc(f.nome)}</option>`).join("")}</select></div>
+        <label style="font-size:12.5px; color:var(--panel-text-muted);">Itens (produto · quantidade · custo unitário)</label>
+        <div class="erp-items" id="m-items" style="margin-top:6px;"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="m-add" style="margin:8px 0 12px;">+ Item</button>
+        <div class="erp-row2">
+          <div class="field"><label>Previsão de entrega</label><input id="m-prev" type="date" /></div>
+          <div class="field"><label>Vencimento do pagamento</label><input id="m-venc" type="date" value="${addDaysISO(todayISO(), 30)}" /></div>
+        </div>
+        <div class="field"><label>Observação</label><input id="m-obs" /></div>
+        <div style="display:flex; justify-content:space-between; padding-top:10px; border-top:1px solid var(--panel-border);"><span>Total</span><strong id="m-total">R$ 0,00</strong></div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Criar compra</button></div>`, { width: 600 });
+      const items = m.el.querySelector("#m-items");
+      const total = () => {
+        let t = 0;
+        items.querySelectorAll(".erp-item").forEach((r) => (t += Number(r.querySelector(".q").value || 0) * Number(r.querySelector(".c").value || 0)));
+        m.el.querySelector("#m-total").textContent = brl(t);
+      };
+      const add = () => {
+        const r = document.createElement("div");
+        r.className = "erp-item";
+        r.innerHTML = `<select class="p">${opts}</select><input class="q" type="number" step="0.001" min="0" placeholder="Qtd" /><input class="c" type="number" step="0.01" min="0" placeholder="Custo R$" /><button type="button" title="Remover">✕</button>`;
+        const setCusto = () => { const p = products.find((x) => x.id === r.querySelector(".p").value); if (p?.custo != null && !r.querySelector(".c").value) r.querySelector(".c").value = p.custo; total(); };
+        r.querySelector(".p").addEventListener("change", () => { r.querySelector(".c").value = ""; setCusto(); });
+        r.querySelectorAll("input").forEach((i) => i.addEventListener("input", total));
+        r.querySelector("button").addEventListener("click", () => { r.remove(); total(); });
+        items.appendChild(r); setCusto();
+      };
+      m.el.querySelector("#m-add").addEventListener("click", add);
+      add();
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const itens = [...items.querySelectorAll(".erp-item")].map((r) => {
+          const p = products.find((x) => x.id === r.querySelector(".p").value);
+          return { product_id: p?.id, nome: p?.name, quantidade: Number(r.querySelector(".q").value), custo_unitario: Number(r.querySelector(".c").value) };
+        }).filter((i) => i.product_id && i.quantidade > 0);
+        const msg = m.el.querySelector("#m-msg");
+        if (!itens.length) { msg.textContent = "Adicione ao menos um item com quantidade."; msg.className = "form-msg error"; return; }
+        const { error } = await supabase.from("compras").insert({
+          owner_id, status: "aberta", fornecedor_id: m.el.querySelector("#m-forn").value, itens,
+          total: Math.round(itens.reduce((t, i) => t + i.quantidade * (i.custo_unitario || 0), 0) * 100) / 100,
+          previsao: m.el.querySelector("#m-prev").value || null, vencimento_pagamento: m.el.querySelector("#m-venc").value || null,
+          observacao: m.el.querySelector("#m-obs").value.trim() || null,
+        });
+        if (error) { msg.textContent = `Erro: ${error.message}`; msg.className = "form-msg error"; return; }
+        m.close(); load();
+      });
+    }
+
+    // Receber: entrada no estoque + custo atualizado + conta a pagar
+    async function receber(c) {
+      const fname = fornecedores.find((x) => x.id === c.fornecedor_id)?.nome || "fornecedor";
+      if (!confirm(`Receber a compra #${c.numero} de ${fname}?\n\nO estoque dos itens vai entrar, o custo será atualizado e a conta a pagar (${brl(c.total)}) vai pro Financeiro.`)) return;
+      for (const it of c.itens || []) {
+        const { data: p } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
+        if (!p) continue;
+        await moverEstoque({ product: { ...p, estoque: p.estoque ?? 0 }, tipo: "entrada", quantidade: it.quantidade, motivo: `Compra #${c.numero} — ${fname}`, origem: "compra", ref_id: c.id });
+        if (it.custo_unitario > 0) await supabase.from("products").update({ custo: it.custo_unitario }).eq("id", p.id);
+      }
+      if (Number(c.total) > 0) {
+        await supabase.from("fin_lancamentos").insert({
+          owner_id, tipo: "despesa", descricao: `Compra #${c.numero} — ${fname}`, categoria: "Fornecedores", valor: c.total,
+          vencimento: c.vencimento_pagamento || todayISO(), origem: "compra", ref_id: c.id,
+        });
+      }
+      await supabase.from("compras").update({ status: "recebida", recebida_em: new Date().toISOString() }).eq("id", c.id);
+      load();
+    }
+
+    document.getElementById("new-forn").addEventListener("click", () => fornForm());
+    document.getElementById("new-compra").addEventListener("click", compraForm);
+    document.getElementById("rows").addEventListener("click", async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const c = compras.find((x) => x.id === (b.dataset.rec || b.dataset.can));
+      if (b.dataset.rec) receber(c);
+      if (b.dataset.can && confirm("Cancelar esta compra?")) { await supabase.from("compras").update({ status: "cancelada" }).eq("id", c.id); load(); }
+    });
+    document.getElementById("forn-rows").addEventListener("click", async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.fedit) fornForm(fornecedores.find((f) => f.id === b.dataset.fedit));
+      if (b.dataset.fdel && confirm("Excluir este fornecedor? As compras continuam salvas.")) { await supabase.from("fornecedores").delete().eq("id", b.dataset.fdel); load(); }
+    });
+    load();
+  </script>
+</body>
+</html>

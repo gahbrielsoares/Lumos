@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estoque — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=46" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=46" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">Estoque</h1>
+        <p style="margin-top: 6px;">Saldo de cada produto. As vendas pagas dão baixa sozinhas e as compras recebidas dão entrada. Produtos sem estoque controlado não são afetados.</p>
+      </div>
+
+      <div class="panel-stat-grid" style="margin-top:18px;">
+        <div class="panel-stat-card">
+          <div><div class="label">Produtos controlados</div><div class="value" id="c-ctrl">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Abaixo do mínimo</div><div class="value" id="c-baixo">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5M12 18v.01"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Zerados</div><div class="value" id="c-zero">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4L18.4 5.6"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Valor em estoque (custo)</div><div class="value" id="c-valor">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+        </div>
+      </div>
+
+      <div class="erp-toolbar">
+        <input id="f-busca" placeholder="Buscar produto…" style="min-width:220px;" />
+        <select id="f-filtro"><option value="ctrl">Com estoque controlado</option><option value="baixo">Abaixo do mínimo</option><option value="todos">Todos os produtos</option></select>
+      </div>
+
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Produto</th><th>Estoque</th><th>Mínimo</th><th>Custo</th><th>Situação</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty-state" id="empty" style="display:none; border:none;"><h3>Nenhum produto aqui</h3><p>Em "Todos os produtos", clique em "Controlar estoque" pra começar.</p></div>
+      </div>
+
+      <h3 class="erp-section-title">Últimas movimentações</h3>
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Quando</th><th>Produto</th><th>Movimento</th><th>Saldo depois</th><th>Motivo</th></tr></thead>
+          <tbody id="movs"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=46";
+    import { initThemeToggle } from "./js/theme.js?v=46";
+    import { initMobileNav } from "./js/mobileNav.js?v=46";
+    import { renderSidebar } from "./js/sidebar.js?v=46";
+    import { supabase } from "./js/supabaseClient.js?v=46";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=46";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("estoque");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl" };
+    let products = [];
+
+    async function load() {
+      const [{ data: p }, { data: m }] = await Promise.all([
+        supabase.from("products").select("id, name, unit, estoque, estoque_minimo, custo, price, active").eq("owner_id", owner_id).order("name"),
+        supabase.from("estoque_mov").select("*, products(name, unit)").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(50),
+      ]);
+      products = p || [];
+      render();
+      document.getElementById("movs").innerHTML = (m || []).map((x) => `<tr>
+        <td>${new Date(x.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+        <td>${esc(x.products?.name || "—")}</td>
+        <td class="${x.quantidade >= 0 && x.tipo !== "saida" ? "erp-pos" : "erp-neg"}">${x.tipo === "saida" ? "−" : x.quantidade >= 0 ? "+" : "−"} ${num(Math.abs(x.quantidade), 3)} ${UN[x.products?.unit] || ""} <span style="opacity:.7; font-weight:400;">(${x.tipo})</span></td>
+        <td>${num(x.saldo_apos, 3)}</td>
+        <td>${esc(x.motivo || "")}${x.origem !== "manual" ? ` <span class="erp-badge muted">${x.origem}</span>` : ""}</td></tr>`).join("") || `<tr><td colspan="5" style="opacity:.7;">Nenhuma movimentação ainda.</td></tr>`;
+    }
+
+    const situacao = (p) => {
+      if (p.estoque == null) return '<span class="erp-badge muted">Não controlado</span>';
+      if (Number(p.estoque) <= 0) return '<span class="erp-badge bad">Zerado</span>';
+      if (p.estoque_minimo != null && Number(p.estoque) <= Number(p.estoque_minimo)) return '<span class="erp-badge warn">Abaixo do mínimo</span>';
+      return '<span class="erp-badge ok">OK</span>';
+    };
+
+    function render() {
+      const ctrl = products.filter((p) => p.estoque != null);
+      const baixo = ctrl.filter((p) => Number(p.estoque) > 0 && p.estoque_minimo != null && Number(p.estoque) <= Number(p.estoque_minimo));
+      document.getElementById("c-ctrl").textContent = ctrl.length;
+      document.getElementById("c-baixo").textContent = baixo.length;
+      document.getElementById("c-zero").textContent = ctrl.filter((p) => Number(p.estoque) <= 0).length;
+      document.getElementById("c-valor").textContent = brl(ctrl.reduce((t, p) => t + Math.max(0, Number(p.estoque)) * Number(p.custo || 0), 0));
+
+      const q = document.getElementById("f-busca").value.toLowerCase(), f = document.getElementById("f-filtro").value;
+      const list = products.filter((p) => (!q || p.name.toLowerCase().includes(q))
+        && (f === "todos" || (f === "ctrl" && p.estoque != null) || (f === "baixo" && p.estoque != null && (Number(p.estoque) <= 0 || (p.estoque_minimo != null && Number(p.estoque) <= Number(p.estoque_minimo))))));
+      document.getElementById("empty").style.display = list.length ? "none" : "block";
+      document.getElementById("rows").innerHTML = list.map((p) => `<tr>
+        <td><strong>${esc(p.name)}</strong>${p.active === false ? ' <span class="erp-badge muted">inativo</span>' : ""}</td>
+        <td>${p.estoque == null ? "—" : `<strong>${num(p.estoque, 3)}</strong> ${UN[p.unit] || p.unit || ""}`}</td>
+        <td>${p.estoque_minimo == null ? "—" : num(p.estoque_minimo, 3)}</td>
+        <td>${p.custo == null ? "—" : brl(p.custo)}</td>
+        <td>${situacao(p)}</td>
+        <td><div class="erp-actions">${p.estoque == null ? `<button data-ctrl="${p.id}">Controlar estoque</button>` : `<button data-mov="${p.id}">Movimentar</button><button data-cfg="${p.id}">Mínimo e custo</button>`}</div></td></tr>`).join("");
+    }
+
+    function mover(p) {
+      const m = modal(`
+        <h3 style="font-size:18px;">Movimentar estoque</h3>
+        <p style="margin:4px 0 14px;">${esc(p.name)} · saldo atual: <strong>${num(p.estoque, 3)} ${UN[p.unit] || ""}</strong></p>
+        <div class="field"><label>Tipo</label><select id="m-tipo">
+          <option value="entrada">Entrada (chegou mercadoria)</option><option value="saida">Saída (perda, quebra, uso interno)</option><option value="ajuste">Ajuste (contagem: define o saldo exato)</option></select></div>
+        <div class="field"><label id="m-qlabel">Quantidade</label><input id="m-q" type="number" step="0.001" min="0" /></div>
+        <div class="field"><label>Motivo</label><input id="m-motivo" placeholder="Ex.: inventário do mês, peça quebrada…" /></div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 460 });
+      m.el.querySelector("#m-tipo").addEventListener("change", (e) => (m.el.querySelector("#m-qlabel").textContent = e.target.value === "ajuste" ? "Saldo correto (contado)" : "Quantidade"));
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const quantidade = Number(m.el.querySelector("#m-q").value);
+        const tipo = m.el.querySelector("#m-tipo").value;
+        if (!(quantidade > 0) && !(tipo === "ajuste" && quantidade === 0)) { m.el.querySelector("#m-msg").textContent = "Informe a quantidade."; m.el.querySelector("#m-msg").className = "form-msg error"; return; }
+        const { error } = await moverEstoque({ product: p, tipo, quantidade, motivo: m.el.querySelector("#m-motivo").value.trim() });
+        if (error) { m.el.querySelector("#m-msg").textContent = error.message; m.el.querySelector("#m-msg").className = "form-msg error"; return; }
+        m.close(); load();
+      });
+    }
+
+    function config(p, ativar) {
+      const m = modal(`
+        <h3 style="font-size:18px;">${ativar ? "Controlar estoque" : "Mínimo e custo"}</h3>
+        <p style="margin:4px 0 14px;">${esc(p.name)}</p>
+        ${ativar ? `<div class="field"><label>Saldo inicial (quanto tem hoje)</label><input id="m-ini" type="number" step="0.001" min="0" value="0" /></div>` : ""}
+        <div class="erp-row2">
+          <div class="field"><label>Estoque mínimo (alerta)</label><input id="m-min" type="number" step="0.001" min="0" value="${p.estoque_minimo ?? ""}" /></div>
+          <div class="field"><label>Custo unitário (R$)</label><input id="m-custo" type="number" step="0.01" min="0" value="${p.custo ?? ""}" /></div>
+        </div>
+        <p class="settings-hint">O custo é usado no valor do estoque e no lucro dos Relatórios. As compras recebidas atualizam o custo sozinhas.</p>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 460 });
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const v = (id) => { const x = m.el.querySelector(id)?.value; return x === "" || x == null ? null : Number(x); };
+        await supabase.from("products").update({ estoque_minimo: v("#m-min"), custo: v("#m-custo") }).eq("id", p.id);
+        if (ativar) await moverEstoque({ product: { ...p, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini") || 0, motivo: "Saldo inicial" });
+        m.close(); load();
+      });
+    }
+
+    document.getElementById("rows").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const p = products.find((x) => x.id === (b.dataset.mov || b.dataset.cfg || b.dataset.ctrl));
+      if (b.dataset.mov) mover(p); else if (b.dataset.cfg) config(p, false); else if (b.dataset.ctrl) config(p, true);
+    });
+    document.getElementById("f-busca").addEventListener("input", render);
+    document.getElementById("f-filtro").addEventListener("change", render);
+    load();
+  </script>
+</body>
+</html>

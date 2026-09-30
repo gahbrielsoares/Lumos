@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financeiro — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=46" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=46" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Financeiro</h1>
+          <p style="margin-top: 6px;">Contas a receber e a pagar. As vendas pagas entram aqui sozinhas; lance as despesas da loja pra ver o resultado real.</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" id="new-receita">+ Receita</button>
+          <button class="btn btn-primary" id="new-despesa">+ Despesa</button>
+        </div>
+      </div>
+
+      <div class="erp-toolbar">
+        <select id="f-periodo">
+          <option value="mes">Este mês</option><option value="mes_passado">Mês passado</option>
+          <option value="proximos">Próximos 30 dias</option><option value="90">Últimos 90 dias</option><option value="tudo">Tudo</option>
+        </select>
+        <select id="f-tipo"><option value="">Receitas e despesas</option><option value="receita">Só receitas</option><option value="despesa">Só despesas</option></select>
+        <select id="f-status"><option value="">Todos os status</option><option value="pendente">Pendentes</option><option value="atrasado">Atrasados</option><option value="pago">Pagos</option></select>
+      </div>
+
+      <div class="panel-stat-grid">
+        <div class="panel-stat-card">
+          <div><div class="label">A receber</div><div class="value" id="c-receber">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">A pagar</div><div class="value" id="c-pagar">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Recebido no período</div><div class="value" id="c-recebido">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Saldo do período</div><div class="value" id="c-saldo">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></div>
+        </div>
+      </div>
+
+      <div class="panel-table-wrap" style="margin-top:16px;">
+        <table class="panel-table">
+          <thead><tr><th>Vencimento</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty-state" id="empty" style="display:none; border:none;">
+          <h3>Nenhum lançamento no período</h3>
+          <p>As vendas pagas aparecem aqui automaticamente. Use "+ Despesa" pra lançar aluguel, fornecedores, contas…</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=46";
+    import { initThemeToggle } from "./js/theme.js?v=46";
+    import { initMobileNav } from "./js/mobileNav.js?v=46";
+    import { renderSidebar } from "./js/sidebar.js?v=46";
+    import { supabase } from "./js/supabaseClient.js?v=46";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=46";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("financeiro");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    const CATS = {
+      receita: ["Vendas", "Serviços", "Outras receitas"],
+      despesa: ["Fornecedores", "Aluguel", "Salários", "Energia", "Água", "Internet e telefone", "Impostos", "Marketing", "Manutenção", "Taxas e tarifas", "Outras despesas"],
+    };
+    const FORMAS = ["Pix", "Dinheiro", "Cartão de crédito", "Cartão de débito", "Boleto", "Transferência"];
+    let all = [];
+
+    function periodo() {
+      const v = document.getElementById("f-periodo").value, hoje = todayISO();
+      if (v === "mes") return monthRange(0);
+      if (v === "mes_passado") return monthRange(-1);
+      if (v === "proximos") return [hoje, addDaysISO(hoje, 30)];
+      if (v === "90") return [addDaysISO(hoje, -90), hoje];
+      return ["0000-01-01", "9999-12-31"];
+    }
+    const statusOf = (l) => l.pago_em ? "pago" : l.vencimento < todayISO() ? "atrasado" : "pendente";
+    const BADGE = { pago: '<span class="erp-badge ok">Pago</span>', atrasado: '<span class="erp-badge bad">Atrasado</span>', pendente: '<span class="erp-badge warn">Pendente</span>' };
+
+    async function load() {
+      const { data } = await supabase.from("fin_lancamentos").select("*").eq("owner_id", owner_id).order("vencimento").limit(3000);
+      all = data || [];
+      render();
+    }
+
+    function render() {
+      const [a, b] = periodo();
+      const tipo = document.getElementById("f-tipo").value, st = document.getElementById("f-status").value;
+      const inRange = (d) => d && d >= a && d <= b;
+      // Pendentes: pelo vencimento (atrasados entram sempre); pagos: pela data do pagamento
+      const list = all.filter((l) => {
+        const s = statusOf(l);
+        const noPeriodo = s === "pago" ? inRange(l.pago_em) : inRange(l.vencimento) || s === "atrasado";
+        return noPeriodo && (!tipo || l.tipo === tipo) && (!st || s === st);
+      });
+      const soma = (f) => list.filter(f).reduce((t, l) => t + Number(l.valor), 0);
+      const recebido = soma((l) => l.tipo === "receita" && l.pago_em), pago = soma((l) => l.tipo === "despesa" && l.pago_em);
+      document.getElementById("c-receber").textContent = brl(soma((l) => l.tipo === "receita" && !l.pago_em));
+      document.getElementById("c-pagar").textContent = brl(soma((l) => l.tipo === "despesa" && !l.pago_em));
+      document.getElementById("c-recebido").textContent = brl(recebido);
+      const saldo = recebido - pago;
+      const el = document.getElementById("c-saldo");
+      el.textContent = brl(saldo); el.className = `value ${saldo >= 0 ? "erp-pos" : "erp-neg"}`;
+
+      document.getElementById("empty").style.display = list.length ? "none" : "block";
+      document.getElementById("rows").innerHTML = list.map((l) => {
+        const s = statusOf(l);
+        return `<tr>
+          <td>${fmtDate(l.vencimento)}${l.pago_em ? `<div style="font-size:12px; opacity:.7;">pago em ${fmtDate(l.pago_em)}</div>` : ""}</td>
+          <td><strong>${esc(l.descricao)}</strong><div style="font-size:12px; opacity:.7;">${esc(l.categoria || "")}${l.forma ? ` · ${esc(l.forma)}` : ""}${l.origem === "venda" ? " · automático (venda)" : l.origem === "compra" ? " · automático (compra)" : ""}</div></td>
+          <td class="${l.tipo === "receita" ? "erp-pos" : "erp-neg"}">${l.tipo === "receita" ? "+" : "−"} ${brl(l.valor)}</td>
+          <td>${BADGE[s]}</td>
+          <td><div class="erp-actions">
+            ${l.pago_em ? `<button data-unpay="${l.id}">Desfazer pagamento</button>` : `<button data-pay="${l.id}">${l.tipo === "receita" ? "Recebido" : "Pago"}</button>`}
+            <button data-edit="${l.id}">Editar</button>
+            <button class="danger" data-del="${l.id}">Excluir</button>
+          </div></td></tr>`;
+      }).join("");
+    }
+
+    function form(l) {
+      const tipo = l.tipo;
+      const m = modal(`
+        <h3 style="font-size:18px; margin-bottom:12px;">${l.id ? "Editar" : "Nova"} ${tipo === "receita" ? "receita" : "despesa"}</h3>
+        <div class="field"><label>Descrição</label><input id="m-desc" value="${esc(l.descricao || "")}" placeholder="${tipo === "receita" ? "Ex.: Serviço de instalação" : "Ex.: Aluguel da loja"}" /></div>
+        <div class="erp-row2">
+          <div class="field"><label>Categoria</label><input id="m-cat" list="m-cats" value="${esc(l.categoria || CATS[tipo][0])}" /><datalist id="m-cats">${CATS[tipo].map((c) => `<option value="${c}">`).join("")}</datalist></div>
+          <div class="field"><label>Valor (R$)</label><input id="m-valor" type="number" step="0.01" min="0" value="${l.valor ?? ""}" /></div>
+        </div>
+        <div class="erp-row2">
+          <div class="field"><label>Vencimento</label><input id="m-venc" type="date" value="${l.vencimento || todayISO()}" /></div>
+          <div class="field"><label>Forma</label><select id="m-forma"><option value="">—</option>${FORMAS.map((f) => `<option ${f === l.forma ? "selected" : ""}>${f}</option>`).join("")}</select></div>
+        </div>
+        <div class="field toggle-row" style="justify-content:space-between;"><span>Já foi ${tipo === "receita" ? "recebido" : "pago"}</span><input type="checkbox" class="toggle-input" id="m-pago" ${l.pago_em ? "checked" : ""} /></div>
+        <div class="field" id="m-pago-box" style="${l.pago_em ? "" : "display:none;"}"><label>Data do ${tipo === "receita" ? "recebimento" : "pagamento"}</label><input id="m-pagoem" type="date" value="${l.pago_em || todayISO()}" /></div>
+        ${l.id ? "" : `<div class="field"><label>Repetir todo mês (ex.: aluguel)</label><select id="m-rep">${[1, 2, 3, 6, 12].map((n) => `<option value="${n}">${n === 1 ? "Não repetir" : `${n} meses`}</option>`).join("")}</select></div>`}
+        <div class="field"><label>Observação</label><textarea id="m-obs" rows="2">${esc(l.observacao || "")}</textarea></div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`);
+      m.el.querySelector("#m-pago").addEventListener("change", (e) => (m.el.querySelector("#m-pago-box").style.display = e.target.checked ? "" : "none"));
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const msg = m.el.querySelector("#m-msg");
+        const row = {
+          owner_id, tipo, descricao: m.el.querySelector("#m-desc").value.trim(), categoria: m.el.querySelector("#m-cat").value.trim() || null,
+          valor: Number(m.el.querySelector("#m-valor").value), vencimento: m.el.querySelector("#m-venc").value,
+          pago_em: m.el.querySelector("#m-pago").checked ? m.el.querySelector("#m-pagoem").value : null,
+          forma: m.el.querySelector("#m-forma").value || null, observacao: m.el.querySelector("#m-obs").value.trim() || null,
+        };
+        if (!row.descricao || !(row.valor > 0) || !row.vencimento) { msg.textContent = "Preencha descrição, valor e vencimento."; msg.className = "form-msg error"; return; }
+        let error;
+        if (l.id) ({ error } = await supabase.from("fin_lancamentos").update(row).eq("id", l.id));
+        else {
+          const rep = Number(m.el.querySelector("#m-rep").value);
+          const rows = Array.from({ length: rep }, (_, i) => {
+            const d = new Date(`${row.vencimento}T12:00:00`); d.setMonth(d.getMonth() + i);
+            return { ...row, vencimento: d.toISOString().slice(0, 10), descricao: rep > 1 ? `${row.descricao} (${i + 1}/${rep})` : row.descricao, pago_em: i === 0 ? row.pago_em : null };
+          });
+          ({ error } = await supabase.from("fin_lancamentos").insert(rows));
+        }
+        if (error) { msg.textContent = `Erro: ${error.message}`; msg.className = "form-msg error"; return; }
+        m.close(); load();
+      });
+    }
+
+    document.getElementById("new-receita").addEventListener("click", () => form({ tipo: "receita" }));
+    document.getElementById("new-despesa").addEventListener("click", () => form({ tipo: "despesa" }));
+    ["f-periodo", "f-tipo", "f-status"].forEach((id) => document.getElementById(id).addEventListener("change", render));
+    document.getElementById("rows").addEventListener("click", async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.pay) await supabase.from("fin_lancamentos").update({ pago_em: todayISO() }).eq("id", b.dataset.pay);
+      else if (b.dataset.unpay) await supabase.from("fin_lancamentos").update({ pago_em: null }).eq("id", b.dataset.unpay);
+      else if (b.dataset.edit) return form(all.find((l) => l.id === b.dataset.edit));
+      else if (b.dataset.del) { if (!confirm("Excluir este lançamento?")) return; await supabase.from("fin_lancamentos").delete().eq("id", b.dataset.del); }
+      load();
+    });
+    load();
+  </script>
+</body>
+</html>
