@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=46";
+import { supabase } from "./supabaseClient.js?v=47";
 
 async function getUserId() {
   const { data } = await supabase.auth.getUser();
@@ -7,7 +7,8 @@ async function getUserId() {
 
 export async function listTables() {
   const { data } = await supabase.from("restaurant_tables").select("*").order("label");
-  return data || [];
+  // Ordem natural: Mesa 2 antes de Mesa 10 (a ordem do banco é alfabética)
+  return (data || []).sort((a, b) => String(a.label).localeCompare(String(b.label), "pt-BR", { numeric: true, sensitivity: "base" }));
 }
 
 export async function createTable(label) {
