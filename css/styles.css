@@ -2317,9 +2317,10 @@ img, svg { display: block; max-width: 100%; }
 .erp-item button { height:38px; border-radius:9px; border:1px solid rgba(185,64,64,.4); background:transparent; color:#B94040; cursor:pointer; }
 @media (max-width: 560px) { .erp-row2 { grid-template-columns: 1fr; } .erp-item { grid-template-columns: minmax(0,1fr) 70px 90px 34px; } }
 
-/* Cards de números: o valor nunca sai do card (encolhe e, no limite, quebra a linha) */
+/* Cards de números: o valor nunca sai do card — a fonte se ajusta à largura do card, sem quebrar o número */
 .panel-stat-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.panel-stat-card { gap: 10px; min-width: 0; }
+.panel-stat-card { position: relative; display: block; min-width: 0; container-type: inline-size; }
 .panel-stat-card > div:first-child { min-width: 0; }
-.panel-stat-card .value { font-size: clamp(20px, 1.8vw, 28px); line-height: 1.15; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.panel-stat-card .icon-badge { flex: 0 0 auto; }
+.panel-stat-card .label { padding-right: 46px; }
+.panel-stat-card .value { font-size: clamp(16px, 11.5cqi, 28px); line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.panel-stat-card .icon-badge { position: absolute; top: 18px; right: 18px; }
