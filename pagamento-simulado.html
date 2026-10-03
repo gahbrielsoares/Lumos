@@ -94,11 +94,11 @@
         ${o.simulado ? `<div class="demo">🧪 <strong>Ambiente de demonstração.</strong> Nenhuma cobrança real será feita.</div>` : ""}
         <div class="card">
           <div class="muted">${esc(o.loja)}</div>
-          <h1>Pedido #${o.numero}</h1>
+          <h1>${e.tipo === "mesa" ? `Conta da ${esc(e.local || "mesa")}` : `Pedido #${o.numero}`}</h1>
           ${o.cliente ? `<div class="muted">Cliente: ${esc(o.cliente)}</div>` : ""}
           <table class="items">
-            ${o.itens.map((i) => `<tr><td>${esc(i.nome)}<div class="muted">${i.caixas ? `${i.caixas} caixas · ${qty(i.quantidade)} m²` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`}</div></td><td class="num">${brl(i.subtotal)}</td></tr>`).join("")}
-            <tr><td>${e.tipo === "retirada" ? "Retirada na loja" : `Frete${e.local ? ` · ${esc(e.local)}` : ""}`}${e.prazo ? `<div class="muted">${esc(e.prazo)}</div>` : ""}</td><td class="num">${Number(o.frete) === 0 ? "Grátis" : brl(o.frete)}</td></tr>
+            ${o.itens.map((i) => `<tr><td>${esc(i.nome)}${i.taxa ? "" : `<div class="muted">${i.caixas ? `${i.caixas} caixas · ${qty(i.quantidade)} m²` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`}</div>`}</td><td class="num">${brl(i.subtotal)}</td></tr>`).join("")}
+            ${e.tipo === "mesa" ? "" : `<tr><td>${e.tipo === "retirada" ? "Retirada na loja" : `Frete${e.local ? ` · ${esc(e.local)}` : ""}`}${e.prazo ? `<div class="muted">${esc(e.prazo)}</div>` : ""}</td><td class="num">${Number(o.frete) === 0 ? "Grátis" : brl(o.frete)}</td></tr>`}
             <tr class="total"><td>Total</td><td class="num">${brl(o.total)}</td></tr>
           </table>
           ${e.endereco_txt ? `<div class="muted" style="margin-top:12px; white-space:pre-line;"><strong>Entrega em:</strong>\n${esc(e.endereco_txt)}</div>` : ""}
