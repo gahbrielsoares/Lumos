@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Sessão expirada. Entre de novo no Lumos." }, 401);
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if (profile?.role !== "admin" && profile?.role !== "cliente") {
+    if (!["admin", "suporte", "cliente"].includes(profile?.role)) {
       return json({ error: "Sua conta não tem acesso a essa função." }, 403);
     }
 

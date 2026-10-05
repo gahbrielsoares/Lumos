@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=49" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=49" />
+  <script src="js/logo.js?v=50" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=50" />
 </head>
 <body>
 
@@ -37,7 +37,7 @@
     <main class="dash-main">
       <div>
         <h1 style="font-size: 28px;">Painel Admin</h1>
-        <p style="margin-top: 6px;">Todas as contas da Lumos: situação, plano, abas liberadas e acesso de suporte.</p>
+        <p style="margin-top: 6px;">Todas as contas da Lumos: situação, plano, função, abas liberadas e acesso de suporte.</p>
       </div>
 
       <div class="panel-stat-grid" style="margin-top:18px;">
@@ -61,7 +61,7 @@
 
       <div class="erp-toolbar">
         <input id="f-busca" placeholder="Buscar por negócio, nome ou e-mail…" style="min-width:280px;" />
-        <select id="f-status"><option value="">Todas as situações</option><option value="ativo">Clientes ativos</option><option value="inativo">Clientes inativos</option><option value="cadastrado">Usuários cadastrados</option><option value="admin">Administradores</option></select>
+        <select id="f-status"><option value="">Todas as situações</option><option value="ativo">Clientes ativos</option><option value="inativo">Clientes inativos</option><option value="cadastrado">Usuários cadastrados</option><option value="equipe">Equipe da Lumos</option></select>
       </div>
 
       <div class="panel-table-wrap">
@@ -74,12 +74,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=49";
-    import { initThemeToggle } from "./js/theme.js?v=49";
-    import { initMobileNav } from "./js/mobileNav.js?v=49";
-    import { renderSidebar } from "./js/sidebar.js?v=49";
-    import { supabase } from "./js/supabaseClient.js?v=49";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=49";
+    import { requireSession, signOut } from "./js/auth.js?v=50";
+    import { initThemeToggle } from "./js/theme.js?v=50";
+    import { initMobileNav } from "./js/mobileNav.js?v=50";
+    import { renderSidebar } from "./js/sidebar.js?v=50";
+    import { supabase } from "./js/supabaseClient.js?v=50";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=50";
 
     await requireSession();
     initThemeToggle();
@@ -88,7 +88,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=49");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=50");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -113,7 +113,8 @@
       const d = (Date.now() - new Date(iso).getTime()) / 86400e3;
       return d < 1 ? "hoje" : d < 2 ? "ontem" : d < 30 ? `há ${Math.floor(d)} dias` : fmtDate(iso);
     };
-    let accounts = [], meId = null;
+    let accounts = [], meId = null, myRole = null, isOwner = false;
+    const isStaffRole = (r) => r === "admin" || r === "suporte";
 
     async function call(body) {
       const { data, error } = await supabase.functions.invoke("admin", { body });
@@ -128,7 +129,7 @@
     async function load() {
       try {
         const r = await call({ action: "list" });
-        accounts = r.accounts; meId = r.me;
+        accounts = r.accounts; meId = r.me; myRole = r.my_role; isOwner = !!r.is_owner;
         render();
       } catch (err) {
         document.getElementById("rows").innerHTML = `<tr><td colspan="7" style="color:#B94040;">${esc(err.message)}</td></tr>`;
@@ -144,9 +145,9 @@
       const q = document.getElementById("f-busca").value.toLowerCase().trim();
       const f = document.getElementById("f-status").value;
       const list = accounts.filter((a) => (!q || `${a.negocio} ${a.nome} ${a.email}`.toLowerCase().includes(q))
-        && (!f || (f === "admin" ? a.role === "admin" : a.status === f)));
+        && (!f || (f === "equipe" ? isStaffRole(a.role) : a.status === f)));
       document.getElementById("rows").innerHTML = list.map((a) => `<tr>
-        <td><strong>${esc(a.negocio || a.nome || a.email)}</strong>${a.role === "admin" ? ' <span class="erp-badge info">admin</span>' : ""}
+        <td><strong>${esc(a.negocio || a.nome || a.email)}</strong>${a.principal ? ' <span class="erp-badge ok">principal</span>' : ""}${a.role === "admin" ? ' <span class="erp-badge info">admin</span>' : a.role === "suporte" ? ' <span class="erp-badge warn">suporte</span>' : ""}
           <div style="font-size:12.5px; opacity:.7;">${esc(a.email)}${a.nicho ? ` · ${esc(NICHO[a.nicho] || a.nicho)}` : ""}</div></td>
         <td>${SIT[a.status] || a.status}</td>
         <td>${esc(a.plano || "Sem plano")}</td>
@@ -158,6 +159,13 @@
     }
 
     function manage(a) {
+      const funcaoAtual = a.role === "admin" ? "admin" : a.role === "suporte" ? "suporte" : "cliente";
+      const alvoEquipe = isStaffRole(a.role);
+      const souAdmin = myRole === "admin";
+      // Contas da equipe só o principal altera; a função só o principal define (e a do principal não muda)
+      const podeEditar = !alvoEquipe || isOwner;
+      const podeFuncao = isOwner && !a.principal;
+      const podeComercial = souAdmin && podeEditar;
       const todas = !a.allowed_tabs?.length;
       const sel = new Set(a.allowed_tabs || TABS.map((t) => t.key));
       const m = modal(`
@@ -166,18 +174,23 @@
 
         <div class="field"><label>Situação da conta</label>
           <div class="pill-tabs" id="m-sit">
-            ${["cadastrado", "ativo", "inativo"].map((s) => `<button type="button" class="pill-tab ${a.status === s ? "active" : ""}" data-sit="${s}">${{ cadastrado: "Usuário cadastrado", ativo: "Cliente ativo", inativo: "Cliente inativo" }[s]}</button>`).join("")}
+            ${["cadastrado", "ativo", "inativo"].map((s) => `<button type="button" class="pill-tab ${a.status === s ? "active" : ""}" data-sit="${s}" ${podeComercial ? "" : "disabled"}>${{ cadastrado: "Usuário cadastrado", ativo: "Cliente ativo", inativo: "Cliente inativo" }[s]}</button>`).join("")}
           </div>
           <p class="settings-hint" id="m-sit-hint" style="margin-top:6px;"></p>
         </div>
-        <div class="field toggle-row" style="justify-content:space-between;"><span>Administrador da Lumos</span><input type="checkbox" class="toggle-input" id="m-admin" ${a.role === "admin" ? "checked" : ""} ${a.id === meId ? "disabled" : ""} /></div>
+        <div class="field"><label>Função na Lumos</label>
+          <div class="pill-tabs" id="m-func">
+            ${[["cliente", "Cliente"], ["suporte", "Equipe de suporte"], ["admin", "Administrador"]].map(([v, l]) => `<button type="button" class="pill-tab ${funcaoAtual === v ? "active" : ""}" data-func="${v}" ${podeFuncao ? "" : "disabled"}>${l}</button>`).join("")}
+          </div>
+          <p class="settings-hint" id="m-func-hint" style="margin-top:6px;"></p>
+        </div>
         <div class="erp-row2">
-          <div class="field"><label>Plano</label><input id="m-plano" value="${esc(a.plano || "")}" placeholder="Ex.: Lojas Pro" /></div>
+          <div class="field"><label>Plano</label><input id="m-plano" value="${esc(a.plano || "")}" placeholder="Ex.: Lojas Pro" ${podeComercial ? "" : "disabled"} /></div>
           <div class="field"><label>Uso</label><input value="${a.agentes} agente(s) · ${a.leads_30d} contatos em 30 dias" disabled /></div>
         </div>
         <div class="field"><label>Observações internas (só você vê)</label><textarea id="m-notas" rows="2" placeholder="Ex.: contrato até 10/2027, pediu aba de orçamento por PDF">${esc(a.notas || "")}</textarea></div>
 
-        <div class="field"><label>Abas liberadas</label>
+        <div class="field" id="m-abas-box" style="${alvoEquipe ? "display:none;" : ""}"><label>Abas liberadas</label>
           <div class="field toggle-row" style="justify-content:space-between; margin-bottom:8px;"><span>Liberar todas as abas (inclusive as que forem criadas no futuro)</span><input type="checkbox" class="toggle-input" id="m-todas" ${todas ? "checked" : ""} /></div>
           <div id="m-abas" style="${todas ? "display:none;" : ""}">
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">${Object.keys(PACOTES).map((k) => `<button type="button" class="btn btn-ghost btn-sm" data-pacote="${k}">${k}</button>`).join("")}</div>
@@ -188,17 +201,33 @@
           </div>
         </div>
 
-        <div class="field" style="border-top:1px solid var(--panel-border); padding-top:14px;"><label>Acesso de suporte</label>
+        <div class="field" style="border-top:1px solid var(--panel-border); padding-top:14px; ${alvoEquipe ? "display:none;" : ""}"><label>Acesso de suporte</label>
           <button type="button" class="btn btn-ghost" id="m-sup">Acessar como cliente</button>
           <div id="m-sup-out" style="margin-top:8px;"></div>
         </div>
 
         <div id="m-msg" class="form-msg"></div>
-        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 640 });
+        ${podeEditar ? "" : `<p class="settings-hint" style="color:#B4553B;">Conta da equipe da Lumos: só o administrador principal pode alterar.</p>`}
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save" ${podeEditar ? "" : "disabled"}>Salvar</button></div>`, { width: 640 });
+
+      let funcao = funcaoAtual;
+      const funcHint = () => (m.el.querySelector("#m-func-hint").textContent = a.principal
+        ? "Administrador principal: acesso total. Essa função não pode ser alterada."
+        : !isOwner ? "Só o administrador principal define quem é administrador ou equipe de suporte."
+        : { cliente: "Cliente da Lumos: acessa o próprio painel, conforme a situação e as abas liberadas.",
+            suporte: "Equipe de suporte: vê o Painel Admin, organiza as abas e as observações das lojas e usa o acesso de suporte. Não muda situação, plano nem funções.",
+            admin: "Administrador: tudo o que a equipe faz, mais situação e plano das contas de clientes." }[funcao]);
+      funcHint();
+      m.el.querySelectorAll("[data-func]").forEach((b) => b.addEventListener("click", () => {
+        funcao = b.dataset.func;
+        m.el.querySelectorAll("[data-func]").forEach((x) => x.classList.toggle("active", x === b));
+        m.el.querySelector("#m-abas-box").style.display = funcao === "cliente" ? "" : "none";
+        funcHint();
+      }));
 
       let status = a.status;
       const hint = () => (m.el.querySelector("#m-sit-hint").textContent = {
-        cadastrado: "Criou a conta mas ainda não contratou: vê só a página de planos.",
+        cadastrado: !podeComercial && podeEditar ? "Só administradores mudam a situação e o plano." : "Criou a conta mas ainda não contratou: vê só a página de planos.",
         ativo: "Tem acesso ao painel, com as abas liberadas abaixo.",
         inativo: "Perde o acesso ao painel (vê o aviso de conta inativa). Os dados continuam guardados.",
       }[status]);
@@ -232,13 +261,13 @@
         const msg = m.el.querySelector("#m-msg");
         const todasOn = m.el.querySelector("#m-todas").checked;
         const abas = [...m.el.querySelectorAll(".m-aba:checked")].map((c) => c.value);
-        if (!todasOn && !abas.length) { msg.textContent = "Marque pelo menos uma aba, ou libere todas."; msg.className = "form-msg error"; return; }
+        if (funcao === "cliente" && !todasOn && !abas.length) { msg.textContent = "Marque pelo menos uma aba, ou libere todas."; msg.className = "form-msg error"; return; }
         try {
-          await call({
-            action: "update", user_id: a.id, status, is_admin: m.el.querySelector("#m-admin").checked,
-            allowed_tabs: todasOn ? null : abas,
-            plano: m.el.querySelector("#m-plano").value.trim(), notas: m.el.querySelector("#m-notas").value.trim(),
-          });
+          const body = { action: "update", user_id: a.id, notas: m.el.querySelector("#m-notas").value.trim() };
+          if (funcao === "cliente") body.allowed_tabs = todasOn ? null : abas;
+          if (podeComercial) { body.status = status; body.plano = m.el.querySelector("#m-plano").value.trim(); }
+          if (podeFuncao) body.funcao = funcao;
+          await call(body);
           m.close(); load();
         } catch (err) { msg.textContent = err.message; msg.className = "form-msg error"; }
       });

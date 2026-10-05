@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=49";
+import { supabase } from "./supabaseClient.js?v=50";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
@@ -94,11 +94,12 @@ export async function getAccess() {
   try { suporteFlag = sessionStorage.getItem("lumos_suporte") === "1"; } catch (_) { /* sem sessionStorage */ }
   const suporte = suporteFlag && p?.suporte_ate && new Date(p.suporte_ate).getTime() > Date.now();
   const isAdmin = p?.role === "admin";
+  const isStaff = isAdmin || p?.role === "suporte";
   const allowed = Array.isArray(p?.allowed_tabs) && p.allowed_tabs.length ? p.allowed_tabs : null;
   accessCache = {
-    isAdmin, suporte, allowed, status: p?.status || null,
+    isAdmin, isStaff, role: p?.role || null, suporte, allowed, status: p?.status || null,
     // A aba pode aparecer para esta conta?
-    can: (key) => isAdmin || suporte || !allowed || allowed.includes(key),
+    can: (key) => isStaff || suporte || !allowed || allowed.includes(key),
   };
   return accessCache;
 }
@@ -130,11 +131,11 @@ export async function renderSidebar(activeKey) {
   // as demais dependem do que o admin liberou e do que o próprio usuário escolheu mostrar.
   const visible = (item) => (item.core && !item.adminControl) || (access.can(item.key) && (item.core || !disabled.includes(item.key)));
   const items = NAV_ITEMS.filter(visible);
-  if (access.isAdmin) items.push(ADMIN_ITEM);
+  if (access.isStaff) items.push(ADMIN_ITEM);
 
   // Página não liberada para esta conta (link direto): volta para o Dashboard
   const current = NAV_ITEMS.find((i) => i.key === activeKey);
-  const blocked = (current && !visible(current)) || (activeKey === "admin" && !access.isAdmin);
+  const blocked = (current && !visible(current)) || (activeKey === "admin" && !access.isStaff);
   if (blocked) document.querySelector(".dash-main")?.style.setProperty("visibility", "hidden");
 
   // Modo suporte: o admin está acessando o painel deste cliente

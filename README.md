@@ -1055,6 +1055,20 @@ Crie a função `admin` com `supabase/functions/admin/index.ts`, com **JWT ligad
 Em **Authentication → URL Configuration**, adicione em **Redirect URLs**:
 `https://gahbrielsoares.github.io/Lumos/*`
 
+## 31. Administrador principal e Equipe de suporte
+
+- **Administrador principal**: `soaresgahbriel@gmail.com` (pode trocar pelo secret `OWNER_EMAIL` da função `admin`).
+  É o único que define quem é **Administrador** ou **Equipe de suporte**, e ninguém rebaixa essa conta.
+- **Administrador**: muda situação, plano, abas e observações das contas de clientes e usa o acesso de suporte.
+- **Equipe de suporte** (papel `suporte`): vê o Painel Admin, muda abas e observações das lojas e usa o acesso de suporte.
+  Não muda situação, plano nem funções.
+- Ninguém gera acesso de suporte para contas da equipe (isso daria os poderes daquela pessoa).
+
+Para transformar alguém em equipe de suporte, use o Painel Admin (logado como principal) ou, no SQL Editor:
+```sql
+update public.profiles set role = 'suporte' where email = 'email@da.pessoa';
+```
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
