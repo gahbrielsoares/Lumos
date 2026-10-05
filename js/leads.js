@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=48";
+import { supabase } from "./supabaseClient.js?v=49";
 
 export const STAGES = [
   "novo_contato",

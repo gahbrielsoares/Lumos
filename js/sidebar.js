@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=48";
+import { supabase } from "./supabaseClient.js?v=49";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
@@ -61,11 +61,11 @@ export const NAV_ITEMS = [
     icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>`,
   },
   {
-    key: "integracoes", href: "integracoes.html", label: "Integrações", core: true,
+    key: "integracoes", href: "integracoes.html", label: "Integrações", core: true, adminControl: true,
     icon: `<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/>`,
   },
   {
-    key: "agents", href: "agents.html", label: "Agentes", core: true,
+    key: "agents", href: "agents.html", label: "Agentes (IA)", core: true, adminControl: true,
     icon: `<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/>`,
   },
   {
@@ -73,6 +73,35 @@ export const NAV_ITEMS = [
     icon: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
   },
 ];
+
+// Painel Admin: só aparece para administradores
+export const ADMIN_ITEM = {
+  key: "admin", href: "admin.html", label: "Painel Admin",
+  icon: `<path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>`,
+};
+
+// ---------- Acesso da conta (definido pelo administrador no Painel Admin) ----------
+// allowed_tabs nulo/vazio = todas as abas. Admin e modo suporte veem tudo.
+let accessCache = null;
+export async function getAccess() {
+  if (accessCache) return accessCache;
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess?.session?.user?.id;
+  const { data: p } = uid ? await supabase.from("profiles").select("role, status, allowed_tabs, suporte_ate").eq("id", uid).maybeSingle() : { data: null };
+  const params = new URLSearchParams(location.search);
+  try { if (params.get("suporte") === "1") sessionStorage.setItem("lumos_suporte", "1"); } catch (_) { /* sem sessionStorage */ }
+  let suporteFlag = false;
+  try { suporteFlag = sessionStorage.getItem("lumos_suporte") === "1"; } catch (_) { /* sem sessionStorage */ }
+  const suporte = suporteFlag && p?.suporte_ate && new Date(p.suporte_ate).getTime() > Date.now();
+  const isAdmin = p?.role === "admin";
+  const allowed = Array.isArray(p?.allowed_tabs) && p.allowed_tabs.length ? p.allowed_tabs : null;
+  accessCache = {
+    isAdmin, suporte, allowed, status: p?.status || null,
+    // A aba pode aparecer para esta conta?
+    can: (key) => isAdmin || suporte || !allowed || allowed.includes(key),
+  };
+  return accessCache;
+}
 
 export async function getDisabledTabs() {
   const { data: userData } = await supabase.auth.getUser();
@@ -96,8 +125,26 @@ export async function renderSidebar(activeKey) {
   const nav = document.getElementById("dash-nav");
   if (!nav) return;
 
-  const disabled = await getDisabledTabs();
-  const items = NAV_ITEMS.filter((item) => item.core || !disabled.includes(item.key));
+  const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
+  // Abas fixas sempre aparecem (menos Agentes e Integrações, que o admin pode liberar ou não);
+  // as demais dependem do que o admin liberou e do que o próprio usuário escolheu mostrar.
+  const visible = (item) => (item.core && !item.adminControl) || (access.can(item.key) && (item.core || !disabled.includes(item.key)));
+  const items = NAV_ITEMS.filter(visible);
+  if (access.isAdmin) items.push(ADMIN_ITEM);
+
+  // Página não liberada para esta conta (link direto): volta para o Dashboard
+  const current = NAV_ITEMS.find((i) => i.key === activeKey);
+  const blocked = (current && !visible(current)) || (activeKey === "admin" && !access.isAdmin);
+  if (blocked) document.querySelector(".dash-main")?.style.setProperty("visibility", "hidden");
+
+  // Modo suporte: o admin está acessando o painel deste cliente
+  if (access.suporte && !document.getElementById("suporte-bar")) {
+    const bar = document.createElement("div");
+    bar.id = "suporte-bar";
+    bar.textContent = "Modo suporte: você está acessando o painel deste cliente, com todas as abas liberadas.";
+    bar.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:999;background:#1C2B3A;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:92vw;text-align:center;";
+    document.body.appendChild(bar);
+  }
 
   const link = (item) => `
     <a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">
@@ -118,4 +165,5 @@ export async function renderSidebar(activeKey) {
       Sair
     </a>
   `;
+  if (blocked) setTimeout(() => window.location.replace("dashboard.html"), 0);
 }

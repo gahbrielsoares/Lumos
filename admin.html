@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=49" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=49" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">Painel Admin</h1>
+        <p style="margin-top: 6px;">Todas as contas da Lumos: situação, plano, abas liberadas e acesso de suporte.</p>
+      </div>
+
+      <div class="panel-stat-grid" style="margin-top:18px;">
+        <div class="panel-stat-card">
+          <div><div class="label">Contas</div><div class="value" id="c-total">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M17 11a3 3 0 1 0 0-6M21.5 20v-1a6.5 6.5 0 0 0-4-6"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Clientes ativos</div><div class="value" id="c-ativos">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Clientes inativos</div><div class="value" id="c-inativos">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></svg></div>
+        </div>
+        <div class="panel-stat-card">
+          <div><div class="label">Usuários cadastrados</div><div class="value" id="c-cadastrados">–</div></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-1a7 7 0 0 1 14 0v1"/><path d="M19 4v4M17 6h4"/></svg></div>
+        </div>
+      </div>
+
+      <div class="erp-toolbar">
+        <input id="f-busca" placeholder="Buscar por negócio, nome ou e-mail…" style="min-width:280px;" />
+        <select id="f-status"><option value="">Todas as situações</option><option value="ativo">Clientes ativos</option><option value="inativo">Clientes inativos</option><option value="cadastrado">Usuários cadastrados</option><option value="admin">Administradores</option></select>
+      </div>
+
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Conta</th><th>Situação</th><th>Plano</th><th>Abas</th><th>Último acesso</th><th>Uso (30 dias)</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="7" style="opacity:.7;">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=49";
+    import { initThemeToggle } from "./js/theme.js?v=49";
+    import { initMobileNav } from "./js/mobileNav.js?v=49";
+    import { renderSidebar } from "./js/sidebar.js?v=49";
+    import { supabase } from "./js/supabaseClient.js?v=49";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=49";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("admin");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=49");
+    const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
+    const SIT = {
+      ativo: '<span class="erp-badge ok">Cliente ativo</span>',
+      inativo: '<span class="erp-badge bad">Cliente inativo</span>',
+      cadastrado: '<span class="erp-badge muted">Usuário cadastrado</span>',
+    };
+    // Abas que o admin controla: todas, menos Dashboard e Configurações (sempre visíveis)
+    const TABS = NAV_ITEMS.filter((i) => i.key !== "dashboard" && i.key !== "settings");
+    const GRUPOS = [
+      ["crm", "CRM", TABS.filter((t) => t.group === "crm")],
+      ["erp", "ERP", TABS.filter((t) => t.group === "erp")],
+      ["sistema", "Sistema", TABS.filter((t) => !t.group)],
+    ];
+    const PACOTES = {
+      "Lojas (materiais)": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal"],
+      "Restaurante": ["clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios"],
+      "Só CRM": ["kanban", "leads", "clientes", "follow_up", "agendamentos"],
+      "CRM + ERP": TABS.filter((t) => t.group).map((t) => t.key),
+    };
+    const ago = (iso) => {
+      if (!iso) return "nunca";
+      const d = (Date.now() - new Date(iso).getTime()) / 86400e3;
+      return d < 1 ? "hoje" : d < 2 ? "ontem" : d < 30 ? `há ${Math.floor(d)} dias` : fmtDate(iso);
+    };
+    let accounts = [], meId = null;
+
+    async function call(body) {
+      const { data, error } = await supabase.functions.invoke("admin", { body });
+      if (error || data?.error) {
+        let m = data?.error || error?.message || "Erro";
+        try { const b = await error?.context?.json(); if (b?.error) m = b.error; } catch (_) { /* sem JSON */ }
+        throw new Error(m);
+      }
+      return data;
+    }
+
+    async function load() {
+      try {
+        const r = await call({ action: "list" });
+        accounts = r.accounts; meId = r.me;
+        render();
+      } catch (err) {
+        document.getElementById("rows").innerHTML = `<tr><td colspan="7" style="color:#B94040;">${esc(err.message)}</td></tr>`;
+      }
+    }
+
+    function render() {
+      const n = (s) => accounts.filter((a) => a.status === s).length;
+      document.getElementById("c-total").textContent = accounts.length;
+      document.getElementById("c-ativos").textContent = n("ativo");
+      document.getElementById("c-inativos").textContent = n("inativo");
+      document.getElementById("c-cadastrados").textContent = n("cadastrado");
+      const q = document.getElementById("f-busca").value.toLowerCase().trim();
+      const f = document.getElementById("f-status").value;
+      const list = accounts.filter((a) => (!q || `${a.negocio} ${a.nome} ${a.email}`.toLowerCase().includes(q))
+        && (!f || (f === "admin" ? a.role === "admin" : a.status === f)));
+      document.getElementById("rows").innerHTML = list.map((a) => `<tr>
+        <td><strong>${esc(a.negocio || a.nome || a.email)}</strong>${a.role === "admin" ? ' <span class="erp-badge info">admin</span>' : ""}
+          <div style="font-size:12.5px; opacity:.7;">${esc(a.email)}${a.nicho ? ` · ${esc(NICHO[a.nicho] || a.nicho)}` : ""}</div></td>
+        <td>${SIT[a.status] || a.status}</td>
+        <td>${esc(a.plano || "Sem plano")}</td>
+        <td>${a.allowed_tabs?.length ? `${a.allowed_tabs.length} aba${a.allowed_tabs.length > 1 ? "s" : ""}` : "Todas"}</td>
+        <td>${ago(a.ultimo_acesso)}</td>
+        <td style="font-size:13px;">${a.agentes} agente${a.agentes === 1 ? "" : "s"} · ${a.leads_30d} contatos</td>
+        <td><div class="erp-actions"><button data-open="${a.id}">Gerenciar</button></div></td></tr>`).join("")
+        || `<tr><td colspan="7" style="opacity:.7;">Nenhuma conta encontrada.</td></tr>`;
+    }
+
+    function manage(a) {
+      const todas = !a.allowed_tabs?.length;
+      const sel = new Set(a.allowed_tabs || TABS.map((t) => t.key));
+      const m = modal(`
+        <h3 style="font-size:19px;">${esc(a.negocio || a.nome || a.email)}</h3>
+        <p style="margin:4px 0 14px;">${esc(a.email)} · criada em ${fmtDate(a.criado_em)} · último acesso ${ago(a.ultimo_acesso)}</p>
+
+        <div class="field"><label>Situação da conta</label>
+          <div class="pill-tabs" id="m-sit">
+            ${["cadastrado", "ativo", "inativo"].map((s) => `<button type="button" class="pill-tab ${a.status === s ? "active" : ""}" data-sit="${s}">${{ cadastrado: "Usuário cadastrado", ativo: "Cliente ativo", inativo: "Cliente inativo" }[s]}</button>`).join("")}
+          </div>
+          <p class="settings-hint" id="m-sit-hint" style="margin-top:6px;"></p>
+        </div>
+        <div class="field toggle-row" style="justify-content:space-between;"><span>Administrador da Lumos</span><input type="checkbox" class="toggle-input" id="m-admin" ${a.role === "admin" ? "checked" : ""} ${a.id === meId ? "disabled" : ""} /></div>
+        <div class="erp-row2">
+          <div class="field"><label>Plano</label><input id="m-plano" value="${esc(a.plano || "")}" placeholder="Ex.: Lojas Pro" /></div>
+          <div class="field"><label>Uso</label><input value="${a.agentes} agente(s) · ${a.leads_30d} contatos em 30 dias" disabled /></div>
+        </div>
+        <div class="field"><label>Observações internas (só você vê)</label><textarea id="m-notas" rows="2" placeholder="Ex.: contrato até 10/2027, pediu aba de orçamento por PDF">${esc(a.notas || "")}</textarea></div>
+
+        <div class="field"><label>Abas liberadas</label>
+          <div class="field toggle-row" style="justify-content:space-between; margin-bottom:8px;"><span>Liberar todas as abas (inclusive as que forem criadas no futuro)</span><input type="checkbox" class="toggle-input" id="m-todas" ${todas ? "checked" : ""} /></div>
+          <div id="m-abas" style="${todas ? "display:none;" : ""}">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">${Object.keys(PACOTES).map((k) => `<button type="button" class="btn btn-ghost btn-sm" data-pacote="${k}">${k}</button>`).join("")}</div>
+            ${GRUPOS.map(([g, label, tabs]) => `
+              <div style="margin-bottom:10px;"><div style="font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; margin-bottom:6px;">${label}</div>
+                <div class="chips-row">${tabs.map((t) => `<label class="chip-checkbox"><input type="checkbox" class="m-aba" value="${t.key}" ${sel.has(t.key) ? "checked" : ""} /> ${esc(t.label)}</label>`).join("")}</div></div>`).join("")}
+            <p class="settings-hint">Dashboard e Configurações aparecem sempre. Sem "Agentes (IA)" e "Integrações", o cliente não vê nem mexe nessas configurações: você ajusta por ele pelo acesso de suporte.</p>
+          </div>
+        </div>
+
+        <div class="field" style="border-top:1px solid var(--panel-border); padding-top:14px;"><label>Acesso de suporte</label>
+          <button type="button" class="btn btn-ghost" id="m-sup">Acessar como cliente</button>
+          <div id="m-sup-out" style="margin-top:8px;"></div>
+        </div>
+
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 640 });
+
+      let status = a.status;
+      const hint = () => (m.el.querySelector("#m-sit-hint").textContent = {
+        cadastrado: "Criou a conta mas ainda não contratou: vê só a página de planos.",
+        ativo: "Tem acesso ao painel, com as abas liberadas abaixo.",
+        inativo: "Perde o acesso ao painel (vê o aviso de conta inativa). Os dados continuam guardados.",
+      }[status]);
+      hint();
+      m.el.querySelectorAll("[data-sit]").forEach((b) => b.addEventListener("click", () => {
+        status = b.dataset.sit;
+        m.el.querySelectorAll("[data-sit]").forEach((x) => x.classList.toggle("active", x === b));
+        hint();
+      }));
+      m.el.querySelector("#m-todas").addEventListener("change", (e) => (m.el.querySelector("#m-abas").style.display = e.target.checked ? "none" : ""));
+      m.el.querySelectorAll("[data-pacote]").forEach((b) => b.addEventListener("click", () => {
+        const keys = PACOTES[b.dataset.pacote];
+        m.el.querySelectorAll(".m-aba").forEach((c) => (c.checked = keys.includes(c.value)));
+      }));
+
+      m.el.querySelector("#m-sup").addEventListener("click", async (e) => {
+        const out = m.el.querySelector("#m-sup-out");
+        e.target.disabled = true; out.textContent = "Gerando link…";
+        try {
+          const r = await call({ action: "support_link", user_id: a.id });
+          out.innerHTML = `<p class="settings-hint" style="margin:0 0 6px;">Abra numa <b>janela anônima</b> (senão você sai da sua conta de admin). Vale até ${new Date(r.ate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.</p>
+            <div style="display:flex; gap:6px;"><input readonly value="${esc(r.link)}" style="flex:1; min-width:0;" id="m-link" /><button type="button" class="btn btn-ghost btn-sm" id="m-copy">Copiar</button></div>`;
+          m.el.querySelector("#m-copy").addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(r.link); m.el.querySelector("#m-copy").textContent = "Copiado!"; } catch (_) { m.el.querySelector("#m-link").select(); }
+          });
+        } catch (err) { out.textContent = err.message; }
+        e.target.disabled = false;
+      });
+
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const msg = m.el.querySelector("#m-msg");
+        const todasOn = m.el.querySelector("#m-todas").checked;
+        const abas = [...m.el.querySelectorAll(".m-aba:checked")].map((c) => c.value);
+        if (!todasOn && !abas.length) { msg.textContent = "Marque pelo menos uma aba, ou libere todas."; msg.className = "form-msg error"; return; }
+        try {
+          await call({
+            action: "update", user_id: a.id, status, is_admin: m.el.querySelector("#m-admin").checked,
+            allowed_tabs: todasOn ? null : abas,
+            plano: m.el.querySelector("#m-plano").value.trim(), notas: m.el.querySelector("#m-notas").value.trim(),
+          });
+          m.close(); load();
+        } catch (err) { msg.textContent = err.message; msg.className = "form-msg error"; }
+      });
+    }
+
+    document.getElementById("rows").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-open]"); if (!b) return;
+      manage(accounts.find((a) => a.id === b.dataset.open));
+    });
+    document.getElementById("f-busca").addEventListener("input", render);
+    document.getElementById("f-status").addEventListener("change", render);
+    load();
+  </script>
+</body>
+</html>

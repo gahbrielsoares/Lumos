@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=48";
+import { supabase } from "./supabaseClient.js?v=49";
 
 // ---------- Cadastro ----------
 export async function signUp({ name, email, password }) {
@@ -27,14 +27,14 @@ export async function redirectAfterLogin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, status")
     .eq("id", user.id)
     .single();
 
   if (profile?.role === "admin" || profile?.role === "cliente") {
     window.location.href = "dashboard.html";
   } else {
-    window.location.href = "plans.html";
+    window.location.href = profile?.status === "inativo" ? "plans.html?inativa=1" : "plans.html";
   }
 }
 
@@ -58,12 +58,13 @@ export async function requireSession() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, status")
     .eq("id", data.session.user.id)
     .single();
 
   if (profile?.role !== "admin" && profile?.role !== "cliente") {
-    window.location.href = "plans.html";
+    // Cliente inativo vê o aviso de conta inativa; usuário cadastrado vê os planos
+    window.location.href = profile?.status === "inativo" ? "plans.html?inativa=1" : "plans.html";
     return null;
   }
 

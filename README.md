@@ -1004,6 +1004,57 @@ create policy "Dono ve/edita compras" on public.compras for all
   estoque dos produtos que têm estoque controlado.
 - **Compra recebida**: entrada no estoque, custo do produto atualizado e conta a pagar criada.
 
+## 30. Painel Admin (contas, situação, abas liberadas e acesso de suporte)
+
+No **SQL Editor**:
+
+```sql
+-- Situação da conta e o que cada cliente pode ver
+alter table public.profiles add column if not exists status text default 'cadastrado';
+alter table public.profiles drop constraint if exists profiles_status_check;
+alter table public.profiles add constraint profiles_status_check check (status in ('cadastrado','ativo','inativo'));
+alter table public.profiles add column if not exists allowed_tabs text[];      -- vazio/nulo = todas as abas
+alter table public.profiles add column if not exists plano text;
+alter table public.profiles add column if not exists notas text;
+alter table public.profiles add column if not exists suporte_ate timestamptz;  -- acesso de suporte do admin
+
+-- Quem já tinha acesso vira "cliente ativo"
+update public.profiles set status = 'ativo' where role in ('cliente','admin') and coalesce(status,'cadastrado') = 'cadastrado';
+
+-- Nenhum usuário consegue alterar papel, situação, abas ou acesso de suporte pelo navegador
+-- (só o Painel Admin, pela função "admin", que usa a chave de serviço)
+create or replace function public.protect_profile_role()
+returns trigger as $$
+begin
+  if coalesce(auth.role(), '') in ('authenticated', 'anon') and (
+       new.role is distinct from old.role
+    or new.status is distinct from old.status
+    or new.allowed_tabs is distinct from old.allowed_tabs
+    or new.suporte_ate is distinct from old.suporte_ate
+    or new.plano is distinct from old.plano
+    or new.notas is distinct from old.notas
+  ) then
+    raise exception 'Somente o administrador pode alterar esses dados';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists protect_profile_role on public.profiles;
+create trigger protect_profile_role before update on public.profiles
+  for each row execute procedure public.protect_profile_role();
+
+-- A política antiga que deixava o usuário editar o próprio perfil não é usada
+drop policy if exists "Usuarios atualizam o proprio perfil" on public.profiles;
+```
+
+### Edge Function `admin`
+Crie a função `admin` com `supabase/functions/admin/index.ts`, com **JWT ligado**. Ela só atende quem tem papel `admin`.
+
+### Acesso de suporte ("Acessar como cliente")
+Em **Authentication → URL Configuration**, adicione em **Redirect URLs**:
+`https://gahbrielsoares.github.io/Lumos/*`
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

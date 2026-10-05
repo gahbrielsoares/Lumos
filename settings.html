@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=48" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=48" />
+  <script src="js/logo.js?v=49" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=49" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
@@ -70,6 +70,7 @@
       </div>
 
       <!-- Integrações -->
+      <div id="integracoes-section">
       <div class="section-heading-row">
         <div class="hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/></svg></div>
         <h3>Integrações</h3>
@@ -77,6 +78,7 @@
       <div class="settings-block">
         <p class="settings-hint">Pagamento, frete, estoque, nota fiscal e regras de venda.</p>
         <a href="integracoes.html" class="btn btn-ghost">Gerenciar integrações</a>
+      </div>
       </div>
 
       <!-- Informações da loja -->
@@ -142,15 +144,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=48";
-    import { initThemeToggle } from "./js/theme.js?v=48";
-    import { initMobileNav } from "./js/mobileNav.js?v=48";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs } from "./js/sidebar.js?v=48";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=48";
-    import { listAgents, saveAgent } from "./js/agents.js?v=48";
+    import { requireSession, signOut } from "./js/auth.js?v=49";
+    import { initThemeToggle } from "./js/theme.js?v=49";
+    import { initMobileNav } from "./js/mobileNav.js?v=49";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=49";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=49";
+    import { listAgents, saveAgent } from "./js/agents.js?v=49";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=48";
+    } from "./js/businessConfig.js?v=49";
 
     await requireSession();
     initThemeToggle();
@@ -231,11 +233,15 @@
     (async () => {
       const disabled = await getDisabledTabs();
       const list = document.getElementById("tabs-list");
-      const toggleable = NAV_ITEMS.filter((item) => !item.core);
+      // Só as abas que o administrador liberou para esta conta
+      const access = await getAccess();
+      const toggleable = NAV_ITEMS.filter((item) => !item.core && access.can(item.key));
+      if (!access.can("integracoes")) document.getElementById("integracoes-section").style.display = "none";
 
       // Duas listas: CRM (atendimento e vendas) e ERP (gestão da loja)
       const section = (group, title, desc) => {
         const items = toggleable.filter((i) => i.group === group);
+        if (!items.length) return "";
         return `
           <div class="tabs-group">
             <div class="tabs-group-head">

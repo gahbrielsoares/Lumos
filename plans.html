@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Escolha seu plano — Lumos CRM</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=48" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=48" />
+  <script src="js/logo.js?v=49" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=49" />
 </head>
 <body>
 <header class="site-header">
@@ -20,6 +20,11 @@
   </header>
 
   <div class="wrap" style="padding-top: 40px; padding-bottom: 100px;">
+    <div id="inativa-aviso" style="display:none; margin-bottom:28px; padding:16px 18px; border-radius:14px; border:1px solid rgba(232,168,124,.5); background:rgba(232,168,124,.1);">
+      <strong>Sua conta está inativa no momento.</strong>
+      <p style="margin-top:6px; font-size:15px;">Para voltar a usar a Lumos, fale com o nosso time. Seus dados continuam guardados.</p>
+    </div>
+    <script>if (new URLSearchParams(location.search).get("inativa") === "1") document.getElementById("inativa-aviso").style.display = "block";</script>
     <h1 style="font-size: 32px;">Como você quer usar a Lumos?</h1>
     <p style="margin-top: 10px; font-size: 15.5px;">Escolha o serviço para falar com nosso time e ativar sua conta.</p>
 
@@ -53,7 +58,7 @@
   </div>
 
   <script type="module">
-    import { requireLogin, signOut } from "./js/auth.js?v=48";
+    import { requireLogin, signOut } from "./js/auth.js?v=49";
     requireLogin();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
