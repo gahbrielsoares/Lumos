@@ -1019,7 +1019,9 @@ img, svg { display: block; max-width: 100%; }
   border: 1px solid var(--panel-border);
   border-radius: 12px;
   margin-top: 24px;
-  overflow: hidden;
+  /* Tabela larga: arrasta para o lado em vez de cortar as colunas */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .panel-table-header {
@@ -2339,3 +2341,20 @@ img, svg { display: block; max-width: 100%; }
 .erp-modal input.toggle-input:checked { background: var(--panel-accent); }
 .erp-modal input.toggle-input::before { background: #FFFFFF; }
 :root.dark .erp-modal { background: #15141A; }
+
+
+/* Painel Admin: em telas menores, cada conta vira um cartão (sem precisar arrastar) */
+@media (max-width: 1180px) {
+  .admin-table { min-width: 0 !important; }
+  .admin-table thead { display: none; }
+  .admin-table, .admin-table tbody, .admin-table tr, .admin-table td { display: block; width: 100%; }
+  .admin-table tr { padding: 14px 16px; border-bottom: 1px solid var(--panel-border); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+  .admin-table tr:last-child { border-bottom: 0; }
+  .admin-table td { padding: 0 !important; border: 0 !important; min-width: 0; }
+  .admin-table td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--panel-text-muted); margin-bottom: 3px; }
+  .admin-table td.col-conta { grid-column: 1 / -1; }
+  .admin-table td.col-acoes { grid-column: 1 / -1; }
+  .admin-table td.col-acoes .erp-actions { justify-content: flex-start; }
+  .admin-table td.col-acoes button { padding: 8px 16px; font-size: 13.5px; }
+  .admin-table .col-conta div { overflow-wrap: anywhere; }
+}

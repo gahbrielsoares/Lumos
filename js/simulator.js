@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=51";
+import { supabase } from "./supabaseClient.js?v=52";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=51" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=51" />
+  <script src="js/logo.js?v=52" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=52" />
 </head>
 <body>
 
@@ -65,7 +65,7 @@
       </div>
 
       <div class="panel-table-wrap">
-        <table class="panel-table">
+        <table class="panel-table admin-table">
           <thead><tr><th>Conta</th><th>Situação</th><th>Plano</th><th>Abas</th><th>Último acesso</th><th>Uso (30 dias)</th><th></th></tr></thead>
           <tbody id="rows"><tr><td colspan="7" style="opacity:.7;">Carregando…</td></tr></tbody>
         </table>
@@ -74,12 +74,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=51";
-    import { initThemeToggle } from "./js/theme.js?v=51";
-    import { initMobileNav } from "./js/mobileNav.js?v=51";
-    import { renderSidebar } from "./js/sidebar.js?v=51";
-    import { supabase } from "./js/supabaseClient.js?v=51";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=51";
+    import { requireSession, signOut } from "./js/auth.js?v=52";
+    import { initThemeToggle } from "./js/theme.js?v=52";
+    import { initMobileNav } from "./js/mobileNav.js?v=52";
+    import { renderSidebar } from "./js/sidebar.js?v=52";
+    import { supabase } from "./js/supabaseClient.js?v=52";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=52";
 
     await requireSession();
     initThemeToggle();
@@ -88,7 +88,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=51");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=52");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -147,14 +147,14 @@
       const list = accounts.filter((a) => (!q || `${a.negocio} ${a.nome} ${a.email}`.toLowerCase().includes(q))
         && (!f || (f === "equipe" ? isStaffRole(a.role) : a.status === f)));
       document.getElementById("rows").innerHTML = list.map((a) => `<tr>
-        <td><strong>${esc(a.negocio || a.nome || a.email)}</strong>${a.principal ? ' <span class="erp-badge ok">principal</span>' : ""}${a.role === "admin" ? ' <span class="erp-badge info">admin</span>' : a.role === "suporte" ? ' <span class="erp-badge warn">suporte</span>' : ""}
+        <td class="col-conta"><strong>${esc(a.negocio || a.nome || a.email)}</strong>${a.principal ? ' <span class="erp-badge ok">principal</span>' : ""}${a.role === "admin" ? ' <span class="erp-badge info">admin</span>' : a.role === "suporte" ? ' <span class="erp-badge warn">suporte</span>' : ""}
           <div style="font-size:12.5px; opacity:.7;">${esc(a.email)}${a.nicho ? ` · ${esc(NICHO[a.nicho] || a.nicho)}` : ""}</div></td>
-        <td>${SIT[a.status] || a.status}</td>
-        <td>${esc(a.plano || "Sem plano")}</td>
-        <td>${a.allowed_tabs?.length ? `${a.allowed_tabs.length} aba${a.allowed_tabs.length > 1 ? "s" : ""}` : "Todas"}</td>
-        <td>${ago(a.ultimo_acesso)}</td>
-        <td style="font-size:13px;">${a.agentes} agente${a.agentes === 1 ? "" : "s"} · ${a.leads_30d} contatos</td>
-        <td><div class="erp-actions"><button data-open="${a.id}">Gerenciar</button></div></td></tr>`).join("")
+        <td data-label="Situação">${SIT[a.status] || a.status}</td>
+        <td data-label="Plano">${esc(a.plano || "Sem plano")}</td>
+        <td data-label="Abas">${a.allowed_tabs?.length ? `${a.allowed_tabs.length} aba${a.allowed_tabs.length > 1 ? "s" : ""}` : "Todas"}</td>
+        <td data-label="Último acesso">${ago(a.ultimo_acesso)}</td>
+        <td data-label="Uso (30 dias)" style="font-size:13px;">${a.agentes} agente${a.agentes === 1 ? "" : "s"} · ${a.leads_30d} contatos</td>
+        <td class="col-acoes"><div class="erp-actions"><button data-open="${a.id}">Gerenciar</button></div></td></tr>`).join("")
         || `<tr><td colspan="7" style="opacity:.7;">Nenhuma conta encontrada.</td></tr>`;
     }
 

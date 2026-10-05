@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=51";
+import { supabase } from "./supabaseClient.js?v=52";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
