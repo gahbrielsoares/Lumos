@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=61" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=61" />
+  <script src="js/logo.js?v=62" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=62" />
 </head>
 <body>
 
@@ -134,13 +134,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=61";
-    import { initThemeToggle } from "./js/theme.js?v=61";
-    import { initMobileNav } from "./js/mobileNav.js?v=61";
-    import { renderSidebar } from "./js/sidebar.js?v=61";
-    import { listAgents } from "./js/agents.js?v=61";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=61";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=61";
+    import { requireSession, signOut } from "./js/auth.js?v=62";
+    import { initThemeToggle } from "./js/theme.js?v=62";
+    import { initMobileNav } from "./js/mobileNav.js?v=62";
+    import { renderSidebar } from "./js/sidebar.js?v=62";
+    import { listAgents } from "./js/agents.js?v=62";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=62";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=62";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -166,7 +166,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=61";
+    } from "./js/products.js?v=62";
 
     await requireSession();
     initThemeToggle();
@@ -235,6 +235,8 @@
         return;
       }
 
+      // O formulário pode estar dentro da lista (edição): volta para o lugar antes de redesenhar
+      addProductBtn.insertAdjacentElement("afterend", productForm);
       productsList.innerHTML = data.length
         ? data.map((p) => {
             const cats = (p.product_categories || [])
@@ -287,13 +289,18 @@
       productsList.querySelectorAll("[data-edit]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const p = data.find((x) => x.id === btn.dataset.edit);
-          openForm(p);
+          // Abre o formulário logo abaixo do produto clicado (e não no fim da lista)
+          const card = btn.closest(".hub-card");
+          openForm(p, card);
           syncBoxField();
         });
       });
     }
 
-    function openForm(product = null) {
+    function openForm(product = null, anchor = null) {
+      // Edição: formulário logo abaixo do produto; novo produto: depois da lista
+      if (anchor) anchor.insertAdjacentElement("afterend", productForm);
+      else addProductBtn.insertAdjacentElement("afterend", productForm);
       productForm.style.display = "flex";
       addProductBtn.style.display = "none";
       productForm.reset();
@@ -315,12 +322,18 @@
           c.checked = productCatIds.includes(c.value);
         });
       }
+      // Leva a tela até o formulário e põe o cursor no nome
+      requestAnimationFrame(() => {
+        productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("p-name").focus({ preventScroll: true });
+      });
     }
 
     addProductBtn.addEventListener("click", () => { openForm(); syncBoxField(); });
 
     cancelProduct.addEventListener("click", () => {
       productForm.style.display = "none";
+      addProductBtn.insertAdjacentElement("afterend", productForm);
       addProductBtn.style.display = "inline-flex";
       productForm.reset();
     });

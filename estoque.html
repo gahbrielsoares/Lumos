@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estoque — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=61" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=61" />
+  <script src="js/logo.js?v=62" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=62" />
 </head>
 <body>
 
@@ -83,12 +83,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=61";
-    import { initThemeToggle } from "./js/theme.js?v=61";
-    import { initMobileNav } from "./js/mobileNav.js?v=61";
-    import { renderSidebar } from "./js/sidebar.js?v=61";
-    import { supabase } from "./js/supabaseClient.js?v=61";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=61";
+    import { requireSession, signOut } from "./js/auth.js?v=62";
+    import { initThemeToggle } from "./js/theme.js?v=62";
+    import { initMobileNav } from "./js/mobileNav.js?v=62";
+    import { renderSidebar } from "./js/sidebar.js?v=62";
+    import { supabase } from "./js/supabaseClient.js?v=62";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=62";
 
     await requireSession();
     initThemeToggle();
@@ -99,7 +99,7 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl" };
     let products = [];
-    const { getMyAccess } = await import("./js/workspace.js?v=61");
+    const { getMyAccess } = await import("./js/workspace.js?v=62");
     const acesso = await getMyAccess();
     const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) {
