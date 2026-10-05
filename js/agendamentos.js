@@ -1,4 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=53";
+import { supabase } from "./supabaseClient.js?v=54";
+import { getWorkspaceOwnerId } from "./workspace.js?v=54";
 
 export async function countTodayAppointments(agentId) {
   const start = new Date();
@@ -34,7 +35,7 @@ export async function listAppointmentsInRange(start, end) {
 }
 
 export async function createAppointment({ lead_id, data_hora_inicio }) {
-  const owner_id = (await supabase.auth.getUser()).data?.user?.id;
+  const owner_id = await getWorkspaceOwnerId();
   return supabase.from("agendamentos").insert({ owner_id, lead_id, data_hora_inicio });
 }
 

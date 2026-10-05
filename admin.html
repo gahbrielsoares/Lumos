@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=53" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=53" />
+  <script src="js/logo.js?v=54" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=54" />
 </head>
 <body>
 
@@ -74,12 +74,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=53";
-    import { initThemeToggle } from "./js/theme.js?v=53";
-    import { initMobileNav } from "./js/mobileNav.js?v=53";
-    import { renderSidebar } from "./js/sidebar.js?v=53";
-    import { supabase } from "./js/supabaseClient.js?v=53";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=53";
+    import { requireSession, signOut } from "./js/auth.js?v=54";
+    import { initThemeToggle } from "./js/theme.js?v=54";
+    import { initMobileNav } from "./js/mobileNav.js?v=54";
+    import { renderSidebar } from "./js/sidebar.js?v=54";
+    import { supabase } from "./js/supabaseClient.js?v=54";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=54";
 
     await requireSession();
     initThemeToggle();
@@ -88,7 +88,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=53");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=54");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -103,10 +103,10 @@
       ["sistema", "Sistema", TABS.filter((t) => !t.group)],
     ];
     const PACOTES = {
-      "Lojas (materiais)": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal", "settings"],
-      "Restaurante": ["clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "settings"],
-      "Só CRM": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "settings"],
-      "CRM + ERP": [...TABS.filter((t) => t.group).map((t) => t.key), "settings"],
+      "Lojas (materiais)": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal", "settings", "equipe"],
+      "Restaurante": ["clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "settings", "equipe"],
+      "Só CRM": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "settings", "equipe"],
+      "CRM + ERP": [...TABS.filter((t) => t.group).map((t) => t.key), "settings", "equipe"],
     };
     const ago = (iso) => {
       if (!iso) return "nunca";
@@ -153,7 +153,7 @@
         <td data-label="Plano">${esc(a.plano || "Sem plano")}</td>
         <td data-label="Abas">${a.allowed_tabs?.length ? `${a.allowed_tabs.length} aba${a.allowed_tabs.length > 1 ? "s" : ""}` : "Todas"}</td>
         <td data-label="Último acesso">${ago(a.ultimo_acesso)}</td>
-        <td data-label="Uso (30 dias)" style="font-size:13px;">${a.agentes} agente${a.agentes === 1 ? "" : "s"} · ${a.leads_30d} contatos</td>
+        <td data-label="Uso (30 dias)" style="font-size:13px;">${a.agentes} agente${a.agentes === 1 ? "" : "s"} · ${a.leads_30d} contatos${a.equipe ? ` · ${a.equipe} na equipe` : ""}</td>
         <td class="col-acoes"><div class="erp-actions"><button data-open="${a.id}">Gerenciar</button></div></td></tr>`).join("")
         || `<tr><td colspan="7" style="opacity:.7;">Nenhuma conta encontrada.</td></tr>`;
     }

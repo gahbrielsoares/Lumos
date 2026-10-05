@@ -57,12 +57,16 @@ Deno.serve(async (req) => {
     const body = await req.json();
 
     if (body.action === "list") {
-      const [{ data: profiles }, { data: biz }, { data: agents }, users] = await Promise.all([
+      const [{ data: profilesAll }, { data: biz }, { data: agents }, users, { data: team }] = await Promise.all([
         supabase.from("profiles").select("*"),
         supabase.from("business_config").select("owner_id, business_name, business_type"),
         supabase.from("agents").select("owner_id, enabled, is_simulator"),
         allAuthUsers(),
+        supabase.from("team_members").select("owner_id, user_id"),
       ]);
+      // Funcionários dos estabelecimentos não entram na lista de contas (aparecem como "equipe" do cliente)
+      const membros = new Set((team || []).map((t) => t.user_id));
+      const profiles = (profilesAll || []).filter((p) => p.role !== "equipe" && !membros.has(p.id));
       const since = new Date(Date.now() - 30 * 86400e3).toISOString();
       const { data: leads } = await supabase.from("leads").select("owner_id").gte("last_message_at", since).limit(50000);
       const count = (arr: { owner_id: string }[] | null, id: string) => (arr || []).filter((x) => x.owner_id === id).length;
@@ -79,6 +83,8 @@ Deno.serve(async (req) => {
           negocio: bizById[p.id]?.business_name || "", nicho: bizById[p.id]?.business_type || "",
           agentes: (agents || []).filter((a) => a.owner_id === p.id && !a.is_simulator).length,
           leads_30d: count(leads, p.id),
+          equipe: (team || []).filter((t) => t.owner_id === p.id).length,
+          limite_equipe: p.limite_equipe ?? null,
         };
       }).sort((a, b) => String(b.criado_em || "").localeCompare(String(a.criado_em || "")));
       return json({ accounts, me: me.user.id, my_role: myRole, is_owner: isOwner });

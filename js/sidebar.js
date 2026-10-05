@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=53";
+import { supabase } from "./supabaseClient.js?v=54";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
@@ -61,6 +61,10 @@ export const NAV_ITEMS = [
     icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>`,
   },
   {
+    key: "equipe", href: "equipe.html", label: "Equipe", core: true, adminControl: true, ownerOnly: true,
+    icon: `<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20v-1a6.5 6.5 0 0 1 13 0v1"/><path d="M17 11a3 3 0 1 0 0-6M21.5 20v-1a6.5 6.5 0 0 0-4-6"/>`,
+  },
+  {
     key: "integracoes", href: "integracoes.html", label: "Integrações", core: true, adminControl: true,
     icon: `<path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-10 0V7zM12 16v5"/>`,
   },
@@ -99,6 +103,20 @@ export async function getAccess() {
   const suporte = suporteValido && !preview;
   const isAdmin = p?.role === "admin";
   const isStaff = isAdmin || p?.role === "suporte";
+
+  // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
+  if (p?.role === "equipe") {
+    const { getMyAccess } = await import("./workspace.js?v=54");
+    const me = await getMyAccess();
+    const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
+    const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
+    accessCache = {
+      isAdmin: false, isStaff: false, isMember: true, member: me.member, role: "equipe", suporte: false, suporteValido: false,
+      preview: false, allowed: tabs, status: "ativo",
+      can: (key) => tabs.includes(key),
+    };
+    return accessCache;
+  }
   const allowed = Array.isArray(p?.allowed_tabs) && p.allowed_tabs.length ? p.allowed_tabs : null;
   accessCache = {
     isAdmin, isStaff, role: p?.role || null, suporte, suporteValido, preview, allowed, status: p?.status || null,

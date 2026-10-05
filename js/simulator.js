@@ -1,4 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=53";
+import { supabase } from "./supabaseClient.js?v=54";
+import { getWorkspaceOwnerId } from "./workspace.js?v=54";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
@@ -104,8 +105,7 @@ export const SIM_PRODUCTS = {
 };
 
 async function userId() {
-  const { data } = await supabase.auth.getUser();
-  return data?.user?.id;
+  return getWorkspaceOwnerId();
 }
 
 // Cadastra (ou completa) os produtos de demonstração, vinculados só ao simulador

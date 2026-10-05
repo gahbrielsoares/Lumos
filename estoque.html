@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estoque — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=53" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=53" />
+  <script src="js/logo.js?v=54" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=54" />
 </head>
 <body>
 
@@ -83,12 +83,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=53";
-    import { initThemeToggle } from "./js/theme.js?v=53";
-    import { initMobileNav } from "./js/mobileNav.js?v=53";
-    import { renderSidebar } from "./js/sidebar.js?v=53";
-    import { supabase } from "./js/supabaseClient.js?v=53";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=53";
+    import { requireSession, signOut } from "./js/auth.js?v=54";
+    import { initThemeToggle } from "./js/theme.js?v=54";
+    import { initMobileNav } from "./js/mobileNav.js?v=54";
+    import { renderSidebar } from "./js/sidebar.js?v=54";
+    import { supabase } from "./js/supabaseClient.js?v=54";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=54";
 
     await requireSession();
     initThemeToggle();
@@ -99,6 +99,15 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl" };
     let products = [];
+    const { getMyAccess } = await import("./js/workspace.js?v=54");
+    const acesso = await getMyAccess();
+    const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
+    if (!verCustos) {
+      document.getElementById("c-valor").closest(".panel-stat-card").style.display = "none";
+      const st = document.createElement("style");
+      st.textContent = ".panel-table th:nth-child(4), #rows td:nth-child(4) { display:none; }";
+      document.head.appendChild(st);
+    }
 
     async function load() {
       const [{ data: p }, { data: m }] = await Promise.all([
@@ -140,7 +149,7 @@
         <td>${p.estoque_minimo == null ? "—" : num(p.estoque_minimo, 3)}</td>
         <td>${p.custo == null ? "—" : brl(p.custo)}</td>
         <td>${situacao(p)}</td>
-        <td><div class="erp-actions">${p.estoque == null ? `<button data-ctrl="${p.id}">Controlar estoque</button>` : `<button data-mov="${p.id}">Movimentar</button><button data-cfg="${p.id}">Mínimo e custo</button>`}</div></td></tr>`).join("");
+        <td><div class="erp-actions">${p.estoque == null ? `<button data-ctrl="${p.id}">Controlar estoque</button>` : `<button data-mov="${p.id}">Movimentar</button><button data-cfg="${p.id}">${verCustos ? "Mínimo e custo" : "Estoque mínimo"}</button>`}</div></td></tr>`).join("");
     }
 
     function mover(p) {
@@ -171,13 +180,13 @@
         ${ativar ? `<div class="field"><label>Saldo inicial (quanto tem hoje)</label><input id="m-ini" type="number" step="0.001" min="0" value="0" /></div>` : ""}
         <div class="erp-row2">
           <div class="field"><label>Estoque mínimo (alerta)</label><input id="m-min" type="number" step="0.001" min="0" value="${p.estoque_minimo ?? ""}" /></div>
-          <div class="field"><label>Custo unitário (R$)</label><input id="m-custo" type="number" step="0.01" min="0" value="${p.custo ?? ""}" /></div>
+          ${verCustos ? `<div class="field"><label>Custo unitário (R$)</label><input id="m-custo" type="number" step="0.01" min="0" value="${p.custo ?? ""}" /></div>` : ""}
         </div>
-        <p class="settings-hint">O custo é usado no valor do estoque e no lucro dos Relatórios. As compras recebidas atualizam o custo sozinhas.</p>
+        ${verCustos ? `<p class="settings-hint">O custo é usado no valor do estoque e no lucro dos Relatórios. As compras recebidas atualizam o custo sozinhas.</p>` : ""}
         <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 460 });
       m.el.querySelector("#m-save").addEventListener("click", async () => {
         const v = (id) => { const x = m.el.querySelector(id)?.value; return x === "" || x == null ? null : Number(x); };
-        await supabase.from("products").update({ estoque_minimo: v("#m-min"), custo: v("#m-custo") }).eq("id", p.id);
+        await supabase.from("products").update(verCustos ? { estoque_minimo: v("#m-min"), custo: v("#m-custo") } : { estoque_minimo: v("#m-min") }).eq("id", p.id);
         if (ativar) await moverEstoque({ product: { ...p, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini") || 0, motivo: "Saldo inicial" });
         m.close(); load();
       });

@@ -417,13 +417,20 @@ async function releaseTable(order: any, leadId: string) {
   }
 }
 
+// Estabelecimento de quem está logado: o próprio usuário ou, se for da equipe, o dono
+async function workspaceOf(userId: string | null) {
+  if (!userId) return null;
+  const { data: m } = await supabase.from("team_members").select("owner_id, ativo").eq("user_id", userId).maybeSingle();
+  return m ? (m.ativo ? m.owner_id : null) : userId;
+}
+
 // Cozinha mudou o status do pedido: avisa o cliente (delivery e retirada)
 async function kitchenStatus(ticketId: string, status: string, userId: string | null, trusted: boolean) {
   const valid = ["novo_pedido", "em_preparo", "pronto", "saiu_entrega", "entregue", "cancelado"];
   if (!valid.includes(status)) return json({ error: "Status inválido." }, 400);
   const { data: t } = await supabase.from("orders").select("*").eq("id", ticketId).maybeSingle();
   if (!t) return json({ error: "Pedido da cozinha não encontrado." }, 404);
-  if (!trusted && t.owner_id !== userId) return json({ error: "Sem permissão." }, 403);
+  if (!trusted && t.owner_id !== (await workspaceOf(userId))) return json({ error: "Sem permissão." }, 403);
   if (t.status === status) return json({ ok: true });
 
   await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", ticketId);
@@ -529,7 +536,7 @@ Deno.serve(async (req) => {
     let allowed = jwt === SERVICE_KEY;
     if (!allowed) {
       const { data } = await supabase.auth.getUser(jwt);
-      allowed = !!data?.user && data.user.id === ctx.order.owner_id;
+      allowed = !!data?.user && (await workspaceOf(data.user.id)) === ctx.order.owner_id;
     }
     if (!allowed) return json({ error: "Sem permissão para este pedido." }, 403);
 

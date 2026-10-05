@@ -1082,6 +1082,158 @@ where allowed_tabs is not null and cardinality(allowed_tabs) > 0 and not ('setti
 
 No acesso de suporte, a faixa no rodapé tem o botão **"Ver como o cliente vê"**, que mostra só as abas liberadas.
 
+## 33. Equipe do estabelecimento (contas internas de funcionários)
+
+No **SQL Editor** (rode tudo de uma vez):
+
+```sql
+-- Funcionários de cada estabelecimento (login por usuário simples, sem e-mail)
+create table if not exists public.team_members (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  username text unique not null,
+  nome text not null,
+  funcao text not null default 'personalizado',
+  allowed_tabs text[] not null default '{}',
+  perms jsonb not null default '{}'::jsonb,
+  ativo boolean not null default true,
+  created_at timestamptz default now()
+);
+alter table public.team_members enable row level security;
+drop policy if exists "Dono e o proprio funcionario veem" on public.team_members;
+create policy "Dono e o proprio funcionario veem" on public.team_members for select
+  using (auth.uid() = owner_id or auth.uid() = user_id);
+-- (criar, editar e excluir só pela função "team", com a chave de serviço)
+
+-- Limite de funcionários por conta (o admin da Lumos define; vazio = sem limite)
+alter table public.profiles add column if not exists limite_equipe integer;
+
+-- ---------- Funções usadas nas regras de acesso ----------
+create or replace function public.is_team_of(owner uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.team_members m where m.user_id = auth.uid() and m.owner_id = owner and m.ativo);
+$$;
+
+create or replace function public.team_has_tab(owner uuid, tab text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.team_members m
+                 where m.user_id = auth.uid() and m.owner_id = owner and m.ativo and tab = any(m.allowed_tabs));
+$$;
+
+-- O que o funcionário logado pode ver (usado pelo painel)
+create or replace function public.my_access() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'member', (select jsonb_build_object('owner_id', m.owner_id, 'nome', m.nome, 'username', m.username, 'funcao', m.funcao,
+                                         'allowed_tabs', m.allowed_tabs, 'perms', m.perms, 'ativo', m.ativo)
+               from public.team_members m where m.user_id = auth.uid()),
+    'owner', (select jsonb_build_object('status', p.status, 'role', p.role, 'allowed_tabs', p.allowed_tabs)
+              from public.profiles p where p.id = (select owner_id from public.team_members where user_id = auth.uid()))
+  );
+$$;
+
+-- ---------- Regras extras para a equipe (as regras do dono continuam iguais) ----------
+-- Operacional: toda a equipe ativa do estabelecimento
+drop policy if exists "Equipe: leads" on public.leads;
+create policy "Equipe: leads" on public.leads for all using (public.is_team_of(owner_id)) with check (public.is_team_of(owner_id));
+drop policy if exists "Equipe: mensagens" on public.messages;
+create policy "Equipe: mensagens" on public.messages for select
+  using (exists (select 1 from public.leads l where l.id = lead_id and public.is_team_of(l.owner_id)));
+drop policy if exists "Equipe: agendamentos" on public.agendamentos;
+create policy "Equipe: agendamentos" on public.agendamentos for all using (public.is_team_of(owner_id)) with check (public.is_team_of(owner_id));
+drop policy if exists "Equipe: sessoes" on public.table_sessions;
+create policy "Equipe: sessoes" on public.table_sessions for all using (public.is_team_of(owner_id)) with check (public.is_team_of(owner_id));
+drop policy if exists "Equipe: pedidos cozinha" on public.orders;
+create policy "Equipe: pedidos cozinha" on public.orders for all using (public.is_team_of(owner_id)) with check (public.is_team_of(owner_id));
+drop policy if exists "Equipe: itens" on public.order_items;
+create policy "Equipe: itens" on public.order_items for all
+  using (exists (select 1 from public.orders o where o.id = order_id and public.is_team_of(o.owner_id)))
+  with check (exists (select 1 from public.orders o where o.id = order_id and public.is_team_of(o.owner_id)));
+drop policy if exists "Equipe: pedidos de venda" on public.sales_orders;
+create policy "Equipe: pedidos de venda" on public.sales_orders for select using (public.is_team_of(owner_id));
+
+-- Cardápio, mesas e configurações: todos leem; só altera quem tem a aba
+drop policy if exists "Equipe: le produtos" on public.products;
+create policy "Equipe: le produtos" on public.products for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita produtos" on public.products;
+create policy "Equipe: edita produtos" on public.products for update
+  using (public.team_has_tab(owner_id, 'produtos') or public.team_has_tab(owner_id, 'estoque'));
+drop policy if exists "Equipe: cria produtos" on public.products;
+create policy "Equipe: cria produtos" on public.products for insert with check (public.team_has_tab(owner_id, 'produtos'));
+drop policy if exists "Equipe: exclui produtos" on public.products;
+create policy "Equipe: exclui produtos" on public.products for delete using (public.team_has_tab(owner_id, 'produtos'));
+drop policy if exists "Equipe: le categorias" on public.categories;
+create policy "Equipe: le categorias" on public.categories for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita categorias" on public.categories;
+create policy "Equipe: edita categorias" on public.categories for all
+  using (public.team_has_tab(owner_id, 'produtos')) with check (public.team_has_tab(owner_id, 'produtos'));
+drop policy if exists "Equipe: le vinculos" on public.product_categories;
+create policy "Equipe: le vinculos" on public.product_categories for select
+  using (exists (select 1 from public.products p where p.id = product_id and public.is_team_of(p.owner_id)));
+drop policy if exists "Equipe: edita vinculos" on public.product_categories;
+create policy "Equipe: edita vinculos" on public.product_categories for all
+  using (exists (select 1 from public.products p where p.id = product_id and public.team_has_tab(p.owner_id, 'produtos')))
+  with check (exists (select 1 from public.products p where p.id = product_id and public.team_has_tab(p.owner_id, 'produtos')));
+drop policy if exists "Equipe: le mesas" on public.restaurant_tables;
+create policy "Equipe: le mesas" on public.restaurant_tables for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita mesas" on public.restaurant_tables;
+create policy "Equipe: edita mesas" on public.restaurant_tables for all
+  using (public.team_has_tab(owner_id, 'mesas')) with check (public.team_has_tab(owner_id, 'mesas'));
+drop policy if exists "Equipe: le config" on public.business_config;
+create policy "Equipe: le config" on public.business_config for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita config" on public.business_config;
+create policy "Equipe: edita config" on public.business_config for update using (public.team_has_tab(owner_id, 'settings'));
+drop policy if exists "Equipe: le horarios" on public.business_hours;
+create policy "Equipe: le horarios" on public.business_hours for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita horarios" on public.business_hours;
+create policy "Equipe: edita horarios" on public.business_hours for all
+  using (public.team_has_tab(owner_id, 'settings')) with check (public.team_has_tab(owner_id, 'settings'));
+drop policy if exists "Equipe: le agentes" on public.agents;
+create policy "Equipe: le agentes" on public.agents for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita agentes" on public.agents;
+create policy "Equipe: edita agentes" on public.agents for update using (public.team_has_tab(owner_id, 'agents'));
+
+-- Sensível: só com a aba correspondente (chaves de IA e de integrações, financeiro, compras, estoque, follow-up)
+drop policy if exists "Equipe: provedores de IA" on public.ai_providers;
+create policy "Equipe: provedores de IA" on public.ai_providers for all
+  using (exists (select 1 from public.agents a where a.id = agent_id and public.team_has_tab(a.owner_id, 'agents')))
+  with check (exists (select 1 from public.agents a where a.id = agent_id and public.team_has_tab(a.owner_id, 'agents')));
+drop policy if exists "Equipe: provedor de WhatsApp" on public.whatsapp_provider_config;
+create policy "Equipe: provedor de WhatsApp" on public.whatsapp_provider_config for all
+  using (exists (select 1 from public.agents a where a.id = agent_id and public.team_has_tab(a.owner_id, 'agents')))
+  with check (exists (select 1 from public.agents a where a.id = agent_id and public.team_has_tab(a.owner_id, 'agents')));
+drop policy if exists "Equipe: integracoes" on public.integrations;
+create policy "Equipe: integracoes" on public.integrations for all
+  using (public.team_has_tab(owner_id, 'integracoes')) with check (public.team_has_tab(owner_id, 'integracoes'));
+drop policy if exists "Equipe: financeiro" on public.fin_lancamentos;
+create policy "Equipe: financeiro" on public.fin_lancamentos for all
+  using (public.team_has_tab(owner_id, 'financeiro')) with check (public.team_has_tab(owner_id, 'financeiro'));
+drop policy if exists "Equipe: compras" on public.compras;
+create policy "Equipe: compras" on public.compras for all
+  using (public.team_has_tab(owner_id, 'compras')) with check (public.team_has_tab(owner_id, 'compras'));
+drop policy if exists "Equipe: fornecedores" on public.fornecedores;
+create policy "Equipe: fornecedores" on public.fornecedores for all
+  using (public.team_has_tab(owner_id, 'compras')) with check (public.team_has_tab(owner_id, 'compras'));
+drop policy if exists "Equipe: estoque" on public.estoque_mov;
+create policy "Equipe: estoque" on public.estoque_mov for all
+  using (public.team_has_tab(owner_id, 'estoque') or public.team_has_tab(owner_id, 'compras'))
+  with check (public.team_has_tab(owner_id, 'estoque') or public.team_has_tab(owner_id, 'compras'));
+drop policy if exists "Equipe: follow-up regras" on public.follow_up_rules;
+create policy "Equipe: follow-up regras" on public.follow_up_rules for all
+  using (public.team_has_tab(owner_id, 'follow_up')) with check (public.team_has_tab(owner_id, 'follow_up'));
+drop policy if exists "Equipe: follow-up config" on public.follow_up_config;
+create policy "Equipe: follow-up config" on public.follow_up_config for all
+  using (public.team_has_tab(owner_id, 'follow_up')) with check (public.team_has_tab(owner_id, 'follow_up'));
+drop policy if exists "Equipe: follow-up historico" on public.follow_up_log;
+create policy "Equipe: follow-up historico" on public.follow_up_log for select using (public.team_has_tab(owner_id, 'follow_up'));
+```
+
+### Edge Function `team`
+Crie a função `team` com `supabase/functions/team/index.ts`, **JWT ligado**.
+Atualize também `send-message` e `orders` (passam a aceitar funcionários da loja).
+
+O funcionário entra com **usuário e senha** na mesma tela de login (o campo aceita e-mail ou usuário).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -1,4 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=53";
+import { supabase } from "./supabaseClient.js?v=54";
+import { getWorkspaceOwnerId } from "./workspace.js?v=54";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)
@@ -23,9 +24,9 @@ export function monthRange(offset = 0) {
   return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
 }
 
+// Dono dos dados (o próprio usuário ou, se for da equipe, o dono do estabelecimento)
 export async function ownerId() {
-  const { data } = await supabase.auth.getUser();
-  return data?.user?.id;
+  return getWorkspaceOwnerId();
 }
 
 // Movimenta o estoque de um produto e registra no histórico

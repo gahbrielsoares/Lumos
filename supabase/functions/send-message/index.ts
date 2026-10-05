@@ -55,7 +55,10 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Sessão expirada. Entre de novo no Lumos." }, 401);
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-    if (!["admin", "suporte", "cliente"].includes(profile?.role)) {
+    // Funcionário da equipe trabalha nos dados do dono do estabelecimento
+    const { data: member } = await supabase.from("team_members").select("owner_id, ativo").eq("user_id", user.id).maybeSingle();
+    const workspace = member?.ativo ? member.owner_id : user.id;
+    if (!["admin", "suporte", "cliente"].includes(profile?.role) && !member?.ativo) {
       return json({ error: "Sua conta não tem acesso a essa função." }, 403);
     }
 
@@ -68,7 +71,7 @@ Deno.serve(async (req) => {
     // 3. O lead precisa ser desta loja
     const { data: lead } = await supabase
       .from("leads").select("id, owner_id, agent_id, phone, ai_enabled").eq("id", lead_id).maybeSingle();
-    if (!lead || lead.owner_id !== user.id) return json({ error: "Contato não encontrado." }, 404);
+    if (!lead || lead.owner_id !== workspace) return json({ error: "Contato não encontrado." }, 404);
 
     const { data: agent } = await supabase.from("agents").select("id, pause_on_human").eq("id", lead.agent_id).maybeSingle();
     const { data: wa } = await supabase

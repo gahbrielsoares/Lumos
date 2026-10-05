@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipe — Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=54" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=54" />
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="font-size: 28px;">Equipe</h1>
+          <p style="margin-top: 6px; max-width: 760px;">Crie acessos para seus funcionários. Cada um entra com <strong>usuário e senha</strong> e vê só o que a função dele precisa: o financeiro, as compras e os custos ficam só com você.</p>
+        </div>
+        <button class="btn btn-primary" id="new-member">+ Novo funcionário</button>
+      </div>
+      <p class="settings-hint" id="limite-info" style="margin-top:10px;"></p>
+
+      <div class="panel-table-wrap">
+        <table class="panel-table admin-table">
+          <thead><tr><th>Funcionário</th><th>Usuário</th><th>Função</th><th>Abas</th><th>Situação</th><th>Último acesso</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="7" style="opacity:.7;">Carregando…</td></tr></tbody>
+        </table>
+        <div class="empty-state" id="empty" style="display:none; border:none;">
+          <h3>Nenhum funcionário ainda</h3>
+          <p>Clique em "+ Novo funcionário" para criar o primeiro acesso (garçom, cozinha, atendente…).</p>
+        </div>
+      </div>
+      <p class="settings-hint" style="margin-top:14px;">O funcionário entra na mesma tela de login da Lumos, digitando o <strong>usuário</strong> (sem e-mail) e a senha.</p>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=54";
+    import { initThemeToggle } from "./js/theme.js?v=54";
+    import { initMobileNav } from "./js/mobileNav.js?v=54";
+    import { renderSidebar } from "./js/sidebar.js?v=54";
+    import { supabase } from "./js/supabaseClient.js?v=54";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=54";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("equipe");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=54");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=54");
+    const FUNCOES = {
+      garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta." },
+      cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },
+      atendente: { label: "Atendente", tabs: ["kanban", "leads", "clientes", "follow_up", "agendamentos"], dica: "Atende os contatos, acompanha o funil e a agenda." },
+      gerente: { label: "Gerente", tabs: ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras"], dica: "Toda a operação, mais produtos, estoque e compras. Financeiro só se você marcar." },
+      personalizado: { label: "Personalizado", tabs: null, dica: "Você escolhe aba por aba." },
+    };
+    const EXCLUIR = ["dashboard", "equipe"];
+    let members = [], ownerTabs = null, limite = null, lojaSlug = "";
+
+    async function call(body) {
+      const { data, error } = await supabase.functions.invoke("team", { body });
+      if (error || data?.error) {
+        let m = data?.error || error?.message || "Erro";
+        try { const b = await error?.context?.json(); if (b?.error) m = b.error; } catch (_) { /* sem JSON */ }
+        throw new Error(m);
+      }
+      return data;
+    }
+    const slug = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 16);
+    const tabsDisponiveis = () => NAV_ITEMS.filter((i) => !EXCLUIR.includes(i.key) && (!ownerTabs || ownerTabs.includes(i.key)));
+    const ago = (iso) => {
+      if (!iso) return "nunca entrou";
+      const d = (Date.now() - new Date(iso).getTime()) / 86400e3;
+      return d < 1 ? "hoje" : d < 2 ? "ontem" : d < 30 ? `há ${Math.floor(d)} dias` : fmtDate(iso);
+    };
+    const gerarSenha = () => {
+      const c = "abcdefghjkmnpqrstuvwxyz23456789";
+      return Array.from({ length: 8 }, () => c[Math.floor(Math.random() * c.length)]).join("");
+    };
+
+    async function load() {
+      try {
+        const r = await call({ action: "list" });
+        members = r.members; ownerTabs = r.owner_tabs; limite = r.limite;
+        render();
+      } catch (err) {
+        document.getElementById("rows").innerHTML = `<tr><td colspan="7" style="color:#B94040;">${esc(err.message)}</td></tr>`;
+      }
+    }
+
+    function render() {
+      document.getElementById("limite-info").textContent = limite != null ? `Seu plano permite até ${limite} funcionário(s). Em uso: ${members.length}.` : "";
+      document.getElementById("empty").style.display = members.length ? "none" : "block";
+      const nome = (k) => NAV_ITEMS.find((i) => i.key === k)?.label || k;
+      document.getElementById("rows").innerHTML = members.map((m) => `<tr>
+        <td class="col-conta"><strong>${esc(m.nome)}</strong></td>
+        <td data-label="Usuário"><code style="font-size:13px;">${esc(m.username)}</code></td>
+        <td data-label="Função">${esc(FUNCOES[m.funcao]?.label || "Personalizado")}</td>
+        <td data-label="Abas" style="font-size:13px; max-width:280px;">${m.allowed_tabs.map(nome).join(", ")}</td>
+        <td data-label="Situação">${m.ativo ? '<span class="erp-badge ok">Ativo</span>' : '<span class="erp-badge muted">Desativado</span>'}</td>
+        <td data-label="Último acesso">${ago(m.ultimo_acesso)}</td>
+        <td class="col-acoes"><div class="erp-actions"><button data-edit="${m.user_id}">Editar</button></div></td></tr>`).join("");
+    }
+
+    function form(m) {
+      const novo = !m;
+      m = m || { nome: "", username: "", funcao: "garcom", allowed_tabs: FUNCOES.garcom.tabs, perms: {}, ativo: true };
+      const sel = new Set(m.allowed_tabs);
+      const disp = tabsDisponiveis();
+      const grupos = [["crm", "CRM"], ["erp", "ERP"], [null, "Sistema"]].map(([g, l]) => [l, disp.filter((t) => (t.group || null) === g)]).filter(([, t]) => t.length);
+      const md = modal(`
+        <h3 style="font-size:19px; margin-bottom:12px;">${novo ? "Novo funcionário" : `Editar ${esc(m.nome)}`}</h3>
+        <div class="erp-row2">
+          <div class="field"><label>Nome</label><input id="f-nome" value="${esc(m.nome)}" placeholder="Ex.: João Silva" /></div>
+          <div class="field"><label>Usuário para entrar</label><input id="f-user" value="${esc(m.username)}" ${novo ? "" : "disabled"} autocapitalize="none" spellcheck="false" placeholder="ex.: joao.${lojaSlug || "suaLoja"}" /></div>
+        </div>
+        <div class="field"><label>${novo ? "Senha" : "Nova senha (deixe em branco para manter)"}</label>
+          <div style="display:flex; gap:8px;"><input id="f-senha" value="${novo ? gerarSenha() : ""}" placeholder="mínimo 6 caracteres" style="flex:1; min-width:0;" /><button type="button" class="btn btn-ghost btn-sm" id="f-gerar">Gerar</button></div>
+        </div>
+        <div class="field"><label>Função</label>
+          <div class="pill-tabs" id="f-func">${Object.entries(FUNCOES).map(([k, f]) => `<button type="button" class="pill-tab ${m.funcao === k ? "active" : ""}" data-func="${k}">${f.label}</button>`).join("")}</div>
+          <p class="settings-hint" id="f-func-hint" style="margin-top:6px;"></p>
+        </div>
+        <div class="field"><label>Abas que ele vê</label>
+          ${grupos.map(([l, tabs]) => `<div style="margin-bottom:10px;"><div style="font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; margin-bottom:6px;">${l}</div>
+            <div class="chips-row">${tabs.map((t) => `<label class="chip-checkbox"><input type="checkbox" class="f-aba" value="${t.key}" ${sel.has(t.key) ? "checked" : ""} /> ${esc(t.label)}</label>`).join("")}</div></div>`).join("")}
+          <p class="settings-hint">O Dashboard aparece sempre. Financeiro, Compras, Integrações e Agentes ficam bloqueados também no servidor para quem não tem a aba.</p>
+        </div>
+        <div class="field toggle-row" style="justify-content:space-between;"><span>Pode ver o custo dos produtos</span><input type="checkbox" class="toggle-input" id="f-custos" ${m.perms?.ver_custos ? "checked" : ""} /></div>
+        ${novo ? "" : `<div class="field toggle-row" style="justify-content:space-between;"><span>Acesso ativo</span><input type="checkbox" class="toggle-input" id="f-ativo" ${m.ativo ? "checked" : ""} /></div>`}
+        <div id="f-msg" class="form-msg"></div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          ${novo ? "<span></span>" : `<button class="btn btn-ghost" id="f-del" style="color:#B94040; border-color:rgba(185,64,64,.4);">Excluir</button>`}
+          <div style="display:flex; gap:10px;"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="f-save">${novo ? "Criar acesso" : "Salvar"}</button></div>
+        </div>`, { width: 640 });
+
+      let funcao = m.funcao;
+      const hint = () => (md.el.querySelector("#f-func-hint").textContent = FUNCOES[funcao]?.dica || "");
+      hint();
+      md.el.querySelectorAll("[data-func]").forEach((b) => b.addEventListener("click", () => {
+        funcao = b.dataset.func;
+        md.el.querySelectorAll("[data-func]").forEach((x) => x.classList.toggle("active", x === b));
+        const tabs = FUNCOES[funcao].tabs;
+        if (tabs) md.el.querySelectorAll(".f-aba").forEach((c) => (c.checked = tabs.includes(c.value)));
+        hint();
+      }));
+      md.el.querySelectorAll(".f-aba").forEach((c) => c.addEventListener("change", () => {
+        funcao = "personalizado";
+        md.el.querySelectorAll("[data-func]").forEach((x) => x.classList.toggle("active", x.dataset.func === "personalizado"));
+        hint();
+      }));
+      md.el.querySelector("#f-gerar").addEventListener("click", () => (md.el.querySelector("#f-senha").value = gerarSenha()));
+      if (novo) {
+        const u = md.el.querySelector("#f-user");
+        md.el.querySelector("#f-nome").addEventListener("input", (e) => {
+          if (u.dataset.touched) return;
+          const primeiro = slug(String(e.target.value).split(" ")[0]);
+          u.value = primeiro ? `${primeiro}${lojaSlug ? "." + lojaSlug : ""}` : "";
+        });
+        u.addEventListener("input", () => { u.dataset.touched = "1"; u.value = u.value.toLowerCase().replace(/\s+/g, ""); });
+      }
+
+      md.el.querySelector("#f-save").addEventListener("click", async (ev) => {
+        const msg = md.el.querySelector("#f-msg");
+        const abas = [...md.el.querySelectorAll(".f-aba:checked")].map((c) => c.value);
+        const body = {
+          nome: md.el.querySelector("#f-nome").value.trim(), funcao, allowed_tabs: abas,
+          perms: { ver_custos: md.el.querySelector("#f-custos").checked },
+        };
+        const senha = md.el.querySelector("#f-senha").value.trim();
+        if (novo) Object.assign(body, { action: "create", username: md.el.querySelector("#f-user").value.trim(), senha });
+        else Object.assign(body, { action: "update", user_id: m.user_id, ativo: md.el.querySelector("#f-ativo").checked, ...(senha ? { senha } : {}) });
+        ev.target.disabled = true;
+        try {
+          await call(body);
+          if (novo || senha) {
+            // Mostra o acesso para o dono passar ao funcionário
+            md.el.innerHTML = `<h3 style="font-size:19px;">${novo ? "Acesso criado!" : "Senha alterada!"}</h3>
+              <p style="margin:6px 0 14px;">Passe estes dados para ${esc(body.nome || m.nome)}. Ele entra na tela de login da Lumos com o usuário (sem e-mail).</p>
+              <div class="calc" style="padding:14px 16px;"><div><b>Usuário:</b> <code>${esc(novo ? body.username.toLowerCase() : m.username)}</code></div><div style="margin-top:6px;"><b>Senha:</b> <code>${esc(senha)}</code></div></div>
+              <div class="modal-actions"><button class="btn btn-ghost" id="f-copy">Copiar</button><button class="btn btn-primary" data-close>Pronto</button></div>`;
+            md.el.querySelector("[data-close]").addEventListener("click", md.close);
+            md.el.querySelector("#f-copy").addEventListener("click", async (e) => {
+              const txt = `Acesso à Lumos\nUsuário: ${novo ? body.username.toLowerCase() : m.username}\nSenha: ${senha}\nEntre em: ${location.origin}${location.pathname.replace(/[^/]*$/, "")}login.html`;
+              try { await navigator.clipboard.writeText(txt); e.target.textContent = "Copiado!"; } catch (_) { /* sem clipboard */ }
+            });
+          } else md.close();
+          load();
+        } catch (err) { msg.textContent = err.message; msg.className = "form-msg error"; ev.target.disabled = false; }
+      });
+      md.el.querySelector("#f-del")?.addEventListener("click", async () => {
+        if (!confirm(`Excluir o acesso de ${m.nome}? Ele não vai mais conseguir entrar. O que ele já fez (pedidos, mensagens) continua no sistema.`)) return;
+        try { await call({ action: "delete", user_id: m.user_id }); md.close(); load(); }
+        catch (err) { md.el.querySelector("#f-msg").textContent = err.message; md.el.querySelector("#f-msg").className = "form-msg error"; }
+      });
+    }
+
+    const cfg = await getBusinessConfig();
+    lojaSlug = slug(cfg?.business_name || "");
+    document.getElementById("new-member").addEventListener("click", () => {
+      if (limite != null && members.length >= limite) { alert(`Seu plano permite até ${limite} funcionário(s).`); return; }
+      form(null);
+    });
+    document.getElementById("rows").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-edit]"); if (!b) return;
+      form(members.find((m) => m.user_id === b.dataset.edit));
+    });
+    load();
+  </script>
+</body>
+</html>

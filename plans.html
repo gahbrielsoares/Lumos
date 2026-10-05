@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Escolha seu plano — Lumos CRM</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=53" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=53" />
+  <script src="js/logo.js?v=54" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=54" />
 </head>
 <body>
 <header class="site-header">
@@ -24,7 +24,19 @@
       <strong>Sua conta está inativa no momento.</strong>
       <p style="margin-top:6px; font-size:15px;">Para voltar a usar a Lumos, fale com o nosso time. Seus dados continuam guardados.</p>
     </div>
-    <script>if (new URLSearchParams(location.search).get("inativa") === "1") document.getElementById("inativa-aviso").style.display = "block";</script>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        if (q.get("inativa") !== "1") return;
+        var box = document.getElementById("inativa-aviso");
+        box.style.display = "block";
+        if (q.get("equipe") === "1") {
+          box.innerHTML = "<strong>Seu acesso está desativado.</strong><p style=\"margin-top:6px; font-size:15px;\">Fale com o responsável pelo estabelecimento para liberar o seu acesso.</p>";
+          var main = document.querySelector(".plans-grid"); if (main) main.style.display = "none";
+          var h = document.querySelector("h1"); if (h) h.style.display = "none";
+        }
+      })();
+    </script>
     <h1 style="font-size: 32px;">Como você quer usar a Lumos?</h1>
     <p style="margin-top: 10px; font-size: 15.5px;">Escolha o serviço para falar com nosso time e ativar sua conta.</p>
 
@@ -58,7 +70,7 @@
   </div>
 
   <script type="module">
-    import { requireLogin, signOut } from "./js/auth.js?v=53";
+    import { requireLogin, signOut } from "./js/auth.js?v=54";
     requireLogin();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
