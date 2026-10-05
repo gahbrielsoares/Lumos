@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=56" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=56" />
+  <script src="js/logo.js?v=57" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=57" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
@@ -141,15 +141,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=56";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=56";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=56";
-    import { listAgents } from "./js/agents.js?v=56";
-    import { initThemeToggle } from "./js/theme.js?v=56";
-    import { initMobileNav } from "./js/mobileNav.js?v=56";
-    import { renderSidebar } from "./js/sidebar.js?v=56";
-    import { getRange } from "./js/dateRange.js?v=56";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=56";
+    import { requireSession, signOut } from "./js/auth.js?v=57";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=57";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=57";
+    import { listAgents } from "./js/agents.js?v=57";
+    import { initThemeToggle } from "./js/theme.js?v=57";
+    import { initMobileNav } from "./js/mobileNav.js?v=57";
+    import { renderSidebar } from "./js/sidebar.js?v=57";
+    import { getRange } from "./js/dateRange.js?v=57";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=57";
 
     await requireSession();
     initThemeToggle();

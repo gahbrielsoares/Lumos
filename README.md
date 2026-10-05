@@ -1260,6 +1260,32 @@ e o cliente recebe o agradecimento no WhatsApp.
 
 Atualize a função **`orders`** (novas ações `mesa_conta` e `mesa_fechar`). Não há SQL novo.
 
+## 36. Mesas: garçom cria, só o gerente exclui
+
+No **SQL Editor**:
+
+```sql
+create or replace function public.team_is_gerente(owner uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.team_members m
+                 where m.user_id = auth.uid() and m.owner_id = owner and m.ativo and m.funcao = 'gerente');
+$$;
+
+drop policy if exists "Equipe: edita mesas" on public.restaurant_tables;
+drop policy if exists "Equipe: cria mesas" on public.restaurant_tables;
+drop policy if exists "Equipe: atualiza mesas" on public.restaurant_tables;
+drop policy if exists "Equipe: exclui mesas" on public.restaurant_tables;
+create policy "Equipe: cria mesas" on public.restaurant_tables for insert
+  with check (public.team_has_tab(owner_id, 'mesas'));
+create policy "Equipe: atualiza mesas" on public.restaurant_tables for update
+  using (public.team_has_tab(owner_id, 'mesas'));
+create policy "Equipe: exclui mesas" on public.restaurant_tables for delete
+  using (public.team_has_tab(owner_id, 'mesas') and public.team_is_gerente(owner_id));
+```
+
+Garçom/atendente: cria mesa (digitando só o número, ex.: 17) e já abre a comanda. Excluir mesa e QR Codes: dono e gerente.
+A exclusão é bloqueada se a mesa tiver comanda ou pedido em aberto.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

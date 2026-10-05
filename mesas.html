@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=56" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=56" />
+  <script src="js/logo.js?v=57" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=57" />
 </head>
 <body>
 
@@ -99,8 +99,9 @@
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Nova mesa</h3>
       <div class="detail-field" style="margin-top:16px;">
         <div class="k">Identificação</div>
-        <input type="text" class="panel-select" id="new-table-label" placeholder="Ex: Mesa 1" style="width:100%;" />
+        <input type="text" class="panel-select" id="new-table-label" placeholder="Ex.: 17 ou Mesa 17" style="width:100%;" />
       </div>
+      <label class="toggle-row" style="justify-content:space-between; margin-top:12px; gap:12px;"><span>Abrir a comanda nesta mesa agora</span><input type="checkbox" class="toggle-input" id="new-table-comanda" /></label>
       <div id="new-table-msg" class="form-msg"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="new-table-cancel">Cancelar</button>
@@ -111,19 +112,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=56";
-    import { initThemeToggle } from "./js/theme.js?v=56";
-    import { initMobileNav } from "./js/mobileNav.js?v=56";
-    import { renderSidebar } from "./js/sidebar.js?v=56";
+    import { requireSession, signOut } from "./js/auth.js?v=57";
+    import { initThemeToggle } from "./js/theme.js?v=57";
+    import { initMobileNav } from "./js/mobileNav.js?v=57";
+    import { renderSidebar } from "./js/sidebar.js?v=57";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=56";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=56";
-    import { supabase } from "./js/supabaseClient.js?v=56";
-    import { brl, esc, modal } from "./js/erp.js?v=56";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=56";
-    import { listAgents } from "./js/agents.js?v=56";
+    } from "./js/tables.js?v=57";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=57";
+    import { supabase } from "./js/supabaseClient.js?v=57";
+    import { brl, esc, modal } from "./js/erp.js?v=57";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=57";
+    import { listAgents } from "./js/agents.js?v=57";
 
     await requireSession();
     initThemeToggle();
@@ -137,13 +138,10 @@
     const board = document.getElementById("tables-board");
     const acesso = await getMyAccess();
     const owner_id = await getWorkspaceOwnerId();
-    // Funcionário: não exclui mesas; criar mesas e QR Codes só o dono ou o gerente
+    // Garçom/atendente abre mesas novas; excluir mesas e QR Codes só o dono ou o gerente
     const ehFuncionario = !!acesso.member;
     const podeGerenciarMesas = !ehFuncionario || acesso.member.funcao === "gerente";
-    if (!podeGerenciarMesas) {
-      document.getElementById("new-table-btn").style.display = "none";
-      document.getElementById("qr-btn").style.display = "none";
-    }
+    if (!podeGerenciarMesas) document.getElementById("qr-btn").style.display = "none";
 
     // ---------- QR Codes ----------
     let qrMode = "padrao";
@@ -211,7 +209,7 @@
             <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
               <button class="btn btn-primary btn-sm" data-abrir="${t.id}">+ Abrir comanda</button>
               <span data-acoes-mesa="${t.id}" style="display:contents;"></span>
-              ${ehFuncionario ? "" : `<button class="btn btn-ghost btn-sm" data-excluir="${t.id}" style="color:#B94040; border-color:#B94040;">Excluir</button>`}
+              ${podeGerenciarMesas ? `<button class="btn btn-ghost btn-sm" data-excluir="${t.id}" style="color:#B94040; border-color:#B94040;">Excluir</button>` : ""}
             </div>
           </div>
           <div class="kanban-col-body" id="table-body-${t.id}"><p class="settings-hint" style="padding:8px 4px;">Carregando…</p></div>
@@ -471,8 +469,21 @@
         return loadBoard();
       }
       if (b.dataset.excluir) {
-        if (!confirm("Excluir esta mesa? Isso não apaga os clientes já atendidos, só remove a mesa da lista.")) return;
-        await deleteTable(b.dataset.excluir);
+        // Antes de apagar: a mesa não pode ter comanda nem pedido em aberto
+        const s0 = await getActiveSession(b.dataset.excluir);
+        if (s0) {
+          const [pessoas, pedidos] = await Promise.all([listSessionLeads(s0.id), listOrdersBySession(s0.id)]);
+          const aberto = pedidos.filter((o) => !o.sales_order_id && o.status !== "cancelado");
+          const valor = aberto.reduce((t, o) => t + Number(o.total), 0);
+          if (aberto.length || pessoas.length) {
+            alert(`Esta mesa tem ${pessoas.length} comanda(s) aberta(s)${aberto.length ? ` e ${aberto.length} pedido(s) em aberto (${brl(valor)})` : ""}.\n\nFeche a conta ou encerre a mesa antes de excluir.`);
+            return;
+          }
+          await closeSession(s0.id, b.dataset.excluir);
+        }
+        if (!confirm("Excluir esta mesa? Ela não tem comanda nem pedido em aberto. Os clientes já atendidos continuam no sistema.")) return;
+        const { error } = await deleteTable(b.dataset.excluir);
+        if (error) alert("Não foi possível excluir: " + error.message);
         return loadBoard();
       }
     });
@@ -481,6 +492,7 @@
     setInterval(() => { if (!document.querySelector(".modal-backdrop[style*='flex']")) loadBoard(); }, 30000);
 
     document.getElementById("new-table-btn").addEventListener("click", () => {
+      document.getElementById("new-table-comanda").checked = ehFuncionario;
       document.getElementById("new-table-label").value = "";
       document.getElementById("new-table-msg").textContent = "";
       document.getElementById("new-table-modal").style.display = "flex";
@@ -491,21 +503,32 @@
     });
 
     document.getElementById("new-table-confirm").addEventListener("click", async () => {
-      const label = document.getElementById("new-table-label").value.trim();
+      let label = document.getElementById("new-table-label").value.trim();
+      if (/^\d+$/.test(label)) label = `Mesa ${Number(label)}`;
       const msg = document.getElementById("new-table-msg");
       if (!label) {
         msg.textContent = "Digite uma identificação pra mesa.";
         msg.className = "form-msg error";
         return;
       }
-      const { error } = await createTable(label);
-      if (error) {
-        msg.textContent = `Erro: ${error.message}`;
-        msg.className = "form-msg error";
-        return;
+      const abrir = document.getElementById("new-table-comanda").checked;
+      // Mesa com esse número já existe? Usa a mesma (não duplica)
+      const num = (l) => (String(l).match(/\d+/) || [""])[0];
+      const existente = (await listTables()).find((t) => t.label.toLowerCase() === label.toLowerCase() || (num(label) && num(t.label) === num(label)));
+      let mesaId = existente?.id;
+      if (!existente) {
+        const { data, error } = await createTable(label);
+        if (error) {
+          msg.textContent = `Erro: ${error.message}`;
+          msg.className = "form-msg error";
+          return;
+        }
+        mesaId = data.id;
       }
       document.getElementById("new-table-modal").style.display = "none";
-      loadBoard();
+      await loadBoard();
+      if (abrir) abrirComanda(mesaId);
+      else if (existente) alert(`A ${existente.label} já existe.`);
     });
 
     loadBoard();
