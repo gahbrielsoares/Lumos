@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=50";
+import { supabase } from "./supabaseClient.js?v=51";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
@@ -69,7 +69,7 @@ export const NAV_ITEMS = [
     icon: `<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M9 8V5a3 3 0 0 1 6 0v3"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/>`,
   },
   {
-    key: "settings", href: "settings.html", label: "Configurações", core: true,
+    key: "settings", href: "settings.html", label: "Configurações", core: true, adminControl: true,
     icon: `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>`,
   },
 ];
@@ -92,12 +92,16 @@ export async function getAccess() {
   try { if (params.get("suporte") === "1") sessionStorage.setItem("lumos_suporte", "1"); } catch (_) { /* sem sessionStorage */ }
   let suporteFlag = false;
   try { suporteFlag = sessionStorage.getItem("lumos_suporte") === "1"; } catch (_) { /* sem sessionStorage */ }
-  const suporte = suporteFlag && p?.suporte_ate && new Date(p.suporte_ate).getTime() > Date.now();
+  const suporteValido = suporteFlag && p?.suporte_ate && new Date(p.suporte_ate).getTime() > Date.now();
+  let preview = false;
+  try { preview = sessionStorage.getItem("lumos_suporte_preview") === "1"; } catch (_) { /* sem sessionStorage */ }
+  // No modo suporte, "ver como o cliente vê" aplica as mesmas restrições do cliente
+  const suporte = suporteValido && !preview;
   const isAdmin = p?.role === "admin";
   const isStaff = isAdmin || p?.role === "suporte";
   const allowed = Array.isArray(p?.allowed_tabs) && p.allowed_tabs.length ? p.allowed_tabs : null;
   accessCache = {
-    isAdmin, isStaff, role: p?.role || null, suporte, allowed, status: p?.status || null,
+    isAdmin, isStaff, role: p?.role || null, suporte, suporteValido, preview, allowed, status: p?.status || null,
     // A aba pode aparecer para esta conta?
     can: (key) => isStaff || suporte || !allowed || allowed.includes(key),
   };
@@ -138,12 +142,21 @@ export async function renderSidebar(activeKey) {
   const blocked = (current && !visible(current)) || (activeKey === "admin" && !access.isStaff);
   if (blocked) document.querySelector(".dash-main")?.style.setProperty("visibility", "hidden");
 
-  // Modo suporte: o admin está acessando o painel deste cliente
-  if (access.suporte && !document.getElementById("suporte-bar")) {
+  // Modo suporte: alguém da equipe está acessando o painel deste cliente
+  if (access.suporteValido && !document.getElementById("suporte-bar")) {
     const bar = document.createElement("div");
     bar.id = "suporte-bar";
-    bar.textContent = "Modo suporte: você está acessando o painel deste cliente, com todas as abas liberadas.";
-    bar.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:999;background:#1C2B3A;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:92vw;text-align:center;";
+    bar.style.cssText = "position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:999;background:#1C2B3A;color:#fff;padding:8px 8px 8px 16px;border-radius:999px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:94vw;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;";
+    bar.innerHTML = access.preview
+      ? `<span>Você está vendo <b>como o cliente vê</b>: só as abas liberadas para ele.</span><button type="button" style="border:0;border-radius:999px;padding:7px 12px;background:#C9A84C;color:#1C2B3A;font-weight:700;cursor:pointer;">Voltar ao modo suporte</button>`
+      : `<span>Modo suporte: todas as abas liberadas para você configurar.</span><button type="button" style="border:0;border-radius:999px;padding:7px 12px;background:#C9A84C;color:#1C2B3A;font-weight:700;cursor:pointer;">Ver como o cliente vê</button>`;
+    bar.querySelector("button").addEventListener("click", () => {
+      try {
+        if (access.preview) sessionStorage.removeItem("lumos_suporte_preview");
+        else sessionStorage.setItem("lumos_suporte_preview", "1");
+      } catch (_) { /* sem sessionStorage */ }
+      window.location.href = "dashboard.html";
+    });
     document.body.appendChild(bar);
   }
 

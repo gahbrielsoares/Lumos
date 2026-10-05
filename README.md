@@ -1069,6 +1069,19 @@ Para transformar alguém em equipe de suporte, use o Painel Admin (logado como p
 update public.profiles set role = 'suporte' where email = 'email@da.pessoa';
 ```
 
+## 32. Configurações também é liberada pelo admin
+
+A aba **Configurações** passou a ser controlada no Painel Admin (como Agentes e Integrações).
+Para quem já tinha abas escolhidas não perder o acesso a Configurações, rode uma vez no **SQL Editor**:
+
+```sql
+update public.profiles
+set allowed_tabs = array_append(allowed_tabs, 'settings')
+where allowed_tabs is not null and cardinality(allowed_tabs) > 0 and not ('settings' = any(allowed_tabs));
+```
+
+No acesso de suporte, a faixa no rodapé tem o botão **"Ver como o cliente vê"**, que mostra só as abas liberadas.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
