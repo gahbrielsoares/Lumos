@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=57" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=57" />
+  <script src="js/logo.js?v=58" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=58" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
@@ -107,14 +107,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=57";
-    import { initThemeToggle } from "./js/theme.js?v=57";
-    import { initMobileNav } from "./js/mobileNav.js?v=57";
-    import { renderSidebar } from "./js/sidebar.js?v=57";
-    import { supabase } from "./js/supabaseClient.js?v=57";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=57";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=57";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=57";
+    import { requireSession, signOut } from "./js/auth.js?v=58";
+    import { initThemeToggle } from "./js/theme.js?v=58";
+    import { initMobileNav } from "./js/mobileNav.js?v=58";
+    import { renderSidebar } from "./js/sidebar.js?v=58";
+    import { supabase } from "./js/supabaseClient.js?v=58";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=58";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=58";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=58";
 
     await requireSession();
     initThemeToggle();
@@ -244,6 +244,9 @@
 
     // Só o cardápio do agente daquela mesa (o simulador só vê o próprio cardápio do nicho)
     function productsForLead(leadId) {
+      // Cardápio do salão: produtos do restaurante, se houver (não importa por qual agente o cliente chegou)
+      const restaurante = productsAll.filter((p) => p.segmento === "restaurante");
+      if (restaurante.length) return restaurante;
       const agent = agentsById[leadInfo[leadId]?.agent_id];
       return productsAll.filter((p) => {
         const ids = p.agent_ids || [];

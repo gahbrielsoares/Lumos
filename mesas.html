@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=57" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=57" />
+  <script src="js/logo.js?v=58" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=58" />
 </head>
 <body>
 
@@ -112,19 +112,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=57";
-    import { initThemeToggle } from "./js/theme.js?v=57";
-    import { initMobileNav } from "./js/mobileNav.js?v=57";
-    import { renderSidebar } from "./js/sidebar.js?v=57";
+    import { requireSession, signOut } from "./js/auth.js?v=58";
+    import { initThemeToggle } from "./js/theme.js?v=58";
+    import { initMobileNav } from "./js/mobileNav.js?v=58";
+    import { renderSidebar } from "./js/sidebar.js?v=58";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=57";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=57";
-    import { supabase } from "./js/supabaseClient.js?v=57";
-    import { brl, esc, modal } from "./js/erp.js?v=57";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=57";
-    import { listAgents } from "./js/agents.js?v=57";
+    } from "./js/tables.js?v=58";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=58";
+    import { supabase } from "./js/supabaseClient.js?v=58";
+    import { brl, esc, modal } from "./js/erp.js?v=58";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=58";
+    import { listAgents } from "./js/agents.js?v=58";
 
     await requireSession();
     initThemeToggle();
@@ -318,18 +318,27 @@
       if (cardapio) return cardapio;
       const [{ data: prods }, { data: agentes }] = await Promise.all([
         supabase.from("products").select("id, name, price, agent_ids, segmento, product_categories(categories(name))").eq("owner_id", owner_id).eq("active", true).order("created_at"),
-        supabase.from("agents").select("id, is_simulator, sim_business_type").eq("owner_id", owner_id),
+        supabase.from("agents").select("id, enabled, is_simulator, sim_business_type").eq("owner_id", owner_id),
       ]);
       cardapio = { prods: prods || [], agentes: Object.fromEntries((agentes || []).map((a) => [a.id, a])) };
       return cardapio;
     }
+    // Cardápio do salão: o da casa, não importa por qual agente o cliente chegou um dia.
+    // Preferência: produtos do restaurante (segmento "restaurante" ou do agente de restaurante ativo);
+    // se não houver, todos os produtos ativos.
     function produtosDoCliente(lead) {
-      const agent = cardapio.agentes[lead?.agent_id];
-      return cardapio.prods.filter((p) => {
+      const agentes = Object.values(cardapio.agentes);
+      const doAgente = (agent) => cardapio.prods.filter((p) => {
         const ids = p.agent_ids || [];
         if (agent?.is_simulator) return ids.includes(agent.id) && (p.segmento || "materiais_construcao") === (agent.sim_business_type || "restaurante");
-        return !ids.length || !agent || ids.includes(agent.id);
+        return !ids.length || ids.includes(agent.id);
       });
+      const restaurante = cardapio.prods.filter((p) => p.segmento === "restaurante");
+      if (restaurante.length) return restaurante;
+      const agenteRest = agentes.find((a) => a.enabled && (a.is_simulator ? a.sim_business_type === "restaurante" : true));
+      const doCliente = cardapio.agentes[lead?.agent_id] ? doAgente(cardapio.agentes[lead.agent_id]) : [];
+      const lista = (agenteRest && doAgente(agenteRest).length ? doAgente(agenteRest) : doCliente);
+      return lista.length ? lista : cardapio.prods;
     }
 
     async function lancarPedido(leadId, sessionId) {
