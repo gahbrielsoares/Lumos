@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=60" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=60" />
+  <script src="js/logo.js?v=61" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=61" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
@@ -132,27 +132,36 @@
   <!-- Modal: atualizar prompt dos agentes pro novo modelo -->
   <div class="modal-backdrop" id="prompt-update-modal" style="display:none;">
     <div class="modal-box" style="max-width:420px;">
-      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Atualizar prompt dos agentes?</h3>
-      <p>O tipo de negócio foi salvo. Marque os agentes que devem receber o prompt recomendado desse nicho (a versão mais completa, com todo o roteiro de atendimento). Os não marcados continuam exatamente como estão.</p>
-      <div id="prompt-update-list" style="display:flex; flex-direction:column; gap:8px; margin: 14px 0;"></div>
+      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Preparar a loja para o novo nicho</h3>
+      <div id="exemplo-box" style="display:none; margin-top:12px; padding-bottom:12px; border-bottom:1px solid var(--panel-border);">
+        <label class="toggle-row" style="justify-content: space-between; align-items:flex-start; gap:12px;">
+          <span id="exemplo-txt"></span>
+          <input type="checkbox" class="toggle-input" id="exemplo-check" />
+        </label>
+      </div>
+      <div id="prompt-box">
+        <p style="margin-top:12px;">Marque os agentes que devem receber o prompt recomendado desse nicho (a versão mais completa, com todo o roteiro de atendimento). Os não marcados continuam exatamente como estão.</p>
+        <div id="prompt-update-list" style="display:flex; flex-direction:column; gap:8px; margin: 14px 0;"></div>
+      </div>
       <div id="prompt-update-msg" class="form-msg"></div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="prompt-update-skip">Não atualizar nenhum</button>
-        <button class="btn btn-primary" id="prompt-update-confirm">Atualizar selecionados</button>
+        <button class="btn btn-ghost" id="prompt-update-skip">Agora não</button>
+        <button class="btn btn-primary" id="prompt-update-confirm">Aplicar</button>
       </div>
     </div>
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=60";
-    import { initThemeToggle } from "./js/theme.js?v=60";
-    import { initMobileNav } from "./js/mobileNav.js?v=60";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=60";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=60";
-    import { listAgents, saveAgent } from "./js/agents.js?v=60";
+    import { requireSession, signOut } from "./js/auth.js?v=61";
+    import { supabase } from "./js/supabaseClient.js?v=61";
+    import { initThemeToggle } from "./js/theme.js?v=61";
+    import { initMobileNav } from "./js/mobileNav.js?v=61";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=61";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=61";
+    import { listAgents, saveAgent } from "./js/agents.js?v=61";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=60";
+    } from "./js/businessConfig.js?v=61";
 
     await requireSession();
     initThemeToggle();
@@ -329,7 +338,18 @@
       const agents = (await listAgents()).filter((a) => !a.is_simulator);
       const list = document.getElementById("prompt-update-list");
 
-      if (!agents.length) {
+      // Exemplo do nicho (cardápio do restaurante com mesas, catálogo de materiais)
+      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=61");
+      const ex = EXEMPLO_NICHO[info.key];
+      const { count: qtdProdutos } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", await getWorkspaceOwnerIdSafe());
+      document.getElementById("exemplo-box").style.display = ex ? "" : "none";
+      if (ex) {
+        document.getElementById("exemplo-txt").innerHTML = `<b>Carregar o ${ex.titulo}</b> (${ex.itens} itens com fotos, categorias e descrições${ex.mesas ? ` + ${ex.mesas} mesas` : ""})
+          <br><small style="opacity:.7;">A loja já começa pronta: depois é só editar preços e fotos e excluir o que não usa. Não duplica o que já existe.</small>`;
+        document.getElementById("exemplo-check").checked = !qtdProdutos;
+      }
+      document.getElementById("prompt-box").style.display = agents.length ? "" : "none";
+      if (!ex && !agents.length) {
         document.getElementById("prompt-update-modal").style.display = "none";
         return;
       }
@@ -343,15 +363,34 @@
 
       document.getElementById("prompt-update-msg").textContent = "";
 
-      document.getElementById("prompt-update-confirm").onclick = async () => {
-        const selected = [...document.querySelectorAll(".agent-prompt-check:checked")].map((c) => c.value);
-        for (const agentId of selected) {
-          await saveAgent(agentId, { system_prompt: buildNichePrompt(info.key, document.getElementById("biz-name")?.value) });
+      document.getElementById("prompt-update-confirm").onclick = async (ev) => {
+        const msg = document.getElementById("prompt-update-msg");
+        ev.target.disabled = true;
+        try {
+          const selected = [...document.querySelectorAll(".agent-prompt-check:checked")].map((c) => c.value);
+          for (const agentId of selected) {
+            await saveAgent(agentId, { system_prompt: buildNichePrompt(info.key, document.getElementById("biz-name")?.value) });
+          }
+          if (ex && document.getElementById("exemplo-check").checked) {
+            msg.textContent = "Cadastrando o exemplo…"; msg.className = "form-msg";
+            const r = await seedExampleCatalog(info.key);
+            msg.textContent = `Pronto: ${r.products} produto(s)${r.tables ? ` e ${r.tables} mesa(s)` : ""} cadastrado(s).`;
+            msg.className = "form-msg ok";
+            await new Promise((ok) => setTimeout(ok, 1200));
+          }
+          document.getElementById("prompt-update-modal").style.display = "none";
+        } catch (err) {
+          msg.textContent = `Erro: ${err.message}`; msg.className = "form-msg error";
         }
-        document.getElementById("prompt-update-modal").style.display = "none";
+        ev.target.disabled = false;
       };
 
       document.getElementById("prompt-update-modal").style.display = "flex";
+    }
+
+    async function getWorkspaceOwnerIdSafe() {
+      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=61");
+      return getWorkspaceOwnerId();
     }
 
     document.getElementById("prompt-update-skip").addEventListener("click", () => {

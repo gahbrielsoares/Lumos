@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=60" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=60" />
+  <script src="js/logo.js?v=61" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=61" />
 </head>
 <body>
 
@@ -134,16 +134,39 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=60";
-    import { initThemeToggle } from "./js/theme.js?v=60";
-    import { initMobileNav } from "./js/mobileNav.js?v=60";
-    import { renderSidebar } from "./js/sidebar.js?v=60";
-    import { listAgents } from "./js/agents.js?v=60";
+    import { requireSession, signOut } from "./js/auth.js?v=61";
+    import { initThemeToggle } from "./js/theme.js?v=61";
+    import { initMobileNav } from "./js/mobileNav.js?v=61";
+    import { renderSidebar } from "./js/sidebar.js?v=61";
+    import { listAgents } from "./js/agents.js?v=61";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=61";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=61";
+
+    // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
+    async function prepararExemplo() {
+      const cfg = await getBusinessConfig();
+      const nicho = cfg?.business_type;
+      const ex = EXEMPLO_NICHO[nicho];
+      const btn = document.getElementById("exemplo-btn");
+      if (!ex || !btn) return;
+      btn.textContent = `Carregar o ${ex.titulo} (${ex.itens} itens${ex.mesas ? ` + ${ex.mesas} mesas` : ""})`;
+      btn.style.display = "";
+      document.getElementById("exemplo-hint").textContent = "Comece com o exemplo pronto (com fotos, categorias e descrições) e depois edite preços e fotos e exclua o que não usa.";
+      btn.onclick = async () => {
+        const msg = document.getElementById("exemplo-msg");
+        btn.disabled = true; msg.textContent = "Cadastrando o exemplo…"; msg.className = "form-msg";
+        try {
+          const r = await seedExampleCatalog(nicho);
+          msg.textContent = `Pronto: ${r.products} produto(s)${r.tables ? ` e ${r.tables} mesa(s)` : ""} cadastrado(s).`; msg.className = "form-msg ok";
+          setTimeout(() => location.reload(), 900);
+        } catch (err) { msg.textContent = `Erro: ${err.message}`; msg.className = "form-msg error"; btn.disabled = false; }
+      };
+    }
     import {
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=60";
+    } from "./js/products.js?v=61";
 
     await requireSession();
     initThemeToggle();
@@ -243,7 +266,13 @@
               </div>
             `;
           }).join("")
-        : `<p class="settings-hint">Nenhum produto cadastrado ainda.</p>`;
+        : `<div class="empty-state" style="padding:22px;">
+            <h3>Nenhum produto cadastrado ainda</h3>
+            <p id="exemplo-hint">Cadastre os seus produtos ou comece pelo exemplo do seu nicho.</p>
+            <button class="btn btn-primary" id="exemplo-btn" style="margin-top:12px; display:none;"></button>
+            <div id="exemplo-msg" class="form-msg"></div>
+          </div>`;
+      if (!data.length) prepararExemplo();
 
       document.getElementById("stat-products").textContent = data.length;
       document.getElementById("stat-with-photo").textContent = data.filter((p) => p.photo_urls?.length).length;

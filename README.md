@@ -1286,6 +1286,14 @@ create policy "Equipe: exclui mesas" on public.restaurant_tables for delete
 Garçom/atendente: cria mesa (digitando só o número, ex.: 17) e já abre a comanda. Excluir mesa e QR Codes: dono e gerente.
 A exclusão é bloqueada se a mesa tiver comanda ou pedido em aberto.
 
+## 37. Exemplo do nicho para lojas novas
+
+Ao escolher o nicho em **Configurações** (Restaurante ou Materiais de construção), a Lumos oferece carregar o
+**cardápio/catálogo de exemplo** como produtos normais da loja (com fotos, categorias e descrições; no restaurante,
+também as mesas 1 a 12). Vem marcado quando a loja ainda não tem produtos e nunca duplica o que já existe.
+Em **Produtos**, uma loja sem nenhum produto também vê o botão para carregar o exemplo.
+Não há SQL nem função para atualizar.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=60";
-import { getWorkspaceOwnerId } from "./workspace.js?v=60";
+import { supabase } from "./supabaseClient.js?v=61";
+import { getWorkspaceOwnerId } from "./workspace.js?v=61";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
@@ -156,6 +156,55 @@ export async function seedSimulatorTables(agentId, total = 12) {
   for (let n = 1; n <= total; n++) if (!have.has(String(n))) rows.push({ owner_id, agent_id: agentId, label: `Mesa ${n}`, status: "livre" });
   if (rows.length) await supabase.from("restaurant_tables").insert(rows);
   return rows.length;
+}
+
+// ---------- Exemplo do nicho para lojas reais ----------
+// Cadastra o catálogo/cardápio de exemplo como produtos NORMAIS da loja (valem para todos os agentes,
+// sem vínculo com o simulador). O cliente edita, troca as fotos ou exclui o que não usa.
+export const EXEMPLO_NICHO = {
+  restaurante: { titulo: "cardápio de exemplo", itens: SIM_PRODUCTS.restaurante?.length || 0, mesas: 12 },
+  materiais_construcao: { titulo: "catálogo de exemplo", itens: SIM_PRODUCTS.materiais_construcao?.length || 0, mesas: 0 },
+};
+
+export async function seedExampleCatalog(businessType) {
+  const items = SIM_PRODUCTS[businessType] || [];
+  if (!items.length) return { products: 0, tables: 0 };
+  const owner_id = await userId();
+  const { data: existing } = await supabase.from("products").select("name").eq("owner_id", owner_id);
+  const temNome = new Set((existing || []).map((p) => String(p.name).toLowerCase()));
+  const { data: cats } = await supabase.from("categories").select("id, name").eq("owner_id", owner_id);
+  const catId = {};
+  for (const c of cats || []) catId[c.name] = c.id;
+
+  let products = 0;
+  for (const it of items) {
+    if (temNome.has(it.name.toLowerCase())) continue; // não duplica
+    if (!catId[it.categoria]) {
+      const { data: c } = await supabase.from("categories").insert({ owner_id, name: it.categoria }).select().single();
+      if (c) catId[it.categoria] = c.id;
+    }
+    const { data: prod, error } = await supabase.from("products").insert({
+      owner_id, name: it.name, description: it.description, price: it.price, unit: it.unit || "unidade",
+      m2_por_caixa: it.m2_por_caixa ?? null, estoque: it.estoque ?? null,
+      photo_urls: [businessType === "restaurante" ? IMG_R(it.img) : IMG(it.img)], active: true, agent_ids: [],
+      segmento: businessType,
+    }).select().single();
+    if (error) throw error;
+    if (catId[it.categoria]) await supabase.from("product_categories").insert({ product_id: prod.id, category_id: catId[it.categoria] });
+    products++;
+  }
+
+  // Restaurante: mesas 1 a 12 (as que ainda não existem)
+  let tables = 0;
+  const mesas = EXEMPLO_NICHO[businessType]?.mesas || 0;
+  if (mesas) {
+    const { data: tbs } = await supabase.from("restaurant_tables").select("label").eq("owner_id", owner_id);
+    const have = new Set((tbs || []).map((t) => String(t.label).replace(/\D/g, "")));
+    const rows = [];
+    for (let n = 1; n <= mesas; n++) if (!have.has(String(n))) rows.push({ owner_id, label: `Mesa ${n}`, status: "livre" });
+    if (rows.length) { await supabase.from("restaurant_tables").insert(rows); tables = rows.length; }
+  }
+  return { products, tables };
 }
 
 // Garante tudo o que o nicho precisa (produtos e, no restaurante, as mesas)
