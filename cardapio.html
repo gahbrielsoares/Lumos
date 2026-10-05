@@ -143,6 +143,9 @@ h2{font-size:17px;margin:16px 2px 10px}
   var API = "https://nkmyunxjoeqpmwolefbj.supabase.co/functions/v1/menu";
   var KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rbXl1bnhqb2VxcG13b2xlZmJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMzA0ODcsImV4cCI6MjEwNDgwNjQ4N30.al8MlVXdxIEKVixhm65k5TraKq7f2mntUjVWDavbxU8";
   var token = new URLSearchParams(location.search).get("t") || "";
+  // Modo garçom: aberto pela aba Mesas, dentro do painel (sem WhatsApp no fim)
+  var GARCOM = new URLSearchParams(location.search).get("garcom") === "1";
+  var avisarPainel = function (tipo) { try { window.parent.postMessage({ lumos: tipo }, "*"); } catch (e) {} };
   var app = document.getElementById("app");
   var data = null, cart = {}, order = [];
   var CART_KEY = "lumos_cart_" + token.slice(0, 12);
@@ -194,7 +197,7 @@ h2{font-size:17px;margin:16px 2px 10px}
   function render() {
     var c = cats();
     var hint = read("lumos_menu_hint") ? "" : '<div class="hint" id="hint">👆 <span><b>Toque na foto</b> para adicionar ao pedido. Toque de novo para tirar.</span></div>';
-    var html = '<header><div><h1>' + esc(data.loja) + '</h1><div class="sub">' + (data.cliente ? "Olá, " + esc(data.cliente) + "! " : "") + 'Monte seu pedido 😋</div></div><div class="pill">' + esc(data.mesa) + '</div></header>' + hint +
+    var html = '<header><div><h1>' + esc(data.loja) + '</h1><div class="sub">' + (GARCOM ? "Pedido de " + esc(data.cliente || "cliente") : (data.cliente ? "Olá, " + esc(data.cliente) + "! " : "") + 'Monte seu pedido 😋') + '</div></div><div class="pill">' + esc(data.mesa) + '</div></header>' + hint +
       '<nav id="nav">' + c.map(function (x, i) { return '<button data-c="' + slug(x) + '"' + (i === 0 ? ' class="on"' : "") + '>' + esc(x) + '</button>'; }).join("") + '</nav>';
     c.forEach(function (cat, ci) {
       html += '<section id="' + slug(cat) + '"><h2>' + esc(cat) + '</h2><div class="grid">';
@@ -333,7 +336,16 @@ h2{font-size:17px;margin:16px 2px 10px}
   $("yes").onclick = function () {
     var btn = $("yes"); btn.disabled = true; btn.textContent = "Enviando…";
     var items = Object.keys(cart).map(function (id) { return { id: id, qty: cart[id].qty, obs: cart[id].obs }; });
-    call({ action: "submit", items: items }).then(function (r) {
+    call({ action: "submit", items: items, garcom: GARCOM }).then(function (r) {
+      if (GARCOM) {
+        cart = {}; store(CART_KEY);
+        closeModal(); closeSheet();
+        clearTimeout(toast.t); $("toast").classList.remove("on");
+        app.innerHTML = '<div class="center"><div class="big">✅</div><h3>Pedido enviado para a cozinha!</h3><p>Já está na comanda.</p></div>';
+        document.querySelector(".bar") && document.querySelector(".bar").remove();
+        setTimeout(function () { avisarPainel("pedido_enviado"); }, 900);
+        return;
+      }
       cart = {}; store(CART_KEY);
       closeModal(); closeSheet();
       clearTimeout(toast.t); $("toast").classList.remove("on");

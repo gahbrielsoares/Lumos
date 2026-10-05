@@ -1294,6 +1294,15 @@ também as mesas 1 a 12). Vem marcado quando a loja ainda não tem produtos e nu
 Em **Produtos**, uma loja sem nenhum produto também vê o botão para carregar o exemplo.
 Não há SQL nem função para atualizar.
 
+## 38. Garçom lança o pedido pelo mesmo cardápio do cliente
+
+Na aba **Mesas**, "Lançar pedido" abre o **cardápio digital** (o mesmo que o cliente usa pelo QR Code), já ligado à
+comanda. Ao confirmar, o pedido vai para a Cozinha, a janela fecha e a mesa atualiza. Pedido lançado pelo garçom
+**não** manda mensagem no WhatsApp do cliente. O botão "Lista rápida" abre o formulário simples.
+O cardápio passou a mostrar os produtos de restaurante da casa, não importa por qual agente o cliente chegou.
+
+Atualize a função **`menu`**. Não há SQL novo.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

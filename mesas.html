@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=62" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=62" />
+  <script src="js/logo.js?v=63" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=63" />
 </head>
 <body>
 
@@ -112,19 +112,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=62";
-    import { initThemeToggle } from "./js/theme.js?v=62";
-    import { initMobileNav } from "./js/mobileNav.js?v=62";
-    import { renderSidebar } from "./js/sidebar.js?v=62";
+    import { requireSession, signOut } from "./js/auth.js?v=63";
+    import { initThemeToggle } from "./js/theme.js?v=63";
+    import { initMobileNav } from "./js/mobileNav.js?v=63";
+    import { renderSidebar } from "./js/sidebar.js?v=63";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=62";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=62";
-    import { supabase } from "./js/supabaseClient.js?v=62";
-    import { brl, esc, modal } from "./js/erp.js?v=62";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=62";
-    import { listAgents } from "./js/agents.js?v=62";
+    } from "./js/tables.js?v=63";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=63";
+    import { supabase } from "./js/supabaseClient.js?v=63";
+    import { brl, esc, modal } from "./js/erp.js?v=63";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=63";
+    import { listAgents } from "./js/agents.js?v=63";
 
     await requireSession();
     initThemeToggle();
@@ -342,7 +342,36 @@
       return lista.length ? lista : cardapio.prods;
     }
 
+    // ---------- Lançar pedido pelo cardápio digital (o mesmo que o cliente usa) ----------
     async function lancarPedido(leadId, sessionId) {
+      if (!leadId || !sessionId) return;
+      // Garante o acesso do cardápio a esta comanda
+      const { data: lead } = await supabase.from("leads").select("id, menu_token, dados_cliente, name").eq("id", leadId).maybeSingle();
+      let token = lead?.menu_token;
+      if (!token || token.length < 16) {
+        token = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, "");
+        const { error } = await supabase.from("leads").update({ menu_token: token }).eq("id", leadId);
+        if (error) return lancarPedidoRapido(leadId, sessionId);
+      }
+      const back = document.createElement("div");
+      back.className = "cardapio-overlay";
+      back.innerHTML = `<div class="cardapio-frame">
+          <div class="cardapio-top">
+            <button type="button" class="btn btn-ghost btn-sm" data-fechar>✕ Fechar</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-rapida>Lista rápida</button>
+          </div>
+          <iframe src="cardapio.html?t=${token}&garcom=1" title="Cardápio"></iframe>
+        </div>`;
+      document.body.appendChild(back);
+      const fechar = () => { back.remove(); window.removeEventListener("message", onMsg); };
+      const onMsg = (e) => { if (e.data?.lumos === "pedido_enviado") { fechar(); loadBoard(); } };
+      window.addEventListener("message", onMsg);
+      back.querySelector("[data-fechar]").addEventListener("click", () => { fechar(); loadBoard(); });
+      back.querySelector("[data-rapida]").addEventListener("click", () => { fechar(); lancarPedidoRapido(leadId, sessionId); });
+    }
+
+    // ---------- Lista rápida (formulário simples) ----------
+    async function lancarPedidoRapido(leadId, sessionId) {
       if (!leadId || !sessionId) return;
       await carregarCardapio();
       const { data: lead } = await supabase.from("leads").select("id, name, agent_id, dados_cliente").eq("id", leadId).maybeSingle();

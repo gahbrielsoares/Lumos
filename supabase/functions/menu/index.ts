@@ -54,7 +54,9 @@ async function loadMenu(lead: any, agent: any) {
     .select("id, name, description, price, photo_urls, agent_ids, segmento, product_categories(categories(name))")
     .eq("owner_id", lead.owner_id).eq("active", true)
     .order("created_at", { ascending: true });
-  const products = (raw || []).filter((p) => {
+  // Cardápio do salão: os produtos de restaurante da casa, não importa por qual agente o cliente chegou
+  const restaurante = (raw || []).filter((p) => p.segmento === "restaurante");
+  const products = restaurante.length ? restaurante : (raw || []).filter((p) => {
     const ids: string[] = p.agent_ids || [];
     if (agent?.is_simulator) return ids.includes(agent.id) && (p.segmento || "materiais_construcao") === "restaurante";
     return !ids.length || ids.includes(lead.agent_id);
@@ -115,6 +117,13 @@ Deno.serve(async (req) => {
       await supabase.from("order_items").insert(items.map((i: { product: { id: string; name: string; price: number }; qty: number; obs: string }) => ({
         order_id: order.id, product_id: i.product.id, product_name: i.product.name, quantity: i.qty, unit_price: i.product.price, observacao: i.obs || null,
       })));
+
+      // Lançado pelo garçom no salão: só vai para a cozinha, sem mensagem no WhatsApp do cliente
+      if (body.garcom) {
+        await supabase.from("leads").update({ last_message_at: new Date().toISOString() }).eq("id", lead.id);
+        console.log("Pedido do garçom pelo cardápio:", table?.label, "total", total);
+        return json({ ok: true, total, garcom: true });
+      }
 
       const lista = items.map((i: { product: { name: string }; qty: number; obs: string }) => `• ${i.qty}x ${i.product.name}${i.obs ? ` _(${i.obs})_` : ""}`).join("\n");
       const msg = `✅ *Pedido enviado para a cozinha!*\n${table?.label || "Mesa"}\n\n${lista}\n\nSubtotal: ${brl(total)}\nEm breve o atendente leva até você. 🍽️\nQuer mais alguma coisa? É só pedir o *cardápio* de novo.`;

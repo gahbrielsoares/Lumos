@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=62" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=62" />
+  <script src="js/logo.js?v=63" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=63" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
@@ -113,14 +113,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=62";
-    import { initThemeToggle } from "./js/theme.js?v=62";
-    import { initMobileNav } from "./js/mobileNav.js?v=62";
-    import { renderSidebar } from "./js/sidebar.js?v=62";
-    import { supabase } from "./js/supabaseClient.js?v=62";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=62";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=62";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=62";
+    import { requireSession, signOut } from "./js/auth.js?v=63";
+    import { initThemeToggle } from "./js/theme.js?v=63";
+    import { initMobileNav } from "./js/mobileNav.js?v=63";
+    import { renderSidebar } from "./js/sidebar.js?v=63";
+    import { supabase } from "./js/supabaseClient.js?v=63";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=63";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=63";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=63";
 
     await requireSession();
     initThemeToggle();
@@ -143,7 +143,7 @@
     const hiddenCols = () => disabledAll.filter((d) => d.startsWith("cozinha:")).map((d) => d.slice(8));
     let STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
     // "+ Novo pedido" para funcionários só se o dono liberar (marca "cozinha:equipe_pedidos")
-    const { isTeamMember } = await import("./js/workspace.js?v=62");
+    const { isTeamMember } = await import("./js/workspace.js?v=63");
     const souEquipe = await isTeamMember();
     const equipeLanca = () => disabledAll.includes("cozinha:equipe_pedidos");
     const aplicarBotaoPedido = () => {
