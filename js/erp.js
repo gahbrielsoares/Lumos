@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=52";
+import { supabase } from "./supabaseClient.js?v=53";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)

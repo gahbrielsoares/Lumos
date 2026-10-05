@@ -2358,3 +2358,11 @@ img, svg { display: block; max-width: 100%; }
   .admin-table td.col-acoes button { padding: 8px 16px; font-size: 13.5px; }
   .admin-table .col-conta div { overflow-wrap: anywhere; }
 }
+
+/* Modo escuro: listas de opções (select), calendários e barras de rolagem nativos também ficam escuros */
+:root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
+:root.dark select option,
+:root.dark select optgroup { background-color: #1E1C22; color: #EDEAE4; }
+:root.dark select option:checked { background-color: #3A3326; color: #F4E6C2; }
+:root.dark select option:disabled { color: #8C867C; }
