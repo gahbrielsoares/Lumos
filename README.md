@@ -1234,6 +1234,23 @@ Atualize também `send-message` e `orders` (passam a aceitar funcionários da lo
 
 O funcionário entra com **usuário e senha** na mesma tela de login (o campo aceita e-mail ou usuário).
 
+## 34. Dashboard também é liberado pelo admin
+
+Todas as abas, inclusive o **Dashboard**, agora são liberadas ou não (Painel Admin para a loja; Equipe para os funcionários).
+Ao entrar, a pessoa cai na **primeira aba liberada**. Para ninguém perder o Dashboard que já tinha, rode uma vez no **SQL Editor**:
+
+```sql
+update public.profiles
+set allowed_tabs = array_prepend('dashboard', allowed_tabs)
+where allowed_tabs is not null and cardinality(allowed_tabs) > 0 and not ('dashboard' = any(allowed_tabs));
+
+update public.team_members
+set allowed_tabs = array_prepend('dashboard', allowed_tabs)
+where not ('dashboard' = any(allowed_tabs));
+```
+
+Atualize também a função **`team`** (passa a aceitar o Dashboard como aba do funcionário).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

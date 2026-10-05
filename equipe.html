@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Equipe — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=54" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=54" />
+  <script src="js/logo.js?v=55" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=55" />
 </head>
 <body>
 
@@ -59,12 +59,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=54";
-    import { initThemeToggle } from "./js/theme.js?v=54";
-    import { initMobileNav } from "./js/mobileNav.js?v=54";
-    import { renderSidebar } from "./js/sidebar.js?v=54";
-    import { supabase } from "./js/supabaseClient.js?v=54";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=54";
+    import { requireSession, signOut } from "./js/auth.js?v=55";
+    import { initThemeToggle } from "./js/theme.js?v=55";
+    import { initMobileNav } from "./js/mobileNav.js?v=55";
+    import { renderSidebar } from "./js/sidebar.js?v=55";
+    import { supabase } from "./js/supabaseClient.js?v=55";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=55";
 
     await requireSession();
     initThemeToggle();
@@ -73,16 +73,16 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=54");
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=54");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=55");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=55");
     const FUNCOES = {
       garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta." },
       cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },
-      atendente: { label: "Atendente", tabs: ["kanban", "leads", "clientes", "follow_up", "agendamentos"], dica: "Atende os contatos, acompanha o funil e a agenda." },
-      gerente: { label: "Gerente", tabs: ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras"], dica: "Toda a operação, mais produtos, estoque e compras. Financeiro só se você marcar." },
+      atendente: { label: "Atendente", tabs: ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos"], dica: "Atende os contatos, acompanha o funil e a agenda." },
+      gerente: { label: "Gerente", tabs: ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras"], dica: "Toda a operação, mais produtos, estoque e compras. Financeiro só se você marcar." },
       personalizado: { label: "Personalizado", tabs: null, dica: "Você escolhe aba por aba." },
     };
-    const EXCLUIR = ["dashboard", "equipe"];
+    const EXCLUIR = ["equipe"];
     let members = [], ownerTabs = null, limite = null, lojaSlug = "";
 
     async function call(body) {
@@ -152,7 +152,7 @@
         <div class="field"><label>Abas que ele vê</label>
           ${grupos.map(([l, tabs]) => `<div style="margin-bottom:10px;"><div style="font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; margin-bottom:6px;">${l}</div>
             <div class="chips-row">${tabs.map((t) => `<label class="chip-checkbox"><input type="checkbox" class="f-aba" value="${t.key}" ${sel.has(t.key) ? "checked" : ""} /> ${esc(t.label)}</label>`).join("")}</div></div>`).join("")}
-          <p class="settings-hint">O Dashboard aparece sempre. Financeiro, Compras, Integrações e Agentes ficam bloqueados também no servidor para quem não tem a aba.</p>
+          <p class="settings-hint">Ao entrar, o funcionário cai na primeira aba liberada para ele. Financeiro, Compras, Integrações e Agentes ficam bloqueados também no servidor para quem não tem a aba.</p>
         </div>
         <div class="field toggle-row" style="justify-content:space-between;"><span>Pode ver o custo dos produtos</span><input type="checkbox" class="toggle-input" id="f-custos" ${m.perms?.ver_custos ? "checked" : ""} /></div>
         ${novo ? "" : `<div class="field toggle-row" style="justify-content:space-between;"><span>Acesso ativo</span><input type="checkbox" class="toggle-input" id="f-ativo" ${m.ativo ? "checked" : ""} /></div>`}

@@ -21,7 +21,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
 // Abas que um funcionário pode receber (Equipe e Painel Admin nunca)
-const TAB_KEYS = ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque",
+const TAB_KEYS = ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque",
   "compras", "financeiro", "relatorios", "fiscal", "integracoes", "agents", "settings"];
 const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "personalizado"];
 const USER_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;

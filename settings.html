@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=54" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=54" />
+  <script src="js/logo.js?v=55" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=55" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
@@ -144,15 +144,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=54";
-    import { initThemeToggle } from "./js/theme.js?v=54";
-    import { initMobileNav } from "./js/mobileNav.js?v=54";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=54";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=54";
-    import { listAgents, saveAgent } from "./js/agents.js?v=54";
+    import { requireSession, signOut } from "./js/auth.js?v=55";
+    import { initThemeToggle } from "./js/theme.js?v=55";
+    import { initMobileNav } from "./js/mobileNav.js?v=55";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=55";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=55";
+    import { listAgents, saveAgent } from "./js/agents.js?v=55";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=54";
+    } from "./js/businessConfig.js?v=55";
 
     await requireSession();
     initThemeToggle();

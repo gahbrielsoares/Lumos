@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=54" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=54" />
+  <script src="js/logo.js?v=55" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=55" />
 </head>
 <body>
 
@@ -74,12 +74,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=54";
-    import { initThemeToggle } from "./js/theme.js?v=54";
-    import { initMobileNav } from "./js/mobileNav.js?v=54";
-    import { renderSidebar } from "./js/sidebar.js?v=54";
-    import { supabase } from "./js/supabaseClient.js?v=54";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=54";
+    import { requireSession, signOut } from "./js/auth.js?v=55";
+    import { initThemeToggle } from "./js/theme.js?v=55";
+    import { initMobileNav } from "./js/mobileNav.js?v=55";
+    import { renderSidebar } from "./js/sidebar.js?v=55";
+    import { supabase } from "./js/supabaseClient.js?v=55";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=55";
 
     await requireSession();
     initThemeToggle();
@@ -88,25 +88,25 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=54");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=55");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
       inativo: '<span class="erp-badge bad">Cliente inativo</span>',
       cadastrado: '<span class="erp-badge muted">Usuário cadastrado</span>',
     };
-    // Abas que o admin controla: todas, menos o Dashboard (tela de entrada, sempre visível)
-    const TABS = NAV_ITEMS.filter((i) => i.key !== "dashboard");
+    // Abas que o admin controla: todas
+    const TABS = NAV_ITEMS;
     const GRUPOS = [
       ["crm", "CRM", TABS.filter((t) => t.group === "crm")],
       ["erp", "ERP", TABS.filter((t) => t.group === "erp")],
       ["sistema", "Sistema", TABS.filter((t) => !t.group)],
     ];
     const PACOTES = {
-      "Lojas (materiais)": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal", "settings", "equipe"],
-      "Restaurante": ["clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "settings", "equipe"],
-      "Só CRM": ["kanban", "leads", "clientes", "follow_up", "agendamentos", "settings", "equipe"],
-      "CRM + ERP": [...TABS.filter((t) => t.group).map((t) => t.key), "settings", "equipe"],
+      "Lojas (materiais)": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal", "settings", "equipe"],
+      "Restaurante": ["dashboard", "clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "settings", "equipe"],
+      "Só CRM": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "settings", "equipe"],
+      "CRM + ERP": ["dashboard", ...TABS.filter((t) => t.group).map((t) => t.key), "settings", "equipe"],
     };
     const ago = (iso) => {
       if (!iso) return "nunca";
@@ -197,7 +197,7 @@
             ${GRUPOS.map(([g, label, tabs]) => `
               <div style="margin-bottom:10px;"><div style="font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; margin-bottom:6px;">${label}</div>
                 <div class="chips-row">${tabs.map((t) => `<label class="chip-checkbox"><input type="checkbox" class="m-aba" value="${t.key}" ${sel.has(t.key) ? "checked" : ""} /> ${esc(t.label)}</label>`).join("")}</div></div>`).join("")}
-            <p class="settings-hint">O Dashboard aparece sempre. Sem "Agentes (IA)", "Integrações" ou "Configurações", o cliente não vê nem mexe nessas partes: você ajusta por ele pelo acesso de suporte (e confere com "Ver como o cliente vê").</p>
+            <p class="settings-hint">Ao entrar, o cliente cai na primeira aba liberada (o Dashboard, se estiver marcado). Sem "Agentes (IA)", "Integrações" ou "Configurações", ele não vê nem mexe nessas partes: você ajusta por ele pelo acesso de suporte (e confere com "Ver como o cliente vê").</p>
           </div>
         </div>
 

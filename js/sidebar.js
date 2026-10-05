@@ -1,11 +1,11 @@
-import { supabase } from "./supabaseClient.js?v=54";
+import { supabase } from "./supabaseClient.js?v=55";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
 // Os demais podem ser desativados via Configurações → Gerenciar Abas.
 export const NAV_ITEMS = [
   {
-    key: "dashboard", href: "dashboard.html", label: "Dashboard", core: true,
+    key: "dashboard", href: "dashboard.html", label: "Dashboard", core: true, adminControl: true,
     icon: `<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>`,
   },
   {
@@ -106,7 +106,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=54");
+    const { getMyAccess } = await import("./workspace.js?v=55");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -149,13 +149,15 @@ export async function renderSidebar(activeKey) {
   if (!nav) return;
 
   const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
-  // Abas fixas sempre aparecem (menos Agentes e Integrações, que o admin pode liberar ou não);
-  // as demais dependem do que o admin liberou e do que o próprio usuário escolheu mostrar.
+  // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)
   const visible = (item) => (item.core && !item.adminControl) || (access.can(item.key) && (item.core || !disabled.includes(item.key)));
   const items = NAV_ITEMS.filter(visible);
   if (access.isStaff) items.push(ADMIN_ITEM);
 
-  // Página não liberada para esta conta (link direto): volta para o Dashboard
+  // Tela de entrada: a primeira aba liberada (Dashboard, se estiver liberado)
+  const home = items[0] || null;
+
+  // Página não liberada para esta conta (link direto): vai para a tela de entrada
   const current = NAV_ITEMS.find((i) => i.key === activeKey);
   const blocked = (current && !visible(current)) || (activeKey === "admin" && !access.isStaff);
   if (blocked) document.querySelector(".dash-main")?.style.setProperty("visibility", "hidden");
@@ -197,5 +199,21 @@ export async function renderSidebar(activeKey) {
       Sair
     </a>
   `;
-  if (blocked) setTimeout(() => window.location.replace("dashboard.html"), 0);
+  if (blocked) {
+    if (home) setTimeout(() => window.location.replace(home.href), 0);
+    else {
+      // Nenhuma aba liberada: avisa em vez de ficar redirecionando
+      // (aviso por cima da página, sem apagar nada: o script da página continua funcionando)
+      const main = document.querySelector(".dash-main");
+      if (main && !document.getElementById("sem-abas")) {
+        const box = document.createElement("div");
+        box.id = "sem-abas";
+        box.className = "empty-state";
+        box.style.cssText = "margin:60px 24px; visibility:visible;";
+        box.innerHTML = "<h3>Nenhuma aba liberada</h3><p>O seu acesso ainda não tem nenhuma área liberada. Fale com o responsável.</p>";
+        main.parentNode.insertBefore(box, main);
+        main.style.display = "none";
+      }
+    }
+  }
 }
