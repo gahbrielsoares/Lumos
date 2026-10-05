@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=58";
-import { getWorkspaceOwnerId } from "./workspace.js?v=58";
+import { supabase } from "./supabaseClient.js?v=59";
+import { getWorkspaceOwnerId } from "./workspace.js?v=59";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de

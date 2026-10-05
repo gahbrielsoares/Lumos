@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=58";
+import { supabase } from "./supabaseClient.js?v=59";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja) — o menu e as Configurações agrupam por isso.
@@ -106,7 +106,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=58");
+    const { getMyAccess } = await import("./workspace.js?v=59");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -149,6 +149,8 @@ export async function renderSidebar(activeKey) {
   if (!nav) return;
 
   const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
+  // Funcionário: esconde as configurações do dono (engrenagens e afins, marcados com .owner-only)
+  document.body.classList.toggle("is-team", !!access.isMember);
   // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)
   const visible = (item) => (item.core && !item.adminControl) || (access.can(item.key) && (item.core || !disabled.includes(item.key)));
   const items = NAV_ITEMS.filter(visible);

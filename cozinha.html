@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=58" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=58" />
+  <script src="js/logo.js?v=59" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=59" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
@@ -45,7 +45,7 @@
           <p style="margin-top: 6px;">Pedidos da mesa, do delivery e da retirada. Arraste entre as etapas — no delivery e na retirada o cliente é avisado no WhatsApp.</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
-          <button class="btn btn-ghost" id="cols-btn" title="Configurar colunas" style="padding:9px 12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+          <button class="owner-only btn btn-ghost" id="cols-btn" title="Configurar colunas" style="padding:9px 12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
           <button class="btn btn-primary" id="new-order-btn">+ Novo pedido</button>
         </div>
       </div>
@@ -99,6 +99,12 @@
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Colunas da Cozinha</h3>
       <p>Deixe só as etapas que a sua operação usa. "Novo pedido" e "Entregue" ficam sempre. Pedidos numa etapa escondida aparecem na coluna anterior — nada é perdido.</p>
       <div id="cols-toggles" style="display:flex; flex-direction:column; gap:10px; margin: 16px 0;"></div>
+      <div style="border-top:1px solid var(--panel-border); padding-top:14px; margin-bottom:6px;">
+        <label class="toggle-row" style="justify-content: space-between; align-items:flex-start; gap:12px;">
+          <span>A equipe pode lançar pedidos por aqui<br><small style="opacity:.7; font-size:12px;">Mostra o "+ Novo pedido" da Cozinha para os funcionários. Desligado, só você lança por aqui (o garçom lança pela aba Mesas).</small></span>
+          <input type="checkbox" class="toggle-input" id="equipe-pedidos" />
+        </label>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="cols-cancel">Fechar</button>
         <button class="btn btn-primary" id="cols-save">Salvar</button>
@@ -107,14 +113,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=58";
-    import { initThemeToggle } from "./js/theme.js?v=58";
-    import { initMobileNav } from "./js/mobileNav.js?v=58";
-    import { renderSidebar } from "./js/sidebar.js?v=58";
-    import { supabase } from "./js/supabaseClient.js?v=58";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=58";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=58";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=58";
+    import { requireSession, signOut } from "./js/auth.js?v=59";
+    import { initThemeToggle } from "./js/theme.js?v=59";
+    import { initMobileNav } from "./js/mobileNav.js?v=59";
+    import { renderSidebar } from "./js/sidebar.js?v=59";
+    import { supabase } from "./js/supabaseClient.js?v=59";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=59";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=59";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=59";
 
     await requireSession();
     initThemeToggle();
@@ -136,6 +142,14 @@
     let disabledAll = await getDisabledStages();
     const hiddenCols = () => disabledAll.filter((d) => d.startsWith("cozinha:")).map((d) => d.slice(8));
     let STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
+    // "+ Novo pedido" para funcionários só se o dono liberar (marca "cozinha:equipe_pedidos")
+    const { isTeamMember } = await import("./js/workspace.js?v=59");
+    const souEquipe = await isTeamMember();
+    const equipeLanca = () => disabledAll.includes("cozinha:equipe_pedidos");
+    const aplicarBotaoPedido = () => {
+      document.getElementById("new-order-btn").style.display = souEquipe && !equipeLanca() ? "none" : "";
+    };
+    aplicarBotaoPedido();
     // Pedido numa etapa escondida aparece na coluna visível anterior
     const columnFor = (status) => {
       if (STATUSES.includes(status)) return status;
@@ -219,14 +233,17 @@
           <span>${ORDER_STATUS_LABELS[st]}<br><small style="opacity:.7; font-size:12px;">${FIXED.includes(st) ? "Sempre visível" : HINTS[st] || ""}</small></span>
           <input type="checkbox" class="toggle-input col-check" value="${st}" ${!hidden.includes(st) ? "checked" : ""} ${FIXED.includes(st) ? "disabled" : ""} />
         </label>`).join("");
+      document.getElementById("equipe-pedidos").checked = equipeLanca();
       document.getElementById("cols-modal").style.display = "flex";
     });
     document.getElementById("cols-cancel").addEventListener("click", () => (document.getElementById("cols-modal").style.display = "none"));
     document.getElementById("cols-save").addEventListener("click", async () => {
       const hide = [...document.querySelectorAll(".col-check")].filter((c) => !c.checked && !c.disabled).map((c) => `cozinha:${c.value}`);
+      if (document.getElementById("equipe-pedidos").checked) hide.push("cozinha:equipe_pedidos");
       disabledAll = [...(await getDisabledStages()).filter((d) => !d.startsWith("cozinha:")), ...hide];
       await saveDisabledStages(disabledAll);
       STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
+      aplicarBotaoPedido();
       document.getElementById("cols-modal").style.display = "none";
       loadBoard();
     });
