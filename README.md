@@ -1251,6 +1251,15 @@ where not ('dashboard' = any(allowed_tabs));
 
 Atualize também a função **`team`** (passa a aceitar o Dashboard como aba do funcionário).
 
+## 35. Garçom: comanda, pedido e conta no salão
+
+Na aba **Mesas**, cada mesa tem **+ Abrir comanda** (nome e telefone obrigatórios), **Lançar pedido** (vai para a Cozinha),
+**Conta** (por pessoa) e **Fechar conta da mesa**: taxa de serviço e couvert opcionais, forma de pagamento
+(Pix, crédito, débito, dinheiro com troco). Ao fechar: a venda entra no Financeiro e nos Relatórios, a mesa é liberada
+e o cliente recebe o agradecimento no WhatsApp.
+
+Atualize a função **`orders`** (novas ações `mesa_conta` e `mesa_fechar`). Não há SQL novo.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -31,7 +31,10 @@ const brl = (n: number) => Number(n || 0).toLocaleString("pt-BR", { style: "curr
 const qtyTxt = (n: number) => String(Math.round(n * 1000) / 1000).replace(".", ",");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const UNIT: Record<string, string> = { m2: "m²", saco: "saco(s)", unidade: "un.", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rolo(s)" };
-const METODO: Record<string, string> = { pix: "Pix", cartao: "Cartão de crédito", boleto: "Boleto", manual: "Pagamento confirmado pela loja" };
+const METODO: Record<string, string> = {
+  pix: "Pix", cartao: "Cartão de crédito", boleto: "Boleto", manual: "Pagamento confirmado pela loja",
+  credito: "Cartão de crédito", debito: "Cartão de débito", dinheiro: "Dinheiro",
+};
 
 const SIM_PAGAMENTO = { provider: "simulado", config: { metodos: ["pix", "cartao", "boleto"], max_parcelas: 10, parcelas_sem_juros: 3, validade_link_horas: 24 } };
 const SIM_OBS_ENTREGA = "A descarga é feita no térreo, na calçada ou na garagem. Em condomínio, deixe a portaria avisada e confira se o caminhão tem acesso.";
@@ -424,6 +427,104 @@ async function workspaceOf(userId: string | null) {
   return m ? (m.ativo ? m.owner_id : null) : userId;
 }
 
+// ---------- Mesa: conta e fechamento pelo garçom (salão) ----------
+// Couvert só nos dias/horário configurados (madrugada conta como a noite anterior)
+// deno-lint-ignore no-explicit-any
+function couvertAgora(cfg: any): boolean {
+  const dias: number[] = Array.isArray(cfg?.couvert_dias) && cfg.couvert_dias.length ? cfg.couvert_dias.map(Number) : [];
+  const inicio = String(cfg?.couvert_a_partir || "").trim();
+  if (!dias.length && !inicio) return true;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+  let dia = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday"));
+  const min = Number(get("hour").replace("24", "00")) * 60 + Number(get("minute"));
+  const [h, m] = (inicio || "00:00").split(":").map(Number);
+  const start = (h || 0) * 60 + (m || 0);
+  if (min < 6 * 60 && start >= 12 * 60) dia = (dia + 6) % 7;
+  return (!dias.length || dias.includes(dia)) && (!inicio || min >= start || (min < 6 * 60 && start >= 12 * 60));
+}
+
+// Consumo ainda não pago da mesa (ou de uma pessoa da mesa)
+async function mesaConta(sessionId: string, leadId: string | null) {
+  const { data: sess } = await supabase.from("table_sessions").select("id, owner_id, table_id, status").eq("id", sessionId).maybeSingle();
+  if (!sess) return null;
+  const { data: tbl } = await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle();
+  let q = supabase.from("orders").select("id, lead_id, status, sales_order_id, order_items(product_id, product_name, quantity, unit_price)")
+    .eq("table_session_id", sessionId).neq("status", "cancelado").is("sales_order_id", null);
+  if (leadId) q = q.eq("lead_id", leadId);
+  const { data: tickets } = await q;
+  const agg: Record<string, { product_id: string | null; nome: string; quantidade: number; preco_unitario: number }> = {};
+  for (const t of tickets || []) for (const it of t.order_items || []) {
+    const k = `${it.product_name}|${it.unit_price}`;
+    agg[k] = agg[k] || { product_id: it.product_id, nome: it.product_name, quantidade: 0, preco_unitario: Number(it.unit_price) };
+    agg[k].quantidade += Number(it.quantity);
+  }
+  const itens = Object.values(agg).map((i) => ({ ...i, unidade: "unidade", subtotal: Math.round(i.preco_unitario * i.quantidade * 100) / 100 }));
+  const consumo = Math.round(itens.reduce((t, i) => t + i.subtotal, 0) * 100) / 100;
+  const { data: leadsMesa } = await supabase.from("leads").select("id, name, phone, agent_id, dados_cliente").eq("table_session_id", sessionId);
+  const pessoas = leadId ? (leadsMesa || []).filter((l) => l.id === leadId) : (leadsMesa || []);
+  const { data: integ } = await supabase.from("integrations").select("config, enabled").eq("owner_id", sess.owner_id).eq("kind", "restaurante").maybeSingle();
+  const cfg = integ?.enabled ? integ.config || {} : {};
+  return {
+    sess, mesa: tbl?.label || "Mesa", itens, consumo, pessoas, tickets: (tickets || []).map((t) => t.id),
+    taxa_pct: Number(cfg.taxa_servico || 0), couvert: Number(cfg.couvert || 0), couvert_agora: couvertAgora(cfg),
+    couvert_info: cfg.couvert_info || "",
+  };
+}
+
+// Fecha a conta: registra o pagamento, lança no Financeiro, libera a mesa e agradece no WhatsApp
+// deno-lint-ignore no-explicit-any
+async function mesaFechar(c: any, metodo: string, cobrarTaxa: boolean, cobrarCouvert: boolean, userId: string | null) {
+  const itens: Record<string, unknown>[] = [...c.itens];
+  const taxa = cobrarTaxa && c.taxa_pct > 0 ? Math.round(c.consumo * c.taxa_pct) / 100 : 0;
+  if (taxa > 0) itens.push({ product_id: null, taxa: true, nome: `Taxa de serviço (${c.taxa_pct}%)`, quantidade: 1, unidade: "unidade", preco_unitario: taxa, subtotal: taxa });
+  const qtdCouvert = Math.max(1, c.pessoas.length);
+  const couvert = cobrarCouvert && c.couvert > 0 ? Math.round(c.couvert * qtdCouvert * 100) / 100 : 0;
+  if (couvert > 0) itens.push({ product_id: null, taxa: true, nome: qtdCouvert > 1 ? `Couvert artístico (${qtdCouvert}x)` : "Couvert artístico", quantidade: 1, unidade: "unidade", preco_unitario: couvert, subtotal: couvert });
+  const total = Math.round((c.consumo + taxa + couvert) * 100) / 100;
+  const principal = c.pessoas[0] || null;
+  const agora = new Date().toISOString();
+
+  let so = null;
+  if (total > 0 && principal) {
+    const nome = c.pessoas.length > 1 ? `${c.mesa} (${c.pessoas.length} pessoas)` : (principal.dados_cliente?.nome || principal.name || null);
+    const { data, error } = await supabase.from("sales_orders").insert({
+      owner_id: c.sess.owner_id, agent_id: principal.agent_id || null, lead_id: principal.id, table_session_id: c.sess.id,
+      itens, subtotal: total, frete: 0, total, status: "pago", approved_at: agora, paid_at: agora,
+      pagamento: { metodo, valor_cobrado: total, registrado_por: userId, no_salao: true },
+      entrega: { tipo: "mesa", local: c.mesa, valor: 0 }, cliente: { nome, telefone: principal.phone || null },
+    }).select().single();
+    if (error) return json({ error: error.message }, 500);
+    so = data;
+    if (c.tickets.length) await supabase.from("orders").update({ sales_order_id: so.id }).in("id", c.tickets);
+    await registrarVendaNoErp(so, metodo, total);
+  }
+
+  // Libera as pessoas da conta; se a mesa ficou vazia, ela fica livre
+  for (const p of c.pessoas) {
+    await supabase.from("leads").update({ table_session_id: null, visit_status: "iniciado", stage: total > 0 ? "fechado" : undefined, orcamento: null })
+      .eq("id", p.id);
+  }
+  const { data: resta } = await supabase.from("leads").select("id").eq("table_session_id", c.sess.id).limit(1);
+  if (!resta?.length) {
+    await supabase.from("table_sessions").update({ status: "fechada", closed_at: agora }).eq("id", c.sess.id);
+    await supabase.from("restaurant_tables").update({ status: "livre" }).eq("id", c.sess.table_id);
+  }
+
+  // Agradecimento no WhatsApp de quem fechou a conta
+  if (so) {
+    for (const p of c.pessoas) {
+      if (!p.phone || !p.agent_id) continue;
+      const { data: wa } = await supabase.from("whatsapp_provider_config").select("*").eq("agent_id", p.agent_id).maybeSingle();
+      const primeiro = String(p.dados_cliente?.nome || p.name || "").split(" ")[0];
+      const txt = `✅ *Conta paga!* ${c.mesa} · ${brl(total)} (${METODO[metodo] || metodo})\nObrigado pela visita${primeiro ? `, ${primeiro}` : ""}! 🍽️ Volte sempre!`;
+      await supabase.from("messages").insert({ lead_id: p.id, direction: "out", sender: "sistema", text: txt });
+      if (wa) await sendText(wa, String(p.phone).replace(/\D/g, ""), txt);
+    }
+  }
+  return json({ ok: true, total, sales_order_id: so?.id || null, mesa_livre: !resta?.length });
+}
+
 // Cozinha mudou o status do pedido: avisa o cliente (delivery e retirada)
 async function kitchenStatus(ticketId: string, status: string, userId: string | null, trusted: boolean) {
   const valid = ["novo_pedido", "em_preparo", "pronto", "saiu_entrega", "entregue", "cancelado"];
@@ -506,6 +607,24 @@ Deno.serve(async (req) => {
       const { data } = trusted ? { data: null } : await supabase.auth.getUser(jwt);
       if (!trusted && !data?.user) return json({ error: "Sessão expirada." }, 401);
       return await kitchenStatus(body.ticket_id, body.status, data?.user?.id || null, trusted);
+    }
+
+    // Mesa (garçom): ver a conta e fechar com o pagamento recebido no salão
+    if (action === "mesa_conta" || action === "mesa_fechar") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const { data } = await supabase.auth.getUser(jwt);
+      if (!data?.user) return json({ error: "Sessão expirada." }, 401);
+      const c = await mesaConta(String(body.session_id || ""), body.lead_id ? String(body.lead_id) : null);
+      if (!c) return json({ error: "Mesa não encontrada." }, 404);
+      if ((await workspaceOf(data.user.id)) !== c.sess.owner_id) return json({ error: "Sem permissão para esta mesa." }, 403);
+      if (action === "mesa_conta") {
+        return json({
+          mesa: c.mesa, itens: c.itens, consumo: c.consumo, pessoas: c.pessoas.map((p) => ({ id: p.id, nome: p.dados_cliente?.nome || p.name || p.phone })),
+          taxa_pct: c.taxa_pct, couvert: c.couvert, couvert_agora: c.couvert_agora, couvert_info: c.couvert_info,
+        });
+      }
+      const metodo = ["pix", "credito", "debito", "dinheiro"].includes(body.metodo) ? body.metodo : "dinheiro";
+      return await mesaFechar(c, metodo, body.cobrar_taxa !== false, !!body.cobrar_couvert, data.user.id);
     }
 
     if (!order_id) return json({ error: "Pedido não informado." }, 400);

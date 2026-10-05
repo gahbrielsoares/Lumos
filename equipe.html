@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Equipe — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=55" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=55" />
+  <script src="js/logo.js?v=56" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=56" />
 </head>
 <body>
 
@@ -59,12 +59,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=55";
-    import { initThemeToggle } from "./js/theme.js?v=55";
-    import { initMobileNav } from "./js/mobileNav.js?v=55";
-    import { renderSidebar } from "./js/sidebar.js?v=55";
-    import { supabase } from "./js/supabaseClient.js?v=55";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=55";
+    import { requireSession, signOut } from "./js/auth.js?v=56";
+    import { initThemeToggle } from "./js/theme.js?v=56";
+    import { initMobileNav } from "./js/mobileNav.js?v=56";
+    import { renderSidebar } from "./js/sidebar.js?v=56";
+    import { supabase } from "./js/supabaseClient.js?v=56";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=56";
 
     await requireSession();
     initThemeToggle();
@@ -73,8 +73,8 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=55");
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=55");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=56");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=56");
     const FUNCOES = {
       garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta." },
       cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },

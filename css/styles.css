@@ -2366,3 +2366,20 @@ img, svg { display: block; max-width: 100%; }
 :root.dark select optgroup { background-color: #1E1C22; color: #EDEAE4; }
 :root.dark select option:checked { background-color: #3A3326; color: #F4E6C2; }
 :root.dark select option:disabled { color: #8C867C; }
+
+/* Formulário de pedido (Cozinha e Mesas) */
+.no-box { max-width: 540px !important; width: 94%; max-height: 88vh; overflow-y: auto; }
+.no-label { display:block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--panel-text-muted); margin-bottom: 6px; }
+.no-full { width: 100%; min-width: 0; }
+.no-items { display:flex; flex-direction:column; gap:10px; }
+.no-row { border: 1px solid var(--panel-border); border-radius: 12px; padding: 10px; display:flex; flex-direction:column; gap:8px; min-width:0; }
+.no-row select { width:100%; min-width:0; }
+.no-line { display:flex; gap:8px; align-items:center; min-width:0; }
+.no-line input.no-obs { flex:1; min-width:0; padding:8px 10px; border-radius:9px; border:1px solid var(--panel-border); background: var(--panel-bg); color: var(--panel-text); font-size:13px; }
+.no-qty { display:flex; align-items:center; border:1px solid var(--panel-border); border-radius:9px; overflow:hidden; flex:0 0 auto; }
+.no-qty button { width:30px; height:34px; border:0; background:transparent; color: var(--panel-text); font-size:17px; font-weight:700; cursor:pointer; }
+.no-qty span { min-width:26px; text-align:center; font-weight:700; }
+.no-del { flex:0 0 auto; width:34px; height:34px; border-radius:9px; border:1px solid rgba(185,64,64,.4); background:transparent; color:#B94040; cursor:pointer; }
+.no-sub { font-size:12.5px; color: var(--panel-text-muted); }
+.no-total { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--panel-border); }
+.no-total strong { font-size:17px; }

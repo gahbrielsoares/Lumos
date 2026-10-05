@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=55";
-import { getWorkspaceOwnerId } from "./workspace.js?v=55";
+import { supabase } from "./supabaseClient.js?v=56";
+import { getWorkspaceOwnerId } from "./workspace.js?v=56";
 
 // Dono dos dados: o próprio usuário ou, se for da equipe, o dono do estabelecimento
 async function getUserId() {
@@ -44,6 +44,8 @@ export async function listSessionLeads(session_id) {
 // Encerra a sessão (mesa fica livre de novo pro próximo grupo de clientes)
 export async function closeSession(session_id, table_id) {
   await supabase.from("table_sessions").update({ status: "fechada", closed_at: new Date().toISOString() }).eq("id", session_id);
+  // Quem estava na mesa sai dela (a próxima visita começa do zero)
+  await supabase.from("leads").update({ table_session_id: null, visit_status: "iniciado" }).eq("table_session_id", session_id);
   return supabase.from("restaurant_tables").update({ status: "livre" }).eq("id", table_id);
 }
 

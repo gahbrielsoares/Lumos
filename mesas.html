@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=55" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=55" />
+  <script src="js/logo.js?v=56" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=56" />
 </head>
 <body>
 
@@ -38,7 +38,7 @@
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
         <div>
           <h1 style="font-size: 28px;">Mesas</h1>
-          <p style="margin-top: 6px;">Cada coluna é uma mesa. O cliente escaneia o QR Code, chega no WhatsApp e recebe o cardápio digital.</p>
+          <p style="margin-top: 6px;">Cada coluna é uma mesa. O cliente pede pelo QR Code e WhatsApp, ou o garçom abre a comanda, lança os pedidos e fecha a conta por aqui.</p>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-ghost" id="qr-btn">▦ QR Codes</button>
@@ -109,29 +109,21 @@
     </div>
   </div>
 
-  <!-- Modal: confirmar cobrança da mesa -->
-  <div class="modal-backdrop" id="charge-modal" style="display:none;">
-    <div class="modal-box">
-      <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Cobrar mesa inteira</h3>
-      <p>Todos os clientes ativos nessa mesa vão pra "Aguardando pagamento", somando os pedidos de cada um. Confirma?</p>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" id="charge-cancel">Cancelar</button>
-        <button class="btn btn-primary" id="charge-confirm">Confirmar</button>
-      </div>
-    </div>
-  </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=55";
-    import { initThemeToggle } from "./js/theme.js?v=55";
-    import { initMobileNav } from "./js/mobileNav.js?v=55";
-    import { renderSidebar } from "./js/sidebar.js?v=55";
+    import { requireSession, signOut } from "./js/auth.js?v=56";
+    import { initThemeToggle } from "./js/theme.js?v=56";
+    import { initMobileNav } from "./js/mobileNav.js?v=56";
+    import { renderSidebar } from "./js/sidebar.js?v=56";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
-      closeSession, chargeSession, chargeLead, VISIT_STATUS_LABELS,
-    } from "./js/tables.js?v=55";
-    import { listOrdersBySession } from "./js/orders.js?v=55";
-    import { listAgents } from "./js/agents.js?v=55";
+      closeSession,
+    } from "./js/tables.js?v=56";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=56";
+    import { supabase } from "./js/supabaseClient.js?v=56";
+    import { brl, esc, modal } from "./js/erp.js?v=56";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=56";
+    import { listAgents } from "./js/agents.js?v=56";
 
     await requireSession();
     initThemeToggle();
@@ -143,7 +135,15 @@
     });
 
     const board = document.getElementById("tables-board");
-    let pendingChargeSession = null;
+    const acesso = await getMyAccess();
+    const owner_id = await getWorkspaceOwnerId();
+    // Funcionário: não exclui mesas; criar mesas e QR Codes só o dono ou o gerente
+    const ehFuncionario = !!acesso.member;
+    const podeGerenciarMesas = !ehFuncionario || acesso.member.funcao === "gerente";
+    if (!podeGerenciarMesas) {
+      document.getElementById("new-table-btn").style.display = "none";
+      document.getElementById("qr-btn").style.display = "none";
+    }
 
     // ---------- QR Codes ----------
     let qrMode = "padrao";
@@ -183,113 +183,302 @@
       renderQr();
     }));
 
+    // ---------- Telefone (WhatsApp) ----------
+    // Aceita (19) 99999-9999, 19999999999 ou +55...; guarda no formato do WhatsApp: 55 + DDD + número
+    function normalizarTelefone(v) {
+      let d = String(v || "").replace(/\D/g, "");
+      if (d.length === 10 || d.length === 11) d = "55" + d;
+      return /^55\d{10,11}$/.test(d) ? d : null;
+    }
+    const fmtTel = (d) => {
+      const m = String(d || "").match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+      return m ? `(${m[1]}) ${m[2]}-${m[3]}` : d || "";
+    };
+
+    // ---------- Quadro de mesas ----------
     async function loadBoard() {
       const tables = await listTables();
       const empty = document.getElementById("tables-empty");
-
-      if (!tables.length) {
-        board.innerHTML = "";
-        empty.style.display = "block";
-        return;
-      }
+      if (!tables.length) { board.innerHTML = ""; empty.style.display = "block"; return; }
       empty.style.display = "none";
 
       board.innerHTML = tables.map((t) => `
         <div class="kanban-col" data-table-id="${t.id}">
           <div class="kanban-col-header">
-            <h4>
-              ${t.label}
+            <h4>${esc(t.label)}
               <span class="pill-badge ${t.status === "ocupada" ? "stage-vendido" : ""}">${t.status === "ocupada" ? "Ocupada" : "Livre"}</span>
             </h4>
             <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
-              <button class="btn btn-ghost btn-sm charge-table-btn" data-id="${t.id}">Cobrar mesa</button>
-              <button class="btn btn-ghost btn-sm close-table-btn" data-id="${t.id}">Encerrar</button>
-              <button class="btn btn-ghost btn-sm del-table-btn" data-id="${t.id}" style="color:#B94040; border-color:#B94040;">Excluir</button>
+              <button class="btn btn-primary btn-sm" data-abrir="${t.id}">+ Abrir comanda</button>
+              <span data-acoes-mesa="${t.id}" style="display:contents;"></span>
+              ${ehFuncionario ? "" : `<button class="btn btn-ghost btn-sm" data-excluir="${t.id}" style="color:#B94040; border-color:#B94040;">Excluir</button>`}
             </div>
           </div>
-          <div class="kanban-col-body" id="table-body-${t.id}">
-            <p class="settings-hint" style="padding:8px 4px;">Carregando...</p>
-          </div>
-        </div>
-      `).join("");
+          <div class="kanban-col-body" id="table-body-${t.id}"><p class="settings-hint" style="padding:8px 4px;">Carregando…</p></div>
+        </div>`).join("");
 
-      for (const t of tables) {
-        renderTableOccupants(t.id);
-      }
-
-      board.querySelectorAll(".charge-table-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const session = await getActiveSession(btn.dataset.id);
-          if (!session) return alert("Essa mesa não tem ninguém sentado agora.");
-          pendingChargeSession = session.id;
-          document.getElementById("charge-modal").style.display = "flex";
-        });
-      });
-
-      board.querySelectorAll(".close-table-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const session = await getActiveSession(btn.dataset.id);
-          if (!session) return alert("Essa mesa já está livre.");
-          if (!confirm("Encerrar a sessão dessa mesa? Ela fica livre pro próximo grupo de clientes.")) return;
-          await closeSession(session.id, btn.dataset.id);
-          loadBoard();
-        });
-      });
-
-      board.querySelectorAll(".del-table-btn").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("Excluir esta mesa? Isso não apaga os leads já atendidos, só remove a mesa da lista.")) return;
-          await deleteTable(btn.dataset.id);
-          loadBoard();
-        });
-      });
+      for (const t of tables) renderTableOccupants(t);
     }
 
-    async function renderTableOccupants(table_id) {
-      const body = document.getElementById(`table-body-${table_id}`);
-      const session = await getActiveSession(table_id);
-
+    async function renderTableOccupants(t) {
+      const body = document.getElementById(`table-body-${t.id}`);
+      const acoes = board.querySelector(`[data-acoes-mesa="${t.id}"]`);
+      const session = await getActiveSession(t.id);
       if (!session) {
+        acoes.innerHTML = "";
         body.innerHTML = `<p class="settings-hint" style="padding:8px 4px;">Ninguém sentado agora.</p>`;
         return;
       }
+      acoes.innerHTML = `<button class="btn btn-ghost btn-sm" data-conta-mesa="${t.id}">Fechar conta da mesa</button>
+        <button class="btn btn-ghost btn-sm" data-encerrar="${t.id}">Encerrar</button>`;
+      acoes.dataset.session = session.id;
 
       const leads = await listSessionLeads(session.id);
+      const orders = await listOrdersBySession(session.id);
       if (!leads.length) {
-        body.innerHTML = `<p class="settings-hint" style="padding:8px 4px;">Mesa aberta, aguardando o primeiro pedido.</p>`;
+        body.innerHTML = `<p class="settings-hint" style="padding:8px 4px;">Mesa aberta, sem comanda ainda.</p>`;
         return;
       }
-
-      const orders = await listOrdersBySession(session.id);
-
       body.innerHTML = leads.map((lead) => {
-        const leadOrders = orders.filter((o) => o.lead_id === lead.id);
-        const total = leadOrders.reduce((s, o) => s + Number(o.total), 0);
+        // Consumo ainda não pago desta pessoa
+        const aberto = orders.filter((o) => o.lead_id === lead.id && !o.sales_order_id && o.status !== "cancelado");
+        const total = aberto.reduce((s, o) => s + Number(o.total), 0);
+        const itens = aberto.reduce((n, o) => n + (o.order_items || []).reduce((x, i) => x + Number(i.quantity), 0), 0);
+        const nome = lead.dados_cliente?.nome || lead.name || "Cliente";
         return `
-          <div class="kanban-card" style="cursor:pointer;" data-lead-id="${lead.id}">
-            <div class="name">${lead.name || lead.phone}</div>
-            <div class="reason">${VISIT_STATUS_LABELS[lead.visit_status] || lead.visit_status}${total > 0 ? ` · R$ ${total.toFixed(2)}` : ""}</div>
-            <div style="display:flex; gap:6px; margin-top:8px;">
-              <button class="btn btn-ghost btn-sm charge-lead-btn" data-id="${lead.id}">Cobrar</button>
+          <div class="kanban-card" data-lead-id="${lead.id}">
+            <div class="name">${esc(nome)}</div>
+            <div class="reason">${esc(fmtTel(lead.phone))}${total > 0 ? ` · ${itens} ite${itens === 1 ? "m" : "ns"} · <b>${brl(total)}</b>` : " · sem pedidos ainda"}</div>
+            <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" data-pedido="${lead.id}" data-session="${session.id}">Lançar pedido</button>
+              <button class="btn btn-ghost btn-sm" data-conta="${lead.id}" data-session="${session.id}">Conta</button>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join("");
+    }
 
-      body.querySelectorAll(".charge-lead-btn").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-          await chargeLead(btn.dataset.id);
-          renderTableOccupants(table_id);
-        });
-      });
-
-      body.querySelectorAll("[data-lead-id]").forEach((card) => {
-        card.addEventListener("click", () => {
-          window.location.href = `leads.html?id=${card.dataset.leadId}`;
-        });
+    // ---------- Abrir comanda (nome e telefone obrigatórios) ----------
+    async function abrirComanda(tableId) {
+      const t = (await listTables()).find((x) => x.id === tableId);
+      const m = modal(`
+        <h3 style="font-size:19px;">Abrir comanda · ${esc(t?.label || "")}</h3>
+        <p class="settings-hint" style="margin:6px 0 14px;">Diga ao cliente: <i>"Claro! Vou abrir uma comanda pra você. Qual o seu nome e um telefone de contato?"</i></p>
+        <div class="field"><label>Nome para a comanda</label><input id="c-nome" placeholder="Ex.: Adalberto" autocomplete="off" /></div>
+        <div class="field"><label>Telefone (WhatsApp)</label><input id="c-tel" type="tel" inputmode="tel" placeholder="(19) 99999-9999" autocomplete="off" /></div>
+        <div id="c-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="c-ok">Abrir comanda</button></div>`, { width: 460 });
+      m.el.querySelector("#c-nome").focus();
+      m.el.querySelector("#c-ok").addEventListener("click", async (ev) => {
+        const msg = m.el.querySelector("#c-msg");
+        const nome = m.el.querySelector("#c-nome").value.trim();
+        const phone = normalizarTelefone(m.el.querySelector("#c-tel").value);
+        if (!nome) { msg.textContent = "Informe o nome do cliente."; msg.className = "form-msg error"; return; }
+        if (!phone) { msg.textContent = "Informe um telefone válido com DDD (ex.: (19) 99999-9999)."; msg.className = "form-msg error"; return; }
+        ev.target.disabled = true;
+        try {
+          const leadId = await criarComanda(t, nome, phone);
+          m.close();
+          await loadBoard();
+          lancarPedido(leadId, (await getActiveSession(t.id))?.id);
+        } catch (err) { msg.textContent = err.message; msg.className = "form-msg error"; ev.target.disabled = false; }
       });
     }
+
+    async function criarComanda(t, nome, phone) {
+      // Mesa aberta (ou abre agora)
+      let session = await getActiveSession(t.id);
+      if (!session) {
+        const { data, error } = await supabase.from("table_sessions").insert({ table_id: t.id, owner_id, status: "ativa" }).select().single();
+        if (error) throw new Error("Não consegui abrir a mesa: " + error.message);
+        session = data;
+        await supabase.from("restaurant_tables").update({ status: "ocupada" }).eq("id", t.id);
+      }
+      // Cliente já conhecido pelo telefone? Usa o mesmo cadastro (histórico junto)
+      const { data: existentes } = await supabase.from("leads").select("*").eq("owner_id", owner_id).eq("phone", phone).limit(1);
+      const dados = { ...(existentes?.[0]?.dados_cliente || {}), nome };
+      if (existentes?.length) {
+        const { error } = await supabase.from("leads").update({
+          table_session_id: session.id, visit_status: "conversando", dados_cliente: dados, name: existentes[0].name || nome,
+          last_message_at: new Date().toISOString(),
+        }).eq("id", existentes[0].id);
+        if (error) throw new Error(error.message);
+        return existentes[0].id;
+      }
+      const { data: agentes } = await supabase.from("agents").select("id, enabled, is_simulator").eq("owner_id", owner_id);
+      const agente = (agentes || []).find((a) => a.enabled && !a.is_simulator) || (agentes || []).find((a) => a.enabled) || (agentes || [])[0];
+      const { data: novo, error } = await supabase.from("leads").insert({
+        owner_id, agent_id: agente?.id || null, name: nome, phone, stage: "conversando", visit_status: "conversando",
+        table_session_id: session.id, dados_cliente: dados, motivo_contato: "Comanda aberta no salão", last_message_at: new Date().toISOString(),
+      }).select().single();
+      if (error) throw new Error("Não consegui abrir a comanda: " + error.message);
+      return novo.id;
+    }
+
+    // ---------- Lançar pedido (cardápio da casa, quantidade e observação) ----------
+    let cardapio = null;
+    async function carregarCardapio() {
+      if (cardapio) return cardapio;
+      const [{ data: prods }, { data: agentes }] = await Promise.all([
+        supabase.from("products").select("id, name, price, agent_ids, segmento, product_categories(categories(name))").eq("owner_id", owner_id).eq("active", true).order("created_at"),
+        supabase.from("agents").select("id, is_simulator, sim_business_type").eq("owner_id", owner_id),
+      ]);
+      cardapio = { prods: prods || [], agentes: Object.fromEntries((agentes || []).map((a) => [a.id, a])) };
+      return cardapio;
+    }
+    function produtosDoCliente(lead) {
+      const agent = cardapio.agentes[lead?.agent_id];
+      return cardapio.prods.filter((p) => {
+        const ids = p.agent_ids || [];
+        if (agent?.is_simulator) return ids.includes(agent.id) && (p.segmento || "materiais_construcao") === (agent.sim_business_type || "restaurante");
+        return !ids.length || !agent || ids.includes(agent.id);
+      });
+    }
+
+    async function lancarPedido(leadId, sessionId) {
+      if (!leadId || !sessionId) return;
+      await carregarCardapio();
+      const { data: lead } = await supabase.from("leads").select("id, name, agent_id, dados_cliente").eq("id", leadId).maybeSingle();
+      const lista = produtosDoCliente(lead);
+      const grupos = {};
+      lista.forEach((p) => { const c = (p.product_categories || []).map((pc) => pc.categories?.name).filter(Boolean)[0] || "Outros"; (grupos[c] = grupos[c] || []).push(p); });
+      const opcoes = Object.entries(grupos).map(([c, ps]) => `<optgroup label="${esc(c)}">${ps.map((p) => `<option value="${p.id}">${esc(p.name)} — ${brl(p.price)}</option>`).join("")}</optgroup>`).join("");
+      const m = modal(`
+        <h3 style="font-size:19px;">Pedido de ${esc(lead?.dados_cliente?.nome || lead?.name || "cliente")}</h3>
+        <p class="settings-hint" style="margin:4px 0 12px;">Vai direto para a Cozinha e entra na comanda.</p>
+        <div id="p-itens" class="no-items"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="p-add" style="margin-top:8px;">+ Item</button>
+        <div class="no-total"><span>Total do pedido</span><strong id="p-total">R$ 0,00</strong></div>
+        <div id="p-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Agora não</button><button class="btn btn-primary" id="p-ok">Enviar para a cozinha</button></div>`, { width: 560 });
+      const box = m.el.querySelector("#p-itens");
+      const total = () => {
+        let t = 0;
+        box.querySelectorAll(".no-row").forEach((r) => { const p = lista.find((x) => x.id === r.querySelector("select").value); t += Number(p?.price || 0) * Number(r.dataset.qty); });
+        m.el.querySelector("#p-total").textContent = brl(t);
+      };
+      const add = () => {
+        if (!lista.length) { box.innerHTML = `<p class="settings-hint">Nenhum produto no cardápio. Peça ao responsável para cadastrar em Produtos.</p>`; return; }
+        const r = document.createElement("div");
+        r.className = "no-row"; r.dataset.qty = "1";
+        r.innerHTML = `<select class="panel-select">${opcoes}</select>
+          <div class="no-line"><input class="no-obs" placeholder="Observação (ex.: sem gelo, ao ponto)" maxlength="140" />
+            <div class="no-qty"><button type="button" data-q="-1">−</button><span>1</span><button type="button" data-q="1">+</button></div>
+            <button type="button" class="no-del" title="Remover">✕</button></div>`;
+        r.querySelector("select").addEventListener("change", total);
+        r.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => {
+          const q = Math.min(50, Math.max(1, Number(r.dataset.qty) + Number(b.dataset.q)));
+          r.dataset.qty = String(q); r.querySelector(".no-qty span").textContent = q; total();
+        }));
+        r.querySelector(".no-del").addEventListener("click", () => { r.remove(); total(); });
+        box.appendChild(r); total();
+      };
+      m.el.querySelector("#p-add").addEventListener("click", add);
+      add();
+      m.el.querySelector("#p-ok").addEventListener("click", async (ev) => {
+        const items = [...box.querySelectorAll(".no-row")].map((r) => {
+          const p = lista.find((x) => x.id === r.querySelector("select").value);
+          return p && { product_id: p.id, product_name: p.name, unit_price: Number(p.price || 0), quantity: Number(r.dataset.qty) || 1, observacao: r.querySelector(".no-obs").value.trim() || null };
+        }).filter(Boolean);
+        const msg = m.el.querySelector("#p-msg");
+        if (!items.length) { msg.textContent = "Adicione pelo menos um item."; msg.className = "form-msg error"; return; }
+        ev.target.disabled = true;
+        const { error } = await createOrder({ table_session_id: sessionId, lead_id: leadId, items });
+        if (error) { msg.textContent = "Erro: " + error.message; msg.className = "form-msg error"; ev.target.disabled = false; return; }
+        m.close(); loadBoard();
+      });
+    }
+
+    // ---------- Conta (de uma pessoa ou da mesa inteira) ----------
+    async function chamarOrders(body) {
+      const { data, error } = await supabase.functions.invoke("orders", { body });
+      if (error || data?.error) {
+        let msg = data?.error || error?.message || "Erro";
+        try { const b = await error?.context?.json(); if (b?.error) msg = b.error; } catch (_) { /* sem JSON */ }
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function abrirConta(sessionId, leadId) {
+      let c;
+      try { c = await chamarOrders({ action: "mesa_conta", session_id: sessionId, lead_id: leadId || null }); }
+      catch (err) { alert(err.message); return; }
+      const quem = leadId ? (c.pessoas[0]?.nome || "Cliente") : `${c.mesa} · ${c.pessoas.length} pessoa${c.pessoas.length === 1 ? "" : "s"}`;
+      const m = modal(`
+        <h3 style="font-size:19px;">Conta · ${esc(quem)}</h3>
+        <p class="settings-hint" style="margin:4px 0 12px;">${esc(c.mesa)}${leadId ? "" : " (todas as comandas)"}</p>
+        ${c.itens.length ? `<div style="border:1px solid var(--panel-border); border-radius:12px; padding:6px 12px;">
+          ${c.itens.map((i) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid var(--panel-border); font-size:14px;"><span>${i.quantidade}x ${esc(i.nome)}</span><span style="white-space:nowrap;">${brl(i.subtotal)}</span></div>`).join("")}
+          <div style="display:flex; justify-content:space-between; padding:8px 0; font-weight:600;"><span>Consumo</span><span>${brl(c.consumo)}</span></div></div>`
+          : `<p class="settings-hint">Nenhum consumo em aberto.</p>`}
+        ${c.taxa_pct > 0 ? `<div class="field toggle-row" style="justify-content:space-between; margin-top:12px;"><span>Taxa de serviço (${c.taxa_pct}%) <small style="opacity:.7;">opcional</small></span><input type="checkbox" class="toggle-input" id="k-taxa" checked /></div>` : ""}
+        ${c.couvert > 0 ? `<div class="field toggle-row" style="justify-content:space-between;"><span>Couvert artístico (${brl(c.couvert)} por pessoa)${c.couvert_info ? `<br><small style="opacity:.7;">${esc(c.couvert_info)}</small>` : ""}</span><input type="checkbox" class="toggle-input" id="k-couvert" ${c.couvert_agora ? "checked" : ""} /></div>` : ""}
+        <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0; font-size:18px; font-weight:800;"><span>Total</span><span id="k-total"></span></div>
+        <div class="field"><label>Forma de pagamento</label>
+          <div class="pill-tabs" id="k-pag">${[["pix", "Pix"], ["credito", "Crédito"], ["debito", "Débito"], ["dinheiro", "Dinheiro"]].map(([v, l], i) => `<button type="button" class="pill-tab ${i === 0 ? "active" : ""}" data-pag="${v}">${l}</button>`).join("")}</div>
+        </div>
+        <div class="field" id="k-din" style="display:none;"><label>Valor recebido em dinheiro</label><input id="k-recebido" type="number" step="0.01" min="0" placeholder="Ex.: 100" /><p class="settings-hint" id="k-troco" style="margin-top:6px;"></p></div>
+        <div id="k-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Voltar</button><button class="btn btn-primary" id="k-ok">Confirmar pagamento e fechar</button></div>`, { width: 520 });
+      let metodo = "pix";
+      const pessoas = Math.max(1, c.pessoas.length);
+      const calc = () => {
+        const taxa = m.el.querySelector("#k-taxa")?.checked ? Math.round(c.consumo * c.taxa_pct) / 100 : 0;
+        const couv = m.el.querySelector("#k-couvert")?.checked ? c.couvert * pessoas : 0;
+        const t = Math.round((c.consumo + taxa + couv) * 100) / 100;
+        m.el.querySelector("#k-total").textContent = brl(t);
+        const rec = Number(m.el.querySelector("#k-recebido").value || 0);
+        m.el.querySelector("#k-troco").textContent = metodo === "dinheiro" && rec > 0 ? (rec >= t ? `Troco: ${brl(rec - t)}` : `Faltam ${brl(t - rec)}`) : "";
+        return t;
+      };
+      calc();
+      m.el.querySelectorAll("#k-taxa, #k-couvert, #k-recebido").forEach((i) => i.addEventListener("input", calc));
+      m.el.querySelectorAll("[data-pag]").forEach((b) => b.addEventListener("click", () => {
+        metodo = b.dataset.pag;
+        m.el.querySelectorAll("[data-pag]").forEach((x) => x.classList.toggle("active", x === b));
+        m.el.querySelector("#k-din").style.display = metodo === "dinheiro" ? "" : "none";
+        calc();
+      }));
+      m.el.querySelector("#k-ok").addEventListener("click", async (ev) => {
+        const t = calc();
+        const msg = m.el.querySelector("#k-msg");
+        if (!confirm(t > 0 ? `Confirmar o recebimento de ${brl(t)} e fechar a conta?` : "Fechar sem cobrança (não há consumo em aberto)?")) return;
+        ev.target.disabled = true;
+        try {
+          await chamarOrders({ action: "mesa_fechar", session_id: sessionId, lead_id: leadId || null, metodo,
+            cobrar_taxa: !!m.el.querySelector("#k-taxa")?.checked, cobrar_couvert: !!m.el.querySelector("#k-couvert")?.checked });
+          m.close(); loadBoard();
+        } catch (err) { msg.textContent = err.message; msg.className = "form-msg error"; ev.target.disabled = false; }
+      });
+    }
+
+    // ---------- Cliques do quadro ----------
+    board.addEventListener("click", async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.abrir) return abrirComanda(b.dataset.abrir);
+      if (b.dataset.pedido) return lancarPedido(b.dataset.pedido, b.dataset.session);
+      if (b.dataset.conta) return abrirConta(b.dataset.session, b.dataset.conta);
+      if (b.dataset.contaMesa) {
+        const s = await getActiveSession(b.dataset.contaMesa);
+        if (s) abrirConta(s.id, null);
+        return;
+      }
+      if (b.dataset.encerrar) {
+        const s = await getActiveSession(b.dataset.encerrar);
+        if (!s) return loadBoard();
+        if (!confirm("Encerrar sem cobrar? A mesa fica livre e o consumo em aberto NÃO é registrado como venda. Para receber, use \"Fechar conta da mesa\".")) return;
+        await closeSession(s.id, b.dataset.encerrar);
+        return loadBoard();
+      }
+      if (b.dataset.excluir) {
+        if (!confirm("Excluir esta mesa? Isso não apaga os clientes já atendidos, só remove a mesa da lista.")) return;
+        await deleteTable(b.dataset.excluir);
+        return loadBoard();
+      }
+    });
+
+    // Atualiza sozinho (pedidos pelo WhatsApp e de outros garçons)
+    setInterval(() => { if (!document.querySelector(".modal-backdrop[style*='flex']")) loadBoard(); }, 30000);
 
     document.getElementById("new-table-btn").addEventListener("click", () => {
       document.getElementById("new-table-label").value = "";
@@ -316,18 +505,6 @@
         return;
       }
       document.getElementById("new-table-modal").style.display = "none";
-      loadBoard();
-    });
-
-    document.getElementById("charge-cancel").addEventListener("click", () => {
-      document.getElementById("charge-modal").style.display = "none";
-      pendingChargeSession = null;
-    });
-
-    document.getElementById("charge-confirm").addEventListener("click", async () => {
-      if (pendingChargeSession) await chargeSession(pendingChargeSession);
-      document.getElementById("charge-modal").style.display = "none";
-      pendingChargeSession = null;
       loadBoard();
     });
 
