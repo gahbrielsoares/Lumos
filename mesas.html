@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=59" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=59" />
+  <script src="js/logo.js?v=60" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=60" />
 </head>
 <body>
 
@@ -112,19 +112,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=59";
-    import { initThemeToggle } from "./js/theme.js?v=59";
-    import { initMobileNav } from "./js/mobileNav.js?v=59";
-    import { renderSidebar } from "./js/sidebar.js?v=59";
+    import { requireSession, signOut } from "./js/auth.js?v=60";
+    import { initThemeToggle } from "./js/theme.js?v=60";
+    import { initMobileNav } from "./js/mobileNav.js?v=60";
+    import { renderSidebar } from "./js/sidebar.js?v=60";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=59";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=59";
-    import { supabase } from "./js/supabaseClient.js?v=59";
-    import { brl, esc, modal } from "./js/erp.js?v=59";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=59";
-    import { listAgents } from "./js/agents.js?v=59";
+    } from "./js/tables.js?v=60";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=60";
+    import { supabase } from "./js/supabaseClient.js?v=60";
+    import { brl, esc, modal } from "./js/erp.js?v=60";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=60";
+    import { listAgents } from "./js/agents.js?v=60";
 
     await requireSession();
     initThemeToggle();
@@ -321,6 +321,7 @@
         supabase.from("agents").select("id, enabled, is_simulator, sim_business_type").eq("owner_id", owner_id),
       ]);
       cardapio = { prods: prods || [], agentes: Object.fromEntries((agentes || []).map((a) => [a.id, a])) };
+      if (!cardapio.prods.length) console.warn("Cardápio vazio para a loja", owner_id);
       return cardapio;
     }
     // Cardápio do salão: o da casa, não importa por qual agente o cliente chegou um dia.
@@ -381,6 +382,15 @@
       };
       m.el.querySelector("#p-add").addEventListener("click", add);
       add();
+      // Loja sem produtos: explica e esconde o que não funcionaria
+      if (!lista.length) {
+        box.innerHTML = `<div class="empty-state" style="border:1px dashed var(--panel-border); padding:18px;">
+          <h3 style="font-size:16px;">Esta loja ainda não tem cardápio</h3>
+          <p>Nenhum produto ativo cadastrado. O responsável pela loja precisa cadastrar os itens em <b>Produtos</b> (ou ativá-los) para o garçom conseguir lançar pedidos.</p></div>`;
+        m.el.querySelector("#p-add").style.display = "none";
+        m.el.querySelector("#p-ok").style.display = "none";
+        m.el.querySelector(".no-total").style.display = "none";
+      }
       m.el.querySelector("#p-ok").addEventListener("click", async (ev) => {
         const items = [...box.querySelectorAll(".no-row")].map((r) => {
           const p = lista.find((x) => x.id === r.querySelector("select").value);
