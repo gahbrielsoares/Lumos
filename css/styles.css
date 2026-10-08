@@ -2397,3 +2397,7 @@ body.is-team .owner-only { display: none !important; }
 .cardapio-top .btn-ghost { color: #1C2B3A; border-color: #D8CFC2; background: #FFFFFF; font-family: var(--panel-font-body); font-weight: 600; }
 :root.dark .cardapio-top { background: #15141A; border-bottom-color: rgba(255,255,255,.1); }
 :root.dark .cardapio-top .btn-ghost { color: #EDEAE4; border-color: rgba(255,255,255,.18); background: transparent; }
+
+/* Mesas: cliente que pediu a conta */
+.kanban-card.pediu-conta { border: 2px solid #E8873A !important; background: rgba(232,135,58,.10) !important; box-shadow: 0 0 0 3px rgba(232,135,58,.18); }
+.pediu-conta-tag { display: inline-block; font-size: 12px; font-weight: 700; color: #fff; background: #E8873A; border-radius: 999px; padding: 3px 10px; margin-bottom: 6px; }

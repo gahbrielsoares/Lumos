@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Financeiro — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=65" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=65" />
+  <script src="js/logo.js?v=66" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/dialogs.js?v=66"></script>
 </head>
 <body>
 
@@ -88,12 +89,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=65";
-    import { initThemeToggle } from "./js/theme.js?v=65";
-    import { initMobileNav } from "./js/mobileNav.js?v=65";
-    import { renderSidebar } from "./js/sidebar.js?v=65";
-    import { supabase } from "./js/supabaseClient.js?v=65";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=65";
+    import { requireSession, signOut } from "./js/auth.js?v=66";
+    import { initThemeToggle } from "./js/theme.js?v=66";
+    import { initMobileNav } from "./js/mobileNav.js?v=66";
+    import { renderSidebar } from "./js/sidebar.js?v=66";
+    import { supabase } from "./js/supabaseClient.js?v=66";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
 
     await requireSession();
     initThemeToggle();
@@ -213,7 +214,7 @@
       if (b.dataset.pay) await supabase.from("fin_lancamentos").update({ pago_em: todayISO() }).eq("id", b.dataset.pay);
       else if (b.dataset.unpay) await supabase.from("fin_lancamentos").update({ pago_em: null }).eq("id", b.dataset.unpay);
       else if (b.dataset.edit) return form(all.find((l) => l.id === b.dataset.edit));
-      else if (b.dataset.del) { if (!confirm("Excluir este lançamento?")) return; await supabase.from("fin_lancamentos").delete().eq("id", b.dataset.del); }
+      else if (b.dataset.del) { if (!(await lumosConfirm("Excluir este lançamento?"))) return; await supabase.from("fin_lancamentos").delete().eq("id", b.dataset.del); }
       load();
     });
     load();

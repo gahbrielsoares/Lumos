@@ -1555,6 +1555,18 @@ Em **Gerenciar conta**, a seção **Equipe do estabelecimento** mostra os funcio
 função, situação e último acesso) e o campo **Limite de funcionários** (vazio = sem limite; só administradores mudam).
 Atualize a função **`admin`**. Não há SQL novo (a coluna `limite_equipe` veio na seção 33).
 
+## 41. Pagamento presencial, conta levada pelo atendente e janelas do Lumos
+
+- **Pagamento presencial** (Integrações → Pagamento → "Presencial: na loja ou na entrega"): sem link. Ao aprovar,
+  o cliente recebe o resumo com "pagamento na entrega/na retirada" e as formas aceitas; o vendedor clica em
+  "Confirmar pagamento recebido" quando receber. A IA não promete link nem pede dados de cartão.
+- **Restaurante: quando o cliente pede a conta** (Integrações → Restaurante e bar): "Enviar a conta com o link" ou
+  "Avisar que o atendente vai levar a conta". No segundo modo, o cliente fica destacado como "Pediu a conta" na
+  aba Mesas e o responsável (telefone das Regras de venda) recebe um aviso no WhatsApp.
+- Avisos e confirmações agora usam janelas próprias do Lumos (sem "site.com diz...").
+
+Atualize as funções **`orders`** e **`whatsapp-webhook`**. Não há SQL novo.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

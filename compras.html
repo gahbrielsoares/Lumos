@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=65" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=65" />
+  <script src="js/logo.js?v=66" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/dialogs.js?v=66"></script>
 </head>
 <body>
 
@@ -81,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=65";
-    import { initThemeToggle } from "./js/theme.js?v=65";
-    import { initMobileNav } from "./js/mobileNav.js?v=65";
-    import { renderSidebar } from "./js/sidebar.js?v=65";
-    import { supabase } from "./js/supabaseClient.js?v=65";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=65";
+    import { requireSession, signOut } from "./js/auth.js?v=66";
+    import { initThemeToggle } from "./js/theme.js?v=66";
+    import { initMobileNav } from "./js/mobileNav.js?v=66";
+    import { renderSidebar } from "./js/sidebar.js?v=66";
+    import { supabase } from "./js/supabaseClient.js?v=66";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
 
     await requireSession();
     initThemeToggle();
@@ -145,14 +146,14 @@
       m.el.querySelector("#m-save").addEventListener("click", async () => {
         const v = (id) => m.el.querySelector(id).value.trim() || null;
         const row = { owner_id, nome: v("#m-nome"), contato: v("#m-contato"), telefone: v("#m-tel"), email: v("#m-email"), cnpj: v("#m-cnpj"), observacao: v("#m-obs") };
-        if (!row.nome) return alert("Informe o nome.");
+        if (!row.nome) return lumosAlert("Informe o nome.");
         if (f.id) await supabase.from("fornecedores").update(row).eq("id", f.id); else await supabase.from("fornecedores").insert(row);
         m.close(); load();
       });
     }
 
     function compraForm() {
-      if (!fornecedores.length) { alert("Cadastre um fornecedor primeiro."); return fornForm(); }
+      if (!fornecedores.length) { lumosAlert("Cadastre um fornecedor primeiro."); return fornForm(); }
       const opts = products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
       const m = modal(`
         <h3 style="font-size:18px; margin-bottom:12px;">Nova compra</h3>
@@ -207,7 +208,7 @@
     // Receber: entrada no estoque + custo atualizado + conta a pagar
     async function receber(c) {
       const fname = fornecedores.find((x) => x.id === c.fornecedor_id)?.nome || "fornecedor";
-      if (!confirm(`Receber a compra #${c.numero} de ${fname}?\n\nO estoque dos itens vai entrar, o custo será atualizado e a conta a pagar (${brl(c.total)}) vai pro Financeiro.`)) return;
+      if (!(await lumosConfirm(`Receber a compra #${c.numero} de ${fname}?\n\nO estoque dos itens vai entrar, o custo será atualizado e a conta a pagar (${brl(c.total)}) vai pro Financeiro.`))) return;
       for (const it of c.itens || []) {
         const { data: p } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
         if (!p) continue;
@@ -230,12 +231,12 @@
       const b = e.target.closest("button"); if (!b) return;
       const c = compras.find((x) => x.id === (b.dataset.rec || b.dataset.can));
       if (b.dataset.rec) receber(c);
-      if (b.dataset.can && confirm("Cancelar esta compra?")) { await supabase.from("compras").update({ status: "cancelada" }).eq("id", c.id); load(); }
+      if (b.dataset.can && await lumosConfirm("Cancelar esta compra?")) { await supabase.from("compras").update({ status: "cancelada" }).eq("id", c.id); load(); }
     });
     document.getElementById("forn-rows").addEventListener("click", async (e) => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.fedit) fornForm(fornecedores.find((f) => f.id === b.dataset.fedit));
-      if (b.dataset.fdel && confirm("Excluir este fornecedor? As compras continuam salvas.")) { await supabase.from("fornecedores").delete().eq("id", b.dataset.fdel); load(); }
+      if (b.dataset.fdel && await lumosConfirm("Excluir este fornecedor? As compras continuam salvas.")) { await supabase.from("fornecedores").delete().eq("id", b.dataset.fdel); load(); }
     });
     load();
   </script>

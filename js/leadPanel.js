@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=65";
+import { supabase } from "./supabaseClient.js?v=66";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=65";
-import { getIntegration } from "./integrations.js?v=65";
+} from "./leads.js?v=66";
+import { getIntegration } from "./integrations.js?v=66";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -319,10 +319,11 @@ function orderActions() {
     <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
     <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Encerrar atendimento</button>`;
   if (o.status === "aguardando_aprovacao") return `
-    <button class="btn btn-primary" id="lp-approve">Aprovar e enviar link</button>
+    <button class="btn btn-primary" id="lp-approve">Aprovar e enviar ao cliente</button>
     <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
     <button class="btn btn-ghost" id="lp-close-deal" style="color:#B94040; border-color:#B94040;">Encerrar atendimento</button>`;
   if (o.status === "aguardando_pagamento") return `
+    ${o.pagamento?.provider === "presencial" ? `<p class="settings-hint" style="width:100%; margin:0 0 4px;">💳 Pagamento presencial: ${o.pagamento?.preferencia === "na_retirada" ? "na retirada, na loja" : "na entrega"}. Confirme quando receber.</p>` : ""}
     ${o.simulado && o.pagamento?.link ? `<a class="btn btn-primary" href="${o.pagamento.link}" target="_blank" rel="noopener">Abrir pagamento (simular)</a>` : ""}
     <button class="btn ${o.simulado ? "btn-ghost" : "btn-primary"}" id="lp-paid">Confirmar pagamento recebido</button>
     <button class="btn btn-ghost" id="lp-talk">Conversar com o cliente</button>
@@ -384,7 +385,7 @@ async function renderSummary() {
   // Pós-venda (pedido pago): avisa o cliente de cada etapa
   body.querySelectorAll("[data-log]").forEach((btn) => btn.addEventListener("click", async () => {
     const labels = { dispatch: "avisar o cliente que o pedido saiu para entrega", ready_pickup: "avisar o cliente que o pedido está pronto para retirada", delivered: "marcar como entregue e avisar o cliente" };
-    if (!confirm(`Confirmar: ${labels[btn.dataset.log]}?`)) return;
+    if (!(await lumosConfirm(`Confirmar: ${labels[btn.dataset.log]}?`))) return;
     const msg = document.getElementById("lp-log-msg");
     btn.disabled = true;
     try { await orderAction(btn.dataset.log); await refreshLead(); }
@@ -406,8 +407,8 @@ async function renderSummary() {
       const freteEl = document.getElementById("lp-frete");
       await orderAction("approve", freteEl && freteEl.value !== "" ? { frete: Number(freteEl.value) } : {});
     }));
-    on("lp-paid", () => {
-      if (!confirm("Confirmar que o pagamento deste pedido foi recebido? O cliente vai receber a confirmação no WhatsApp.")) return;
+    on("lp-paid", async () => {
+      if (!(await lumosConfirm("Confirmar que o pagamento deste pedido foi recebido? O cliente vai receber a confirmação no WhatsApp."))) return;
       run("lp-paid", () => orderAction("mark_paid"));
     });
     on("lp-talk", async () => {
@@ -415,7 +416,7 @@ async function renderSummary() {
       await refreshLead({ ai_enabled: false });
     });
     on("lp-close-deal", async () => {
-      if (!confirm(state.order ? "Cancelar este pedido? O lead vai para \"Perdido\"." : "Encerrar este atendimento? O lead vai para \"Perdido\".")) return;
+      if (!(await lumosConfirm(state.order ? "Cancelar este pedido? O lead vai para \"Perdido\"." : "Encerrar este atendimento? O lead vai para \"Perdido\"."))) return;
       if (state.order) await orderAction("cancel");
       else await updateLeadStage(l.id, "perdido");
       refreshLead();

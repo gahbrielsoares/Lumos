@@ -276,6 +276,15 @@ async function approve(ctx: any, freteManual: number | null) {
       : order.entrega?.cozinha
         ? `💳 Pague com Pix ou cartão pelo link:\n${link}\n\nAssim que o pagamento cair, seu pedido vai direto pra cozinha. 👨‍🍳`
         : `💳 Pague com Pix, cartão (até ${c.max_parcelas}x, ${c.parcelas_sem_juros}x sem juros) ou boleto:\n${link}\n\nO link vale ${c.validade_link_horas} horas.`;
+  } else if (pag?.provider === "presencial") {
+    // Sem link (segurança contra golpes): paga na entrega/na obra ou na retirada, na maquininha, Pix ou dinheiro
+    const c = pag.config || {};
+    const nomes: Record<string, string> = { credito: "cartão de crédito", debito: "cartão de débito", pix: "Pix", dinheiro: "dinheiro" };
+    const formas = (c.formas_presencial?.length ? c.formas_presencial : ["credito", "debito", "pix", "dinheiro"]).map((f: string) => nomes[f] || f);
+    const parc = Number(c.parcelas_maquininha || 1) > 1 && formas.includes("cartão de crédito") ? ` (crédito em até ${c.parcelas_maquininha}x)` : "";
+    const onde = order.entrega?.tipo === "retirada" ? "na retirada, aqui na loja" : "na entrega, no local combinado";
+    pagamento = { ...(order.pagamento || {}), provider: "presencial", preferencia: order.entrega?.tipo === "retirada" ? "na_retirada" : "na_entrega" };
+    payText = `💳 *Pagamento ${onde}*: ${formas.join(", ").replace(/, ([^,]*)$/, " ou $1")}${parc}.\nPor segurança, não enviamos links de pagamento. 🔒\n\nJá vamos separar seus produtos. 📦`;
   } else if (pag?.provider === "pix_manual") {
     pagamento = { provider: "pix_manual" };
     payText = `💠 Pagamento via Pix:\nChave: *${pag.config?.pix_chave || "—"}*${pag.config?.pix_titular ? `\nTitular: ${pag.config.pix_titular}` : ""}\n\nAssim que fizer o Pix, é só mandar o comprovante aqui que a gente confirma. 😉`;
@@ -347,6 +356,17 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     await releaseTable(order, ctx.lead.id);
     const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
     if (seller) await sendText(ctx.wa, seller, `💰 Conta paga — ${order.entrega.local}: ${brl(order.total)} (${forma})`);
+    return json({ ok: true, numero: order.numero });
+  }
+
+  // Pagamento presencial (loja/entrega): o pedido já foi separado/entregue, só confirma o recebimento
+  if (order.pagamento?.provider === "presencial") {
+    const forma = METODO[metodo] || metodo;
+    await sendToCustomer(ctx, `✅ Pagamento do pedido *#${order.numero}* recebido (${brl(order.total)}). Obrigado pela preferência!`);
+    await sleep(1200);
+    await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
+    const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
+    if (seller) await sendText(ctx.wa, seller, `💰 Pedido #${order.numero} pago na ${order.pagamento?.preferencia === "na_retirada" ? "retirada" : "entrega"}: ${brl(order.total)} (${forma})`);
     return json({ ok: true, numero: order.numero });
   }
 

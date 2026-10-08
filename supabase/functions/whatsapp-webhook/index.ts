@@ -220,6 +220,11 @@ function buildStoreInfo(integrations: any[]): string {
     const c = pag.config || {};
     if (pag.provider === "pix_manual") {
       out.push("Pagamento: via Pix. A chave é enviada pela equipe depois que o pedido é conferido.");
+    } else if (pag.provider === "presencial") {
+      const nomes: Record<string, string> = { credito: "cartão de crédito", debito: "cartão de débito", pix: "Pix", dinheiro: "dinheiro" };
+      const formas = (c.formas_presencial?.length ? c.formas_presencial : ["credito", "debito", "pix", "dinheiro"]).map((f: string) => nomes[f] || f);
+      const parc = Number(c.parcelas_maquininha || 1) > 1 ? ` (crédito em até ${c.parcelas_maquininha}x na maquininha)` : "";
+      out.push(`Pagamento: PRESENCIAL, na entrega (no endereço/obra) ou na retirada na loja: ${formas.join(", ")}${parc}. A loja NÃO envia links de pagamento, por segurança contra golpes: nunca prometa link nem peça dados de cartão pelo WhatsApp.`);
     } else {
       const nomes: Record<string, string> = { pix: "Pix", cartao: "cartão de crédito", boleto: "boleto" };
       const metodos = (c.metodos || []).map((m: string) => nomes[m] || m);
@@ -938,6 +943,20 @@ function confirmCard(items: TableItem[]) {
   return `${linhas.join("\n")}${items.length > 1 ? `\n\nTotal: *${brl(total)}*` : ""}\n\nPosso confirmar e mandar pra cozinha? 👇`;
 }
 
+// ---------- Mesa pediu a conta (modo "o atendente leva a conta") ----------
+// Marca o cliente como "pediu a conta" (o cartão fica destacado na aba Mesas) e avisa o responsável no WhatsApp
+// deno-lint-ignore no-explicit-any
+async function avisarContaPedida(ctx: { lead: any; wa: any; payload: any; sellerPhone: string }) {
+  const { lead, wa, payload, sellerPhone } = ctx;
+  await supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead.id);
+  if (sellerPhone) {
+    const { data: sess } = await supabase.from("table_sessions").select("table_id").eq("id", lead.table_session_id).maybeSingle();
+    const { data: tbl } = sess ? await supabase.from("restaurant_tables").select("label").eq("id", sess.table_id).maybeSingle() : { data: null };
+    const nome = String(lead.dados_cliente?.nome || lead.name || "Cliente");
+    await sendWhatsAppReply(wa, payload?.BaseUrl, payload?.token, sellerPhone, `🧾 ${tbl?.label || "Mesa"} pediu a conta (${nome}).`);
+  }
+}
+
 // ---------- Conta da mesa ----------
 // Monta o fechamento (itens + taxa de serviço + couvert) e envia o resumo com o link pela função de pedidos.
 // Chamado quando o cliente pede a conta (direto pelo código) ou quando a IA marca [CONTA].
@@ -1394,6 +1413,9 @@ Deno.serve(async (req) => {
     const modalidades: string[] = isRestaurant ? (restCfg?.modalidades?.length ? restCfg.modalidades : ["mesa"]) : [];
     // Fluxo de venda (orçamento -> pedido -> pagamento): lojas sempre; restaurante no delivery/retirada (não na mesa)
     const salesFlow = !isRestaurant || ((modalidades.includes("delivery") || modalidades.includes("retirada")) && !lead.table_session_id);
+    // Pagamento presencial (sem link): as mensagens de fechamento não falam em link
+    const pagPresencial = effIntegrations.find((i: { kind: string; enabled: boolean; provider?: string }) => i.kind === "pagamento" && i.enabled)?.provider === "presencial";
+    const resumoTxt = pagPresencial ? "o resumo do pedido (o pagamento é feito na entrega ou na retirada, sem link)" : "o resumo com o link de pagamento";
 
     // ---------- Mesa: boas-vindas, número da mesa e cardápio (controlado pelo código, não pela IA) ----------
     if (isRestaurant && modalidades.includes("mesa") && text) {
@@ -1505,6 +1527,13 @@ Deno.serve(async (req) => {
         const pedeConta = /\b(a conta|minha conta|fecha(r)? (a )?conta|fechar a mesa|pedir a conta|traz(er)? a conta|quero pagar|vou pagar|como (eu )?pago)\b/.test(tn) || /^conta\b/.test(tn);
         if (pedeConta) {
           const primeiro = String(lead.dados_cliente?.nome || "").split(" ")[0];
+          // Casa que prefere levar a conta na mesa (sem link): avisa a equipe e destaca o cliente na aba Mesas
+          if (restCfg?.conta_modo === "atendente") {
+            await say(`Claro${primeiro ? `, ${primeiro}` : ""}! Já avisei a equipe, em breve o atendente leva a sua conta até a mesa. 😊`);
+            const vendasCfg = effIntegrations.find((i: { kind: string; enabled: boolean }) => i.kind === "vendas" && i.enabled)?.config || {};
+            await avisarContaPedida({ lead, wa: waCfg, payload, sellerPhone: onlyDigits(vendasCfg.telefone_aprovacao) });
+            return await done("aguardando_pagamento");
+          }
           await say(`Claro${primeiro ? `, ${primeiro}` : ""}! Já estou fechando sua conta 😊`);
           const r = await sendTableBill({ owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage });
           if (r?.empty) await say("Ainda não tem nenhum pedido na sua comanda por aqui 🤔 Se já consumiu algo, me fala o que foi que eu confiro com o garçom.");
@@ -1562,9 +1591,9 @@ Etapas do atendimento (marcações internas, removidas antes de chegar ao client
 ${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}- FECHAMENTO: assim que o cliente confirmar a compra ("pode fechar", "sim", "ok", "fechado", "pode mandar"), feche NESSA MESMA
   resposta. Inclua uma linha por item: [ORCAMENTO: Nome Exato do Produto do catálogo | quantidade]
 ${freteInt ? "  e a entrega: [ENTREGA: retirada] ou [ENTREGA: bairro e/ou CEP que o cliente informou]\n" : ""}  e também: [ETAPA: aguardando_link]
-  ${autoApprove ? "Diga que o pedido foi registrado e que o resumo com o link de pagamento chega em instantes." : "Diga que vai passar o pedido para a equipe conferir e que o resumo com o link de pagamento chega em seguida."}
+  ${autoApprove ? `Diga que o pedido foi registrado e que ${resumoTxt} chega em instantes.` : `Diga que vai passar o pedido para a equipe conferir e que ${resumoTxt} chega em seguida.`}
   Exemplo de fechamento:
-  Perfeito, pedido fechado! ${autoApprove ? "Já te mando o resumo com o link de pagamento." : "Vou passar para a equipe conferir e já te envio o resumo com o link de pagamento."}
+  Perfeito, pedido fechado! ${autoApprove ? `Já te mando ${resumoTxt}.` : `Vou passar para a equipe conferir e já te envio ${resumoTxt}.`}
   [ORCAMENTO: Porcelanato X | 7,7]
   [ORCAMENTO: Argamassa Y | 2]
 ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
@@ -1610,7 +1639,7 @@ NA MESA (cliente no local):
   educadamente "Claro! Seguem as opções de [tipo]:" e liste, um por linha, "• Nome — R$ preço", usando a categoria do cardápio; depois pergunte qual ele quer.
 - Se o cliente mudar o pedido antes de confirmar (ex.: "na verdade são 2"), mande um novo [CONFIRMAR] com o pedido certo.
 - Não use [PEDIDO] nem [ORCAMENTO] na mesa. Não imite as mensagens automáticas do sistema.
-- Quando o cliente pedir a conta, inclua: [CONTA] e diga que já está fechando a conta — o sistema manda o resumo com taxa de serviço e o link de pagamento.` : ""}
+- Quando o cliente pedir a conta, inclua: [CONTA] e ${restCfg?.conta_modo === "atendente" ? "diga que já avisou a equipe e que em breve o atendente leva a conta até a mesa (não fale em link)" : "diga que já está fechando a conta: o sistema manda o resumo com taxa de serviço e o link de pagamento"}.` : ""}
 ${modalidades.includes("delivery") || modalidades.includes("retirada") ? `
 DELIVERY / RETIRADA: siga a "Condução da venda" — anote itens e observações, sugira bebida/sobremesa com naturalidade,
 colete os dados obrigatórios (incluindo a forma de pagamento), recapitule e feche com [ORCAMENTO], [ENTREGA] e [ETAPA: aguardando_link].
@@ -1945,7 +1974,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       const freteDefinido = newOrder.frete != null || newOrder.entrega?.tipo === "retirada";
       if (autoApprove && !freteDefinido) {
         await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber,
-          `Seu pedido *#${newOrder.numero}* está registrado! ✅ Só falta a equipe confirmar o frete para ${newOrder.entrega?.local || "o seu endereço"} — assim que confirmar, te mando o resumo com o link de pagamento.`);
+          `Seu pedido *#${newOrder.numero}* está registrado! ✅ Só falta a equipe confirmar o frete para ${newOrder.entrega?.local || "o seu endereço"} — assim que confirmar, te mando ${resumoTxt}.`);
       }
       if (autoApprove && freteDefinido) {
         // Aprovação automática: a função de pedidos envia o resumo e o link de pagamento
@@ -2063,7 +2092,12 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
       // [CONTA] — cliente pediu a conta (a IA marcou): o sistema monta e envia o fechamento
       if (contaMatch && lead.table_session_id) {
-        await sendTableBill({ owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage });
+        if (restCfg?.conta_modo === "atendente") {
+          const vendasCfg = effIntegrations.find((i: { kind: string; enabled: boolean }) => i.kind === "vendas" && i.enabled)?.config || {};
+          await avisarContaPedida({ lead, wa: waConfig, payload, sellerPhone: onlyDigits(vendasCfg.telefone_aprovacao) });
+        } else {
+          await sendTableBill({ owner_id, agent_id, agent, lead, customerNumber, restCfg, canStage });
+        }
       }
 
       // [RESERVA: ...] — registra a reserva na agenda (aparece em Agendamentos)

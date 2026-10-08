@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=65";
-import { getWorkspaceOwnerId } from "./workspace.js?v=65";
+import { supabase } from "./supabaseClient.js?v=66";
+import { getWorkspaceOwnerId } from "./workspace.js?v=66";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -47,6 +47,9 @@ export const INTEGRATIONS = [
         ] },
       { key: "horarios", label: "Horário de funcionamento", type: "textarea",
         default: "Seg: fechado\nTer a Qui: 18h às 23h30\nSex e Sáb: 18h às 2h\nDom: 12h às 17h (almoço)" },
+      { key: "conta_modo", label: "Quando o cliente pede a conta pelo WhatsApp", type: "select", default: "link",
+        options: [{ value: "link", label: "Enviar a conta com o link de pagamento" }, { value: "atendente", label: "Avisar que o atendente vai levar a conta (sem link)" }],
+        hint: "No modo atendente, o cliente aparece destacado como \"Pediu a conta\" na aba Mesas e o responsável (telefone das Regras de venda) recebe um aviso." },
       { key: "taxa_servico", label: "Taxa de serviço na mesa (%)", type: "number", default: 10 },
       { key: "couvert", label: "Couvert artístico por pessoa (R$) — 0 = sem couvert", type: "number", default: 0 },
       { key: "couvert_info", label: "Quando tem couvert / música ao vivo", type: "text", placeholder: "Ex.: música ao vivo sex e sáb a partir das 21h" },
@@ -71,7 +74,7 @@ export const INTEGRATIONS = [
   {
     kind: "pagamento",
     label: "Pagamento",
-    description: "Gera links de pagamento e Pix direto na conversa, e confirma o pagamento sozinho.",
+    description: "Link de pagamento ou Pix na conversa, ou pagamento presencial (na loja ou na entrega), sem link.",
     icon: `<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>`,
     providers: [
       { value: "mercadopago", label: "Mercado Pago" },
@@ -80,8 +83,14 @@ export const INTEGRATIONS = [
       { value: "infinitepay", label: "InfinitePay" },
       { value: "stripe", label: "Stripe" },
       { value: "pix_manual", label: "Pix manual (só envia a chave Pix)" },
+      { value: "presencial", label: "Presencial: na loja ou na entrega (sem link)" },
     ],
     fields: [
+      { key: "formas_presencial", label: "Formas aceitas na loja / na entrega", type: "multi", default: ["credito", "debito", "pix", "dinheiro"],
+        options: [{ value: "credito", label: "Cartão de crédito" }, { value: "debito", label: "Cartão de débito" }, { value: "pix", label: "Pix" }, { value: "dinheiro", label: "Dinheiro" }],
+        showIf: { provider: ["presencial"] } },
+      { key: "parcelas_maquininha", label: "Parcelamento no cartão (até quantas vezes, na maquininha)", type: "number", default: 1,
+        showIf: { provider: ["presencial"] } },
       { key: "ambiente", label: "Ambiente", type: "select", default: "teste",
         options: [{ value: "teste", label: "Teste (sandbox)" }, { value: "producao", label: "Produção" }],
         showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },

@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=65" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=65" />
+  <script src="js/logo.js?v=66" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/dialogs.js?v=66"></script>
 </head>
 <body>
 
@@ -112,19 +113,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=65";
-    import { initThemeToggle } from "./js/theme.js?v=65";
-    import { initMobileNav } from "./js/mobileNav.js?v=65";
-    import { renderSidebar } from "./js/sidebar.js?v=65";
+    import { requireSession, signOut } from "./js/auth.js?v=66";
+    import { initThemeToggle } from "./js/theme.js?v=66";
+    import { initMobileNav } from "./js/mobileNav.js?v=66";
+    import { renderSidebar } from "./js/sidebar.js?v=66";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=65";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=65";
-    import { supabase } from "./js/supabaseClient.js?v=65";
-    import { brl, esc, modal } from "./js/erp.js?v=65";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=65";
-    import { listAgents } from "./js/agents.js?v=65";
+    } from "./js/tables.js?v=66";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=66";
+    import { supabase } from "./js/supabaseClient.js?v=66";
+    import { brl, esc, modal } from "./js/erp.js?v=66";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=66";
+    import { listAgents } from "./js/agents.js?v=66";
 
     await requireSession();
     initThemeToggle();
@@ -244,7 +245,8 @@
         const itens = aberto.reduce((n, o) => n + (o.order_items || []).reduce((x, i) => x + Number(i.quantity), 0), 0);
         const nome = lead.dados_cliente?.nome || lead.name || "Cliente";
         return `
-          <div class="kanban-card" data-lead-id="${lead.id}">
+          <div class="kanban-card ${lead.visit_status === "aguardando_pagamento" ? "pediu-conta" : ""}" data-lead-id="${lead.id}">
+            ${lead.visit_status === "aguardando_pagamento" ? `<div class="pediu-conta-tag">🧾 Pediu a conta</div>` : ""}
             <div class="name">${esc(nome)}</div>
             <div class="reason">${esc(fmtTel(lead.phone))}${total > 0 ? ` · ${itens} ite${itens === 1 ? "m" : "ns"} · <b>${brl(total)}</b>` : " · sem pedidos ainda"}</div>
             <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
@@ -449,7 +451,7 @@
     async function abrirConta(sessionId, leadId) {
       let c;
       try { c = await chamarOrders({ action: "mesa_conta", session_id: sessionId, lead_id: leadId || null }); }
-      catch (err) { alert(err.message); return; }
+      catch (err) { lumosAlert(err.message); return; }
       const quem = leadId ? (c.pessoas[0]?.nome || "Cliente") : `${c.mesa} · ${c.pessoas.length} pessoa${c.pessoas.length === 1 ? "" : "s"}`;
       const m = modal(`
         <h3 style="font-size:19px;">Conta · ${esc(quem)}</h3>
@@ -489,7 +491,7 @@
       m.el.querySelector("#k-ok").addEventListener("click", async (ev) => {
         const t = calc();
         const msg = m.el.querySelector("#k-msg");
-        if (!confirm(t > 0 ? `Confirmar o recebimento de ${brl(t)} e fechar a conta?` : "Fechar sem cobrança (não há consumo em aberto)?")) return;
+        if (!(await lumosConfirm(t > 0 ? `Confirmar o recebimento de ${brl(t)} e fechar a conta?` : "Fechar sem cobrança (não há consumo em aberto)?"))) return;
         ev.target.disabled = true;
         try {
           await chamarOrders({ action: "mesa_fechar", session_id: sessionId, lead_id: leadId || null, metodo,
@@ -534,7 +536,7 @@
       if (b.dataset.encerrar) {
         const s = await getActiveSession(b.dataset.encerrar);
         if (!s) return loadBoard();
-        if (!confirm("Encerrar sem cobrar? A mesa fica livre e o consumo em aberto NÃO é registrado como venda. Para receber, use \"Fechar conta da mesa\".")) return;
+        if (!(await lumosConfirm("Encerrar sem cobrar? A mesa fica livre e o consumo em aberto NÃO é registrado como venda. Para receber, use \"Fechar conta da mesa\"."))) return;
         await closeSession(s.id, b.dataset.encerrar);
         return loadBoard();
       }
@@ -546,14 +548,14 @@
           const aberto = pedidos.filter((o) => !o.sales_order_id && o.status !== "cancelado");
           const valor = aberto.reduce((t, o) => t + Number(o.total), 0);
           if (aberto.length || pessoas.length) {
-            alert(`Esta mesa tem ${pessoas.length} comanda(s) aberta(s)${aberto.length ? ` e ${aberto.length} pedido(s) em aberto (${brl(valor)})` : ""}.\n\nFeche a conta ou encerre a mesa antes de excluir.`);
+            lumosAlert(`Esta mesa tem ${pessoas.length} comanda(s) aberta(s)${aberto.length ? ` e ${aberto.length} pedido(s) em aberto (${brl(valor)})` : ""}.\n\nFeche a conta ou encerre a mesa antes de excluir.`);
             return;
           }
           await closeSession(s0.id, b.dataset.excluir);
         }
-        if (!confirm("Excluir esta mesa? Ela não tem comanda nem pedido em aberto. Os clientes já atendidos continuam no sistema.")) return;
+        if (!(await lumosConfirm("Excluir esta mesa? Ela não tem comanda nem pedido em aberto. Os clientes já atendidos continuam no sistema."))) return;
         const { error } = await deleteTable(b.dataset.excluir);
-        if (error) alert("Não foi possível excluir: " + error.message);
+        if (error) lumosAlert("Não foi possível excluir: " + error.message);
         return loadBoard();
       }
     });
@@ -598,7 +600,7 @@
       document.getElementById("new-table-modal").style.display = "none";
       await loadBoard();
       if (abrir) abrirComanda(mesaId);
-      else if (existente) alert(`A ${existente.label} já existe.`);
+      else if (existente) lumosAlert(`A ${existente.label} já existe.`);
     });
 
     loadBoard();

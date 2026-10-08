@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=65" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=65" />
+  <script src="js/logo.js?v=66" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/dialogs.js?v=66"></script>
 </head>
 <body>
 
@@ -248,20 +249,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=65";
-    import { initThemeToggle } from "./js/theme.js?v=65";
-    import { initMobileNav } from "./js/mobileNav.js?v=65";
-    import { renderSidebar } from "./js/sidebar.js?v=65";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=65";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=65";
+    import { requireSession, signOut } from "./js/auth.js?v=66";
+    import { initThemeToggle } from "./js/theme.js?v=66";
+    import { initMobileNav } from "./js/mobileNav.js?v=66";
+    import { renderSidebar } from "./js/sidebar.js?v=66";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=66";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=66";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=65";
+    } from "./js/agents.js?v=66";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=65";
+    } from "./js/simulator.js?v=66";
 
     await requireSession();
     initThemeToggle();
@@ -336,7 +337,7 @@
     document.getElementById("new-sim-btn").addEventListener("click", async () => {
       const agents = (await listAgents()).filter((a) => a.phone_number && !a.is_simulator);
       const box = document.getElementById("sim-create");
-      if (!agents.length) return alert("Cadastre primeiro um agente com número de WhatsApp funcionando — o simulador copia a conexão dele.");
+      if (!agents.length) return lumosAlert("Cadastre primeiro um agente com número de WhatsApp funcionando — o simulador copia a conexão dele.");
       document.getElementById("sim-base").innerHTML = agents.map((a) => `<option value="${a.id}">${a.name} — ${a.phone_number}</option>`).join("");
       document.getElementById("sim-type").innerHTML = SIM_BUSINESS_TYPES.map((t) =>
         `<option value="${t.value}" ${t.available ? "" : "disabled"}>${t.label}${t.available ? "" : " (em breve)"}</option>`).join("");
@@ -363,7 +364,7 @@
     document.getElementById("new-agent-btn").addEventListener("click", async () => {
       const cfg = await getBusinessConfig();
       const { data, error } = await createAgent({ name: "Novo agente", system_prompt: buildNichePrompt(cfg?.business_type || "geral", cfg?.business_name) });
-      if (error) return alert(`Erro ao criar agente: ${error.message}`);
+      if (error) return lumosAlert(`Erro ao criar agente: ${error.message}`);
       window.location.href = `agents.html?id=${data.id}`;
     });
 
@@ -432,11 +433,11 @@
     document.getElementById("apply-niche-prompt")?.addEventListener("click", async () => {
       const cfg = await getBusinessConfig();
       const info = getBusinessTypeInfo(cfg?.business_type || "geral");
-      if (!confirm(`Substituir o prompt deste agente pelo prompt recomendado de "${info.label}"?`)) return;
+      if (!(await lumosConfirm(`Substituir o prompt deste agente pelo prompt recomendado de "${info.label}"?`))) return;
       const prompt = buildNichePrompt(info.key, cfg?.business_name);
       const { error } = await saveAgent(currentAgentId, { system_prompt: prompt });
       if (!error) document.getElementById("a-prompt").value = prompt;
-      alert(error ? `Erro: ${error.message}` : "Prompt atualizado.");
+      lumosAlert(error ? `Erro: ${error.message}` : "Prompt atualizado.");
     });
 
     document.getElementById("sim-save").addEventListener("click", async () => {
@@ -460,7 +461,7 @@
       const msg = document.getElementById("sim-detail-msg");
       const type = document.getElementById("sim-type-detail").value;
       if (!SIM_PROMPTS[type]) return;
-      if (!confirm("Substituir o prompt atual pelo prompt padrão (mais recente) do simulador?")) return;
+      if (!(await lumosConfirm("Substituir o prompt atual pelo prompt padrão (mais recente) do simulador?"))) return;
       const { error } = await saveAgent(currentAgentId, { system_prompt: SIM_PROMPTS[type] });
       if (!error) document.getElementById("a-prompt").value = SIM_PROMPTS[type];
       msg.textContent = error ? `Erro: ${error.message}` : "Prompt restaurado.";
@@ -484,7 +485,7 @@
     });
 
     document.getElementById("delete-agent-btn").addEventListener("click", async () => {
-      if (!confirm("Excluir este agente? Os leads já recebidos por ele continuam no sistema, mas ele para de responder.")) return;
+      if (!(await lumosConfirm("Excluir este agente? Os leads já recebidos por ele continuam no sistema, mas ele para de responder."))) return;
       await deleteAgent(currentAgentId);
       window.location.href = "agents.html";
     });

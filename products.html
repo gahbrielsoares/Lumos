@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=65" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=65" />
+  <script src="js/logo.js?v=66" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/dialogs.js?v=66"></script>
 </head>
 <body>
 
@@ -134,13 +135,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=65";
-    import { initThemeToggle } from "./js/theme.js?v=65";
-    import { initMobileNav } from "./js/mobileNav.js?v=65";
-    import { renderSidebar } from "./js/sidebar.js?v=65";
-    import { listAgents } from "./js/agents.js?v=65";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=65";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=65";
+    import { requireSession, signOut } from "./js/auth.js?v=66";
+    import { initThemeToggle } from "./js/theme.js?v=66";
+    import { initMobileNav } from "./js/mobileNav.js?v=66";
+    import { renderSidebar } from "./js/sidebar.js?v=66";
+    import { listAgents } from "./js/agents.js?v=66";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=66";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=66";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -166,7 +167,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=65";
+    } from "./js/products.js?v=66";
 
     await requireSession();
     initThemeToggle();
