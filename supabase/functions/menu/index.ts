@@ -72,6 +72,18 @@ async function loadMenu(lead: any, agent: any) {
   }));
 }
 
+// Cria o pedido marcando a origem (para o histórico). Se a coluna ainda não existir no banco
+// (SQL do histórico não aplicado), cria sem ela, para nunca travar um pedido.
+// deno-lint-ignore no-explicit-any
+async function insertOrderComOrigem(row: Record<string, unknown>, extras: Record<string, unknown>): Promise<{ data: any; error: any }> {
+  const r = await supabase.from("orders").insert({ ...row, ...extras }).select().single();
+  if (r.error && /origem|criado_por/i.test(r.error.message || "")) {
+    console.warn("Pedido criado sem origem (rode o SQL do histórico):", r.error.message);
+    return await supabase.from("orders").insert(row).select().single();
+  }
+  return r;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método não permitido" }, 405);
@@ -109,9 +121,18 @@ Deno.serve(async (req) => {
       if (items.length > 40) return json({ error: "Pedido grande demais para enviar de uma vez." }, 400);
 
       const total = Math.round(items.reduce((s: number, i: { product: { price: number }; qty: number }) => s + i.product.price * i.qty, 0) * 100) / 100;
-      const { data: order, error } = await supabase.from("orders").insert({
+      // Garçom (modo garçom do cardápio): identifica quem lançou pelo login dele, para o histórico
+      let criadoPor: string | null = null;
+      if (body.garcom && body.jwt) {
+        const { data: u } = await supabase.auth.getUser(String(body.jwt));
+        if (u?.user) {
+          const { data: m } = await supabase.from("team_members").select("owner_id").eq("user_id", u.user.id).maybeSingle();
+          if ((m?.owner_id || u.user.id) === lead.owner_id) criadoPor = u.user.id;
+        }
+      }
+      const { data: order, error } = await insertOrderComOrigem({
         owner_id: lead.owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa", status: "novo_pedido",
-      }).select().single();
+      }, { origem: body.garcom ? "cardapio_garcom" : "cardapio_cliente", ...(criadoPor ? { criado_por: criadoPor } : {}) });
       if (error) { console.error("Erro ao criar pedido:", error.message); return json({ error: "Não consegui enviar agora. Tente de novo." }, 500); }
 
       await supabase.from("order_items").insert(items.map((i: { product: { id: string; name: string; price: number }; qty: number; obs: string }) => ({

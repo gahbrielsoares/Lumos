@@ -496,7 +496,17 @@ async function mesaFechar(c: any, metodo: string, cobrarTaxa: boolean, cobrarCou
     }).select().single();
     if (error) return json({ error: error.message }, 500);
     so = data;
-    if (c.tickets.length) await supabase.from("orders").update({ sales_order_id: so.id }).in("id", c.tickets);
+    // Reserva os pedidos para esta conta: só reserva os que ainda não foram pagos.
+    // Se outra pessoa fechou a mesma conta ao mesmo tempo, esta tentativa é desfeita (sem cobrança em dobro).
+    if (c.tickets.length) {
+      const { data: reservados } = await supabase.from("orders").update({ sales_order_id: so.id })
+        .in("id", c.tickets).is("sales_order_id", null).select("id");
+      if ((reservados || []).length < c.tickets.length) {
+        if (reservados?.length) await supabase.from("orders").update({ sales_order_id: null }).in("id", reservados.map((r) => r.id));
+        await supabase.from("sales_orders").delete().eq("id", so.id);
+        return json({ error: "Esta conta já foi fechada por outra pessoa agora há pouco. Atualize a tela." }, 409);
+      }
+    }
     await registrarVendaNoErp(so, metodo, total);
   }
 

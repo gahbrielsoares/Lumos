@@ -912,10 +912,22 @@ function matchProduct(products: any[], name: string) {
 }
 
 // deno-lint-ignore no-explicit-any
+// Cria o pedido marcando a origem (para o histórico). Se a coluna ainda não existir no banco
+// (SQL do histórico não aplicado), cria sem ela, para nunca travar um pedido.
+// deno-lint-ignore no-explicit-any
+async function insertOrderComOrigem(row: Record<string, unknown>, extras: Record<string, unknown>): Promise<{ data: any; error: any }> {
+  const r = await supabase.from("orders").insert({ ...row, ...extras }).select().single();
+  if (r.error && /origem|criado_por/i.test(r.error.message || "")) {
+    console.warn("Pedido criado sem origem (rode o SQL do histórico):", r.error.message);
+    return await supabase.from("orders").insert(row).select().single();
+  }
+  return r;
+}
+
+// deno-lint-ignore no-explicit-any
 async function insertTableOrder(owner_id: string, lead: any, items: TableItem[]) {
   const total = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
-  const { data: order } = await supabase.from("orders")
-    .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" }).select().single();
+  const { data: order } = await insertOrderComOrigem({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" }, { origem: "whatsapp" });
   if (order) await supabase.from("order_items").insert(items.map((it) => ({ order_id: order.id, ...it })));
   return order;
 }
@@ -2038,11 +2050,8 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
         const total = items.reduce((sum, it) => sum + it.unit_price * it.quantity, 0);
 
-        const { data: order } = !items.length ? { data: null } : await supabase
-          .from("orders")
-          .insert({ owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" })
-          .select()
-          .single();
+        const { data: order } = !items.length ? { data: null } : await insertOrderComOrigem(
+          { owner_id, table_session_id: lead.table_session_id, lead_id: lead.id, total, tipo: "mesa" }, { origem: "whatsapp" });
 
         if (order) {
           await supabase.from("order_items").insert(

@@ -1303,6 +1303,258 @@ O cardápio passou a mostrar os produtos de restaurante da casa, não importa po
 
 Atualize a função **`menu`**. Não há SQL novo.
 
+## 39. Histórico de ações (auditoria) e proteção contra cobrança em dobro
+
+Registro imutável de tudo o que acontece com clientes, comandas, mesas, pedidos, itens e contas: data, hora,
+quem fez (dono, funcionário, equipe Lumos ou sistema) e por onde (WhatsApp, cardápio do cliente, cardápio do garçom,
+garçom ou painel). Ninguém altera nem apaga pelo sistema (só os gatilhos do banco gravam). Se o histórico falhar,
+a operação principal continua normalmente. Na aba **Mesas**, o dono vê o botão **Histórico** em cada cliente.
+
+**Ordem:** rode este SQL **antes** de atualizar as funções `whatsapp-webhook`, `menu` e `orders`.
+
+```sql
+-- =====================================================================
+-- Histórico de ações (auditoria): registro imutável, com data, hora, quem fez e por onde
+-- =====================================================================
+
+-- De onde veio cada pedido e quem lançou
+alter table public.orders add column if not exists origem text;       -- whatsapp | cardapio_cliente | cardapio_garcom | garcom | painel
+alter table public.orders add column if not exists criado_por uuid;   -- quem lançou (quando foi alguém logado)
+
+create table if not exists public.audit_log (
+  id bigint generated always as identity primary key,
+  owner_id uuid not null,
+  ocorrido_em timestamptz not null default now(),
+  autor_id uuid,
+  autor_tipo text,          -- dono | funcionario | equipe_lumos | sistema
+  autor_nome text,
+  entidade text not null,   -- cliente | mesa | comanda | pedido | item | conta
+  entidade_id text,
+  acao text not null,
+  lead_id uuid,
+  table_session_id uuid,
+  resumo text,
+  antes jsonb,
+  depois jsonb
+);
+create index if not exists audit_log_owner_idx on public.audit_log (owner_id, ocorrido_em desc);
+create index if not exists audit_log_lead_idx on public.audit_log (lead_id, ocorrido_em desc);
+create index if not exists audit_log_sessao_idx on public.audit_log (table_session_id, ocorrido_em desc);
+alter table public.audit_log enable row level security;
+drop policy if exists "Dono ve o historico" on public.audit_log;
+create policy "Dono ve o historico" on public.audit_log for select using (auth.uid() = owner_id);
+-- Sem políticas de insert/update/delete: ninguém altera nem apaga pelo sistema (só os gatilhos gravam)
+
+-- Quem fez a ação
+create or replace function public.audit_autor(p_owner uuid, p_fallback uuid default null)
+returns table (autor_id uuid, autor_tipo text, autor_nome text)
+language plpgsql stable security definer set search_path = public as $$
+declare v_uid uuid := coalesce(auth.uid(), p_fallback); v_nome text; v_role text;
+begin
+  if v_uid is null then
+    return query select null::uuid, 'sistema'::text, 'Sistema automático'::text; return;
+  end if;
+  select m.nome into v_nome from public.team_members m where m.user_id = v_uid;
+  if v_nome is not null then return query select v_uid, 'funcionario'::text, v_nome; return; end if;
+  if v_uid = p_owner then return query select v_uid, 'dono'::text, 'Dono da loja'::text; return; end if;
+  select p.role into v_role from public.profiles p where p.id = v_uid;
+  if v_role in ('admin', 'suporte') then return query select v_uid, 'equipe_lumos'::text, 'Equipe Lumos (suporte)'::text; return; end if;
+  return query select v_uid, 'usuario'::text, 'Usuário'::text;
+end; $$;
+
+create or replace function public.audit_brl(v numeric) returns text language sql immutable as $$
+  select 'R$ ' || replace(replace(replace(to_char(coalesce(v, 0), 'FM999G999G990D00'), ',', '#'), '.', ','), '#', '.');
+$$;
+
+create or replace function public.audit_mesa(p_session uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select t.label from public.table_sessions s join public.restaurant_tables t on t.id = s.table_id where s.id = p_session), 'Mesa');
+$$;
+
+-- Nome legível das etapas
+create or replace function public.audit_etapa(v text) returns text language sql immutable as $$
+  select case v when 'novo_pedido' then 'Novo pedido' when 'em_preparo' then 'Em preparo' when 'pronto' then 'Pronto'
+    when 'saiu_entrega' then 'Saiu para entrega' when 'entregue' then 'Entregue' when 'cancelado' then 'Cancelado'
+    when 'ativa' then 'aberta' when 'fechada' then 'fechada' when 'aguardando_pagamento' then 'aguardando pagamento'
+    when 'aguardando_aprovacao' then 'aguardando aprovação' when 'pago' then 'paga' else coalesce(v, '?') end;
+$$;
+
+-- Grava uma linha no histórico (nunca bloqueia a operação principal)
+create or replace function public.audit_registrar(p_owner uuid, p_fallback uuid, p_entidade text, p_id text, p_acao text,
+  p_lead uuid, p_sessao uuid, p_resumo text, p_antes jsonb, p_depois jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare a record;
+begin
+  select * into a from public.audit_autor(p_owner, p_fallback);
+  insert into public.audit_log (owner_id, autor_id, autor_tipo, autor_nome, entidade, entidade_id, acao, lead_id, table_session_id, resumo, antes, depois)
+  values (p_owner, a.autor_id, a.autor_tipo, a.autor_nome, p_entidade, p_id, p_acao, p_lead, p_sessao, p_resumo, p_antes, p_depois);
+exception when others then
+  raise warning 'auditoria: %', sqlerrm;
+end; $$;
+
+-- ---------- Pedidos (cozinha) ----------
+create or replace function public.audit_orders() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_origem text;
+begin
+  if tg_op = 'INSERT' then
+    v_origem := case coalesce(new.origem, '') when 'whatsapp' then 'pelo WhatsApp (IA)' when 'cardapio_cliente' then 'pelo cardápio digital (cliente)'
+      when 'cardapio_garcom' then 'pelo cardápio (garçom)' when 'garcom' then 'pelo garçom' when 'painel' then 'pelo painel' else '' end;
+    perform public.audit_registrar(new.owner_id, new.criado_por, 'pedido', new.id::text, 'pedido_criado', new.lead_id, new.table_session_id,
+      format('Pedido #%s lançado %s, %s', coalesce(new.numero::text, '?'), v_origem, public.audit_mesa(new.table_session_id)), null, to_jsonb(new));
+  elsif tg_op = 'UPDATE' then
+    if new.status is distinct from old.status then
+      perform public.audit_registrar(new.owner_id, null, 'pedido', new.id::text, 'status_alterado', new.lead_id, new.table_session_id,
+        format('Pedido #%s: de "%s" para "%s"', coalesce(new.numero::text, '?'), public.audit_etapa(old.status), public.audit_etapa(new.status)), jsonb_build_object('status', old.status), jsonb_build_object('status', new.status));
+    end if;
+    if new.sales_order_id is distinct from old.sales_order_id then
+      perform public.audit_registrar(new.owner_id, null, 'pedido', new.id::text, case when new.sales_order_id is null then 'retirado_da_conta' else 'incluido_na_conta' end,
+        new.lead_id, new.table_session_id,
+        format('Pedido #%s %s', coalesce(new.numero::text, '?'), case when new.sales_order_id is null then 'voltou a ficar em aberto' else 'incluído na conta paga' end),
+        jsonb_build_object('sales_order_id', old.sales_order_id), jsonb_build_object('sales_order_id', new.sales_order_id));
+    end if;
+  elsif tg_op = 'DELETE' then
+    perform public.audit_registrar(old.owner_id, null, 'pedido', old.id::text, 'pedido_excluido', old.lead_id, old.table_session_id,
+      format('Pedido #%s excluído (%s)', coalesce(old.numero::text, '?'), public.audit_brl(old.total)), to_jsonb(old), null);
+    return old;
+  end if;
+  return new;
+exception when others then raise warning 'auditoria pedidos: %', sqlerrm; return coalesce(new, old);
+end; $$;
+
+-- Quem lançou: preenchido sozinho quando é alguém logado
+create or replace function public.orders_set_autor() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.criado_por := coalesce(new.criado_por, auth.uid());
+  -- Lançado por alguém logado no painel: garçom/funcionário ou o próprio dono
+  if new.origem is null and auth.uid() is not null then
+    new.origem := case when exists (select 1 from public.team_members m where m.user_id = auth.uid()) then 'garcom' else 'painel' end;
+  end if;
+  return new;
+end; $$;
+
+drop trigger if exists orders_set_autor on public.orders;
+create trigger orders_set_autor before insert on public.orders for each row execute procedure public.orders_set_autor();
+drop trigger if exists audit_orders on public.orders;
+create trigger audit_orders after insert or update or delete on public.orders for each row execute procedure public.audit_orders();
+
+-- ---------- Itens dos pedidos ----------
+create or replace function public.audit_order_items() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare o record; r record;
+begin
+  r := coalesce(new, old);
+  select owner_id, lead_id, table_session_id, numero, criado_por into o from public.orders where id = r.order_id;
+  if o.owner_id is null then return coalesce(new, old); end if;
+  if tg_op = 'INSERT' then
+    perform public.audit_registrar(o.owner_id, o.criado_por, 'item', new.id::text, 'item_adicionado', o.lead_id, o.table_session_id,
+      format('Pedido #%s: %sx %s (%s cada)%s', coalesce(o.numero::text, '?'), new.quantity, new.product_name, public.audit_brl(new.unit_price),
+        case when coalesce(new.observacao, '') <> '' then ', obs.: ' || new.observacao else '' end), null, to_jsonb(new));
+  elsif tg_op = 'UPDATE' and (new.quantity is distinct from old.quantity or new.unit_price is distinct from old.unit_price) then
+    perform public.audit_registrar(o.owner_id, null, 'item', new.id::text, 'item_alterado', o.lead_id, o.table_session_id,
+      format('Pedido #%s: %s alterado de %sx %s para %sx %s', coalesce(o.numero::text, '?'), new.product_name, old.quantity, public.audit_brl(old.unit_price), new.quantity, public.audit_brl(new.unit_price)),
+      to_jsonb(old), to_jsonb(new));
+  elsif tg_op = 'DELETE' then
+    perform public.audit_registrar(o.owner_id, null, 'item', old.id::text, 'item_removido', o.lead_id, o.table_session_id,
+      format('Pedido #%s: removido %sx %s', coalesce(o.numero::text, '?'), old.quantity, old.product_name), to_jsonb(old), null);
+  end if;
+  return coalesce(new, old);
+exception when others then raise warning 'auditoria itens: %', sqlerrm; return coalesce(new, old);
+end; $$;
+drop trigger if exists audit_order_items on public.order_items;
+create trigger audit_order_items after insert or update or delete on public.order_items for each row execute procedure public.audit_order_items();
+
+-- ---------- Contas e pagamentos ----------
+create or replace function public.audit_sales_orders() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_reg uuid; v_metodo text;
+begin
+  if tg_op = 'INSERT' then
+    v_reg := nullif(new.pagamento ->> 'registrado_por', '')::uuid;
+    v_metodo := coalesce(new.pagamento ->> 'metodo', '');
+    perform public.audit_registrar(new.owner_id, v_reg, 'conta', new.id::text, case when new.status = 'pago' then 'conta_paga' else 'pedido_de_venda_criado' end,
+      new.lead_id, new.table_session_id,
+      case when new.status = 'pago'
+        then format('Conta #%s paga: %s (%s)%s', new.numero, public.audit_brl(new.total), coalesce(nullif(v_metodo, ''), 'forma não informada'),
+               case when new.entrega ->> 'tipo' = 'mesa' then ', ' || coalesce(new.entrega ->> 'local', 'mesa') else '' end)
+        else format('Pedido de venda #%s criado: %s (%s)', new.numero, public.audit_brl(new.total), new.status) end,
+      null, to_jsonb(new));
+  elsif tg_op = 'UPDATE' then
+    if new.status is distinct from old.status or new.total is distinct from old.total then
+      perform public.audit_registrar(new.owner_id, null, 'conta', new.id::text, 'conta_alterada', new.lead_id, new.table_session_id,
+        format('Venda #%s: %s (%s) para %s (%s)', new.numero, public.audit_etapa(old.status), public.audit_brl(old.total), public.audit_etapa(new.status), public.audit_brl(new.total)),
+        jsonb_build_object('status', old.status, 'total', old.total, 'pagamento', old.pagamento),
+        jsonb_build_object('status', new.status, 'total', new.total, 'pagamento', new.pagamento));
+    end if;
+  elsif tg_op = 'DELETE' then
+    perform public.audit_registrar(old.owner_id, null, 'conta', old.id::text, 'conta_excluida', old.lead_id, old.table_session_id,
+      format('Venda #%s excluída (%s, %s)', old.numero, public.audit_brl(old.total), old.status), to_jsonb(old), null);
+    return old;
+  end if;
+  return new;
+exception when others then raise warning 'auditoria contas: %', sqlerrm; return coalesce(new, old);
+end; $$;
+drop trigger if exists audit_sales_orders on public.sales_orders;
+create trigger audit_sales_orders after insert or update or delete on public.sales_orders for each row execute procedure public.audit_sales_orders();
+
+-- ---------- Mesas (abertura e fechamento) ----------
+create or replace function public.audit_table_sessions() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    perform public.audit_registrar(new.owner_id, null, 'mesa', new.id::text, 'mesa_aberta', null, new.id,
+      format('%s aberta', public.audit_mesa(new.id)), null, to_jsonb(new));
+  elsif tg_op = 'UPDATE' and new.status is distinct from old.status then
+    perform public.audit_registrar(new.owner_id, null, 'mesa', new.id::text, 'mesa_' || new.status, null, new.id,
+      format('%s %s', public.audit_mesa(new.id), public.audit_etapa(new.status)), jsonb_build_object('status', old.status), jsonb_build_object('status', new.status));
+  end if;
+  return new;
+exception when others then raise warning 'auditoria mesas: %', sqlerrm; return new;
+end; $$;
+drop trigger if exists audit_table_sessions on public.table_sessions;
+create trigger audit_table_sessions after insert or update on public.table_sessions for each row execute procedure public.audit_table_sessions();
+
+-- ---------- Cliente entrando e saindo da mesa (comanda) ----------
+create or replace function public.audit_leads_mesa() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.table_session_id is distinct from old.table_session_id then
+    if new.table_session_id is not null then
+      perform public.audit_registrar(new.owner_id, null, 'comanda', new.id::text, 'comanda_aberta', new.id, new.table_session_id,
+        format('Comanda aberta para %s (%s) na %s', coalesce(new.dados_cliente ->> 'nome', new.name, 'cliente'), coalesce(new.phone, 'sem telefone'), public.audit_mesa(new.table_session_id)),
+        null, jsonb_build_object('nome', coalesce(new.dados_cliente ->> 'nome', new.name), 'telefone', new.phone));
+    else
+      perform public.audit_registrar(new.owner_id, null, 'comanda', new.id::text, 'comanda_encerrada', new.id, old.table_session_id,
+        format('Comanda de %s encerrada (%s)', coalesce(new.dados_cliente ->> 'nome', new.name, 'cliente'), public.audit_mesa(old.table_session_id)), null, null);
+    end if;
+  end if;
+  return new;
+exception when others then raise warning 'auditoria comanda: %', sqlerrm; return new;
+end; $$;
+drop trigger if exists audit_leads_mesa on public.leads;
+create trigger audit_leads_mesa after update on public.leads for each row execute procedure public.audit_leads_mesa();
+
+create or replace function public.audit_leads_novo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.audit_registrar(new.owner_id, null, 'cliente', new.id::text, 'cliente_cadastrado', new.id, new.table_session_id,
+    format('Cliente cadastrado: %s (%s)%s', coalesce(new.dados_cliente ->> 'nome', new.name, 'sem nome'), coalesce(new.phone, 'sem telefone'),
+      case when new.table_session_id is not null then ', comanda aberta na ' || public.audit_mesa(new.table_session_id) else '' end),
+    null, jsonb_build_object('nome', coalesce(new.dados_cliente ->> 'nome', new.name), 'telefone', new.phone));
+  return new;
+exception when others then raise warning 'auditoria cliente: %', sqlerrm; return new;
+end; $$;
+drop trigger if exists audit_leads_novo on public.leads;
+create trigger audit_leads_novo after insert on public.leads for each row execute procedure public.audit_leads_novo();
+```
+
+## 40. Limite de funcionários e equipe de cada cliente no Painel Admin
+
+Em **Gerenciar conta**, a seção **Equipe do estabelecimento** mostra os funcionários do cliente (nome, usuário,
+função, situação e último acesso) e o campo **Limite de funcionários** (vazio = sem limite; só administradores mudam).
+Atualize a função **`admin`**. Não há SQL novo (a coluna `limite_equipe` veio na seção 33).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

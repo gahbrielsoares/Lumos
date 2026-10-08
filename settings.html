@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=63" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=63" />
+  <script src="js/logo.js?v=65" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=65" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
@@ -152,16 +152,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=63";
-    import { supabase } from "./js/supabaseClient.js?v=63";
-    import { initThemeToggle } from "./js/theme.js?v=63";
-    import { initMobileNav } from "./js/mobileNav.js?v=63";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=63";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=63";
-    import { listAgents, saveAgent } from "./js/agents.js?v=63";
+    import { requireSession, signOut } from "./js/auth.js?v=65";
+    import { supabase } from "./js/supabaseClient.js?v=65";
+    import { initThemeToggle } from "./js/theme.js?v=65";
+    import { initMobileNav } from "./js/mobileNav.js?v=65";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=65";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=65";
+    import { listAgents, saveAgent } from "./js/agents.js?v=65";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=63";
+    } from "./js/businessConfig.js?v=65";
 
     await requireSession();
     initThemeToggle();
@@ -339,7 +339,7 @@
       const list = document.getElementById("prompt-update-list");
 
       // Exemplo do nicho (cardápio do restaurante com mesas, catálogo de materiais)
-      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=63");
+      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=65");
       const ex = EXEMPLO_NICHO[info.key];
       const { count: qtdProdutos } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", await getWorkspaceOwnerIdSafe());
       document.getElementById("exemplo-box").style.display = ex ? "" : "none";
@@ -389,7 +389,7 @@
     }
 
     async function getWorkspaceOwnerIdSafe() {
-      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=63");
+      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=65");
       return getWorkspaceOwnerId();
     }
 

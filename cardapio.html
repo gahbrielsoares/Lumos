@@ -336,7 +336,17 @@ h2{font-size:17px;margin:16px 2px 10px}
   $("yes").onclick = function () {
     var btn = $("yes"); btn.disabled = true; btn.textContent = "Enviando…";
     var items = Object.keys(cart).map(function (id) { return { id: id, qty: cart[id].qty, obs: cart[id].obs }; });
-    call({ action: "submit", items: items, garcom: GARCOM }).then(function (r) {
+    // Modo garçom: envia o login de quem está lançando (fica registrado no histórico)
+    var jwt = null;
+    if (GARCOM) {
+      try {
+        for (var k = 0; k < localStorage.length; k++) {
+          var key = localStorage.key(k);
+          if (/^sb-.*-auth-token$/.test(key)) { jwt = (JSON.parse(localStorage.getItem(key)) || {}).access_token || null; break; }
+        }
+      } catch (e) {}
+    }
+    call({ action: "submit", items: items, garcom: GARCOM, jwt: jwt }).then(function (r) {
       if (GARCOM) {
         cart = {}; store(CART_KEY);
         closeModal(); closeSheet();

@@ -127,11 +127,30 @@ Deno.serve(async (req) => {
         update.allowed_tabs = Array.isArray(body.allowed_tabs) ? body.allowed_tabs.map(String).slice(0, 60) : null;
       }
       if (body.notas !== undefined) update.notas = String(body.notas || "").slice(0, 2000) || null;
+      // Limite de funcionários (vazio = sem limite): decisão comercial, só administradores
+      if (body.limite_equipe !== undefined) {
+        const novo = body.limite_equipe === null || body.limite_equipe === "" ? null : Math.max(0, Math.min(500, parseInt(body.limite_equipe) || 0));
+        if (novo !== (target.limite_equipe ?? null)) {
+          if (!isAdmin) return json({ error: "Só administradores mudam o limite de funcionários." }, 403);
+          update.limite_equipe = novo;
+        }
+      }
 
       const { error } = await supabase.from("profiles").update(update).eq("id", id);
       if (error) return json({ error: error.message }, 500);
       console.log("Conta atualizada por", myRole, me.user.id, ":", id, JSON.stringify(update));
       return json({ ok: true, role: update.role });
+    }
+
+    if (body.action === "team_of") {
+      const id = String(body.user_id || "");
+      const { data: members } = await supabase.from("team_members").select("user_id, username, nome, funcao, ativo, allowed_tabs, created_at").eq("owner_id", id).order("created_at");
+      const out = [];
+      for (const m of members || []) {
+        const { data: u } = await supabase.auth.admin.getUserById(m.user_id);
+        out.push({ ...m, ultimo_acesso: u?.user?.last_sign_in_at || null });
+      }
+      return json({ members: out });
     }
 
     if (body.action === "support_link") {

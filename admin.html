@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin — Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=63" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=63" />
+  <script src="js/logo.js?v=65" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=65" />
 </head>
 <body>
 
@@ -74,12 +74,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=63";
-    import { initThemeToggle } from "./js/theme.js?v=63";
-    import { initMobileNav } from "./js/mobileNav.js?v=63";
-    import { renderSidebar } from "./js/sidebar.js?v=63";
-    import { supabase } from "./js/supabaseClient.js?v=63";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=63";
+    import { requireSession, signOut } from "./js/auth.js?v=65";
+    import { initThemeToggle } from "./js/theme.js?v=65";
+    import { initMobileNav } from "./js/mobileNav.js?v=65";
+    import { renderSidebar } from "./js/sidebar.js?v=65";
+    import { supabase } from "./js/supabaseClient.js?v=65";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=65";
 
     await requireSession();
     initThemeToggle();
@@ -88,7 +88,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=63");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=65");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -201,6 +201,14 @@
           </div>
         </div>
 
+        <div class="field" style="border-top:1px solid var(--panel-border); padding-top:14px; ${alvoEquipe ? "display:none;" : ""}"><label>Equipe do estabelecimento</label>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+            <span style="font-size:14px;">Limite de funcionários:</span>
+            <input id="m-limite" type="number" min="0" max="500" value="${a.limite_equipe ?? ""}" placeholder="sem limite" style="width:130px;" ${podeComercial ? "" : "disabled"} />
+            <span class="settings-hint" style="margin:0;">Em uso: <b id="m-em-uso">${a.equipe || 0}</b>. Vazio = sem limite.</span>
+          </div>
+          <div id="m-equipe" class="settings-hint">Carregando a equipe…</div>
+        </div>
         <div class="field" style="border-top:1px solid var(--panel-border); padding-top:14px; ${alvoEquipe ? "display:none;" : ""}"><label>Acesso de suporte</label>
           <button type="button" class="btn btn-ghost" id="m-sup">Acessar como cliente</button>
           <div id="m-sup-out" style="margin-top:8px;"></div>
@@ -209,6 +217,19 @@
         <div id="m-msg" class="form-msg"></div>
         ${podeEditar ? "" : `<p class="settings-hint" style="color:#B4553B;">Conta da equipe da Lumos: só o administrador principal pode alterar.</p>`}
         <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save" ${podeEditar ? "" : "disabled"}>Salvar</button></div>`, { width: 640 });
+
+      // Lista a equipe do cliente
+      if (!alvoEquipe) {
+        call({ action: "team_of", user_id: a.id }).then((r) => {
+          const FN = { garcom: "Garçom", cozinha: "Cozinha", atendente: "Atendente", gerente: "Gerente", personalizado: "Personalizado" };
+          const box = m.el.querySelector("#m-equipe");
+          m.el.querySelector("#m-em-uso").textContent = r.members.length;
+          box.innerHTML = r.members.length ? r.members.map((x) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--panel-border); font-size:13.5px; color:var(--panel-text);">
+              <span><b>${esc(x.nome)}</b> <code style="font-size:12px;">${esc(x.username)}</code> · ${FN[x.funcao] || "Personalizado"}</span>
+              <span>${x.ativo ? "" : '<span class="erp-badge muted">desativado</span> '}${ago(x.ultimo_acesso)}</span></div>`).join("")
+            : "Nenhum funcionário cadastrado.";
+        }).catch((err) => (m.el.querySelector("#m-equipe").textContent = err.message));
+      }
 
       let funcao = funcaoAtual;
       const funcHint = () => (m.el.querySelector("#m-func-hint").textContent = a.principal
@@ -265,7 +286,10 @@
         try {
           const body = { action: "update", user_id: a.id, notas: m.el.querySelector("#m-notas").value.trim() };
           if (funcao === "cliente") body.allowed_tabs = todasOn ? null : abas;
-          if (podeComercial) { body.status = status; body.plano = m.el.querySelector("#m-plano").value.trim(); }
+          if (podeComercial) {
+            body.status = status; body.plano = m.el.querySelector("#m-plano").value.trim();
+            if (!alvoEquipe) body.limite_equipe = m.el.querySelector("#m-limite").value.trim();
+          }
           if (podeFuncao) body.funcao = funcao;
           await call(body);
           m.close(); load();
