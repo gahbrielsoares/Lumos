@@ -82,7 +82,7 @@ function enderecoTxt(e: any): string {
   if (!a) return e?.local || "";
   const linha1 = [a.rua, a.numero].filter(Boolean).join(", ");
   const partes = [
-    [linha1, a.complemento].filter(Boolean).join(" — "),
+    [linha1, a.complemento].filter(Boolean).join(", "),
     [a.bairro, a.cidade].filter(Boolean).join(", "),
     a.cep ? `CEP ${String(a.cep).replace(/^(\d{5})(\d{3})$/, "$1-$2")}` : "",
   ].filter(Boolean);
@@ -102,9 +102,9 @@ async function registrarVendaNoErp(order: any, metodo: string, valorRecebido: nu
     const { data: ja } = await supabase.from("fin_lancamentos").select("id").eq("origem", "venda").eq("ref_id", order.id).maybeSingle();
     if (!ja) {
       const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-      const onde = order.entrega?.tipo === "mesa" ? ` — ${order.entrega.local || "Mesa"}` : "";
+      const onde = order.entrega?.tipo === "mesa" ? `, ${order.entrega.local || "Mesa"}` : "";
       await supabase.from("fin_lancamentos").insert({
-        owner_id: order.owner_id, tipo: "receita", descricao: `Venda #${order.numero}${onde}${order.cliente?.nome ? ` — ${order.cliente.nome}` : ""}`,
+        owner_id: order.owner_id, tipo: "receita", descricao: `Venda #${order.numero}${onde}${order.cliente?.nome ? `, ${order.cliente.nome}` : ""}`,
         categoria: "Vendas", valor: Math.round(Number(valorRecebido || order.total) * 100) / 100,
         vencimento: hoje, pago_em: hoje, forma: METODO[metodo] || metodo, origem: "venda", ref_id: order.id,
       });
@@ -160,7 +160,7 @@ function previsaoCozinha(order: any) {
   const e = order.entrega || {};
   const total = Number(e.tempo_preparo || 25) + (e.tipo === "retirada" ? 0 : Number(e.tempo_entrega || 40));
   return e.tipo === "retirada"
-    ? `🥡 Fica pronto por volta das *${horaPrevista(total)}* — é só retirar no balcão informando o pedido *#${order.numero}*.`
+    ? `🥡 Fica pronto por volta das *${horaPrevista(total)}*, é só retirar no balcão informando o pedido *#${order.numero}*.`
     : `🛵 Previsão de entrega: por volta das *${horaPrevista(total)}*. Te aviso por aqui quando sair!`;
 }
 
@@ -213,9 +213,9 @@ async function loadContext(orderId: string) {
 // deno-lint-ignore no-explicit-any
 function orderSummary(order: any) {
   const linhas = (order.itens || []).map((i: any) => {
-    if (i.taxa) return `• ${i.nome} — ${brl(i.subtotal)}`;
+    if (i.taxa) return `• ${i.nome}, ${brl(i.subtotal)}`;
     const qtd = i.caixas ? `${i.caixas} cx (${qtyTxt(i.quantidade)} m²)` : `${qtyTxt(i.quantidade)} ${UNIT[i.unidade] || i.unidade}`;
-    return `• ${qtd} — ${i.nome} — ${brl(i.subtotal)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`;
+    return `• ${qtd}, ${i.nome}, ${brl(i.subtotal)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`;
   });
   const e = order.entrega || {};
   if (e.tipo === "mesa") {
@@ -223,18 +223,18 @@ function orderSummary(order: any) {
     const consumo = (order.itens || []).filter((i: { taxa?: boolean }) => !i.taxa);
     const extras = (order.itens || []).filter((i: { taxa?: boolean }) => i.taxa);
     const fmt = (i: { nome: string; quantidade: number; subtotal: number; taxa?: boolean }) =>
-      i.taxa ? `${i.nome}: ${brl(i.subtotal)}` : `• ${qtyTxt(i.quantidade)}x ${i.nome} — ${brl(i.subtotal)}`;
+      i.taxa ? `${i.nome}: ${brl(i.subtotal)}` : `• ${qtyTxt(i.quantidade)}x ${i.nome}, ${brl(i.subtotal)}`;
     const soma = consumo.reduce((t: number, i: { subtotal: number }) => t + Number(i.subtotal), 0);
     return `${consumo.map(fmt).join("\n")}\n\nConsumo: ${brl(soma)}${extras.length ? `\n${extras.map(fmt).join("\n")}` : ""}\n*Total: ${brl(order.total)}*`;
   }
   const freteLinha = e.tipo === "retirada"
     ? (e.cozinha ? "Retirada no balcão: sem taxa" : "Retirada na loja: sem custo")
     : e.cozinha ? `Taxa de entrega${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}`
-    : `Frete${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}${e.prazo ? ` — ${e.prazo}` : ""}`;
+    : `Frete${e.local ? ` (${e.local})` : ""}: ${Number(order.frete) === 0 ? "grátis 🎉" : brl(order.frete)}${e.prazo ? `, ${e.prazo}` : ""}`;
   const end = e.tipo === "retirada" ? "" : enderecoTxt(e);
   const c = order.cliente || {};
   const cli = c.nome || c.razao_social
-    ? `\n\n👤 ${c.razao_social ? `${c.razao_social} (contato: ${c.nome || "—"})` : c.nome}${docLabel(c.cpf || "") ? ` · ${docLabel(c.cpf)}` : ""}${c.ie ? ` · IE ${c.ie}` : ""}`
+    ? `\n\n👤 ${c.razao_social ? `${c.razao_social} (contato: ${c.nome || "-"})` : c.nome}${docLabel(c.cpf || "") ? ` · ${docLabel(c.cpf)}` : ""}${c.ie ? ` · IE ${c.ie}` : ""}`
     : "";
   return `${linhas.join("\n")}\n\nSubtotal: ${brl(order.subtotal)}\n${freteLinha}\n*Total: ${brl(order.total)}*${cli}${end ? `\n\n📍 *Entrega em:*\n${end}` : ""}\n\nSe algo estiver errado, é só me avisar antes de pagar. 😉`;
 }
@@ -287,7 +287,7 @@ async function approve(ctx: any, freteManual: number | null) {
     payText = `💳 *Pagamento ${onde}*: ${formas.join(", ").replace(/, ([^,]*)$/, " ou $1")}${parc}.\nPor segurança, não enviamos links de pagamento. 🔒\n\nJá vamos separar seus produtos. 📦`;
   } else if (pag?.provider === "pix_manual") {
     pagamento = { provider: "pix_manual" };
-    payText = `💠 Pagamento via Pix:\nChave: *${pag.config?.pix_chave || "—"}*${pag.config?.pix_titular ? `\nTitular: ${pag.config.pix_titular}` : ""}\n\nAssim que fizer o Pix, é só mandar o comprovante aqui que a gente confirma. 😉`;
+    payText = `💠 Pagamento via Pix:\nChave: *${pag.config?.pix_chave || "-"}*${pag.config?.pix_titular ? `\nTitular: ${pag.config.pix_titular}` : ""}\n\nAssim que fizer o Pix, é só mandar o comprovante aqui que a gente confirma. 😉`;
   } else if (pag?.provider) {
     return json({ error: `O envio automático de link pelo ${pag.provider} ainda não foi implementado. Envie o link manualmente e use "Confirmar pagamento" quando cair.` }, 501);
   } else {
@@ -300,7 +300,7 @@ async function approve(ctx: any, freteManual: number | null) {
   const updated = { ...order, frete, total };
 
   const head = isMesa
-    ? `🧾 *Conta — ${order.entrega?.local || "Mesa"}*`
+    ? `🧾 *Conta, ${order.entrega?.local || "Mesa"}*`
     : order.entrega?.cozinha ? `🧾 *Pedido #${order.numero}* registrado!` : `🧾 *Pedido #${order.numero}* conferido e aprovado!`;
   await sendToCustomer(ctx, `${head}\n\n${orderSummary(updated)}\n\n${payText}`);
 
@@ -352,10 +352,10 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   if (order.entrega?.tipo === "mesa") {
     const forma = METODO[metodo] || metodo;
     await supabase.from("sales_orders").update({ pagamento: { ...(order.pagamento || {}), metodo, parcelas, valor_cobrado: order.total } }).eq("id", order.id);
-    await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n${order.entrega.local || "Mesa"} — *${brl(order.total)}* (${forma})${nf && ctx.simulated ? `\n🧾 Cupom fiscal (NFC-e) nº ${nf} _(demonstração)_` : ""}\n\nObrigado pela visita! Foi um prazer receber você. 🍻 Volte sempre!`);
+    await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n${order.entrega.local || "Mesa"}, *${brl(order.total)}* (${forma})${nf && ctx.simulated ? `\n🧾 Cupom fiscal (NFC-e) nº ${nf} _(demonstração)_` : ""}\n\nObrigado pela visita! Foi um prazer receber você. 🍻 Volte sempre!`);
     await releaseTable(order, ctx.lead.id);
     const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
-    if (seller) await sendText(ctx.wa, seller, `💰 Conta paga — ${order.entrega.local}: ${brl(order.total)} (${forma})`);
+    if (seller) await sendText(ctx.wa, seller, `💰 Conta paga, ${order.entrega.local}: ${brl(order.total)} (${forma})`);
     return json({ ok: true, numero: order.numero });
   }
 
@@ -395,7 +395,7 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     await sleep(1200);
     await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
     const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
-    if (seller) await sendText(ctx.wa, seller, `💰 Pedido #${order.numero} pago (${formaTxt}) — já na cozinha.`);
+    if (seller) await sendText(ctx.wa, seller, `💰 Pedido #${order.numero} pago (${formaTxt}), já na cozinha.`);
     return json({ ok: true, numero: order.numero, nf });
   }
 
@@ -406,7 +406,7 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
       ? `\nEm nome de: ${c.razao_social}${docLabel(c.cpf || "") ? ` (${docLabel(c.cpf)}` : " ("}${c.ie ? `${docLabel(c.cpf || "") ? " · " : ""}IE ${c.ie}` : ""})`.replace(" ()", "")
       : c.nome ? `\nEm nome de: ${c.nome}${docLabel(c.cpf || "") ? ` (${docLabel(c.cpf)})` : " (consumidor final, sem CPF)"}` : "";
     const envio = validEmail(c.email) ? `Enviamos o PDF para *${c.email}*.` : "Se quiser o PDF, é só pedir que eu te mando por aqui.";
-    await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*${emNome}\n${envio}\n_(ambiente de demonstração — nota sem valor fiscal)_`);
+    await sendToCustomer(ctx, `🧾 Nota fiscal emitida: *NF-e nº ${nf}*${emNome}\n${envio}\n_(ambiente de demonstração, nota sem valor fiscal)_`);
   }
 
   await sleep(1200);
@@ -421,7 +421,7 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   await sendToCustomer(ctx, ctx.vendas?.mensagem_pos_pagamento || DEFAULT_THANKS);
 
   const seller = onlyDigits(ctx.vendas?.telefone_aprovacao);
-  if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado* — pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(cobrado)} (${formaTxt})`);
+  if (seller) await sendText(ctx.wa, seller, `💰 *Pagamento confirmado*, pedido #${order.numero}\nCliente: ${ctx.lead.name || ctx.lead.phone}\nValor: ${brl(cobrado)} (${formaTxt})`);
 
   return json({ ok: true, numero: order.numero, nf });
 }

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Estoque — Lumos</title>
+  <title>Estoque | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -84,12 +84,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -100,7 +100,7 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl" };
     let products = [];
-    const { getMyAccess } = await import("./js/workspace.js?v=66");
+    const { getMyAccess } = await import("./js/workspace.js?v=67");
     const acesso = await getMyAccess();
     const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) {
@@ -119,7 +119,7 @@
       render();
       document.getElementById("movs").innerHTML = (m || []).map((x) => `<tr>
         <td>${new Date(x.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-        <td>${esc(x.products?.name || "—")}</td>
+        <td>${esc(x.products?.name || "-")}</td>
         <td class="${x.quantidade >= 0 && x.tipo !== "saida" ? "erp-pos" : "erp-neg"}">${x.tipo === "saida" ? "−" : x.quantidade >= 0 ? "+" : "−"} ${num(Math.abs(x.quantidade), 3)} ${UN[x.products?.unit] || ""} <span style="opacity:.7; font-weight:400;">(${x.tipo})</span></td>
         <td>${num(x.saldo_apos, 3)}</td>
         <td>${esc(x.motivo || "")}${x.origem !== "manual" ? ` <span class="erp-badge muted">${x.origem}</span>` : ""}</td></tr>`).join("") || `<tr><td colspan="5" style="opacity:.7;">Nenhuma movimentação ainda.</td></tr>`;
@@ -146,9 +146,9 @@
       document.getElementById("empty").style.display = list.length ? "none" : "block";
       document.getElementById("rows").innerHTML = list.map((p) => `<tr>
         <td><strong>${esc(p.name)}</strong>${p.active === false ? ' <span class="erp-badge muted">inativo</span>' : ""}</td>
-        <td>${p.estoque == null ? "—" : `<strong>${num(p.estoque, 3)}</strong> ${UN[p.unit] || p.unit || ""}`}</td>
-        <td>${p.estoque_minimo == null ? "—" : num(p.estoque_minimo, 3)}</td>
-        <td>${p.custo == null ? "—" : brl(p.custo)}</td>
+        <td>${p.estoque == null ? "-" : `<strong>${num(p.estoque, 3)}</strong> ${UN[p.unit] || p.unit || ""}`}</td>
+        <td>${p.estoque_minimo == null ? "-" : num(p.estoque_minimo, 3)}</td>
+        <td>${p.custo == null ? "-" : brl(p.custo)}</td>
         <td>${situacao(p)}</td>
         <td><div class="erp-actions">${p.estoque == null ? `<button data-ctrl="${p.id}">Controlar estoque</button>` : `<button data-mov="${p.id}">Movimentar</button><button data-cfg="${p.id}">${verCustos ? "Mínimo e custo" : "Estoque mínimo"}</button>`}</div></td></tr>`).join("");
     }

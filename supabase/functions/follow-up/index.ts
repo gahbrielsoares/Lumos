@@ -88,6 +88,8 @@ function toWhatsApp(text: string) {
     .replace(/<\/?[A-Za-z_][A-Za-z0-9_]*>/g, "")
     .replace(/\[[A-Z]+:[^\]]*\]?/g, "")
     .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    .replace(/\s*\u2014\s*/g, ", ")                       // sem travessão: vira vírgula
+    .replace(/\u2013/g, "-")
     .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -228,7 +230,7 @@ Objetivo desta mensagem: ${objetivo}
 ${extras ? `\n${extras}\n` : ""}
 Regras: soe humano e natural, no máximo 3 frases curtas, chame o cliente pelo primeiro nome se souber, não repita mensagens que já estão na conversa,
 não invente preço, produto ou condição que não esteja acima. Escreva só a mensagem, sem marcações e sem explicar nada.
-Formatação do WhatsApp: negrito com UM asterisco (*assim*).`;
+Formatação do WhatsApp: negrito com UM asterisco (*assim*). Nunca use travessão (o traço longo).`;
   const user = `Conversa até aqui:\n${conversa}\n\nEscreva agora a mensagem de follow-up.`;
 
   let texto = toWhatsApp(await callAi(active, system, user));

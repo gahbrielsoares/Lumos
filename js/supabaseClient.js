@@ -1,6 +1,6 @@
 // ===== Configuração do Supabase =====
 // Preencha com os dados do SEU projeto (Supabase > Project Settings > API).
-// A "anon key" é pública por design — pode ficar aqui no código do frontend.
+// A "anon key" é pública por design, pode ficar aqui no código do frontend.
 // NUNCA coloque a "service_role key" em nenhum arquivo deste repositório.
 
 const SUPABASE_URL = "https://nkmyunxjoeqpmwolefbj.supabase.co";

@@ -1567,6 +1567,22 @@ Atualize a função **`admin`**. Não há SQL novo (a coluna `limite_equipe` vei
 
 Atualize as funções **`orders`** e **`whatsapp-webhook`**. Não há SQL novo.
 
+## 42. Sem travessões no sistema
+
+As telas, as mensagens automáticas e as descrições geradas pelo sistema não usam mais travessão; a IA foi orientada a
+não usar, e qualquer travessão que ela escreva vira vírgula antes de ir para o WhatsApp.
+Para corrigir o que já estava gravado, rode uma vez no **SQL Editor**:
+
+```sql
+update public.fin_lancamentos set descricao = replace(descricao, ' — ', ', ') where descricao like '%—%';
+update public.estoque_mov set motivo = replace(motivo, ' — ', ', ') where motivo like '%—%';
+update public.products set name = replace(name, 'Drink da Casa — Luz Vermelha', 'Drink da Casa (Luz Vermelha)') where name like '%—%';
+update public.agents set name = replace(name, 'Simulador — ', 'Simulador: ') where name like 'Simulador — %';
+update public.sales_orders set itens = replace(itens::text, ' — ', ', ')::jsonb where itens::text like '%—%';
+```
+
+Atualize as funções **`whatsapp-webhook`**, **`orders`**, **`follow-up`** e **`menu`**.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

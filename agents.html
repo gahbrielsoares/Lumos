@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agentes de IA — Lumos</title>
+  <title>Agentes de IA | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -52,7 +52,7 @@
 
         <div class="settings-block" id="sim-create" style="display:none; margin-top:20px; max-width:640px;">
           <h3 style="margin-bottom:6px;">Agente simulador</h3>
-          <p class="settings-hint">Cria um agente que demonstra o atendimento completo — do "oi" ao pagamento confirmado, nota fiscal e "obrigado pela preferência" — como se a loja estivesse integrada com tudo. Ele usa o mesmo WhatsApp e as mesmas chaves de IA do agente escolhido (dando preferência à IA grátis) e já vem com produtos de demonstração, que aparecem só nele.</p>
+          <p class="settings-hint">Cria um agente que demonstra o atendimento completo, do "oi" ao pagamento confirmado, nota fiscal e "obrigado pela preferência", como se a loja estivesse integrada com tudo. Ele usa o mesmo WhatsApp e as mesmas chaves de IA do agente escolhido (dando preferência à IA grátis) e já vem com produtos de demonstração, que aparecem só nele.</p>
           <div class="field" style="margin-top:12px;">
             <label for="sim-base">Copiar WhatsApp e chaves de IA de</label>
             <select id="sim-base"></select>
@@ -92,7 +92,7 @@
             <h3>Simulação</h3>
           </div>
           <div class="settings-block" style="max-width: 640px;">
-            <p class="settings-hint">Este agente simula pagamento, frete, estoque e nota fiscal. O cliente recebe um link de pagamento de demonstração e, ao "pagar", recebe a confirmação, o número do pedido e a nota — sem nenhuma cobrança real.</p>
+            <p class="settings-hint">Este agente simula pagamento, frete, estoque e nota fiscal. O cliente recebe um link de pagamento de demonstração e, ao "pagar", recebe a confirmação, o número do pedido e a nota, sem nenhuma cobrança real.</p>
             <div class="field" style="margin-top:12px;">
               <label for="sim-type-detail">Tipo de negócio simulado</label>
               <select id="sim-type-detail"></select>
@@ -167,7 +167,7 @@
           <h3>Provedor de IA</h3>
         </div>
         <div class="settings-block" style="max-width: 640px;">
-          <p class="settings-hint">Configure os dois — troque qual está ativo com um clique, sem perder a chave do outro.</p>
+          <p class="settings-hint">Configure os dois, troque qual está ativo com um clique, sem perder a chave do outro.</p>
 
           <div class="pill-tabs">
             <button type="button" class="pill-tab" data-slot="paga">API paga</button>
@@ -249,20 +249,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=66";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=67";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=67";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=66";
+    } from "./js/agents.js?v=67";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=66";
+    } from "./js/simulator.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -337,8 +337,8 @@
     document.getElementById("new-sim-btn").addEventListener("click", async () => {
       const agents = (await listAgents()).filter((a) => a.phone_number && !a.is_simulator);
       const box = document.getElementById("sim-create");
-      if (!agents.length) return lumosAlert("Cadastre primeiro um agente com número de WhatsApp funcionando — o simulador copia a conexão dele.");
-      document.getElementById("sim-base").innerHTML = agents.map((a) => `<option value="${a.id}">${a.name} — ${a.phone_number}</option>`).join("");
+      if (!agents.length) return lumosAlert("Cadastre primeiro um agente com número de WhatsApp funcionando, o simulador copia a conexão dele.");
+      document.getElementById("sim-base").innerHTML = agents.map((a) => `<option value="${a.id}">${a.name}, ${a.phone_number}</option>`).join("");
       document.getElementById("sim-type").innerHTML = SIM_BUSINESS_TYPES.map((t) =>
         `<option value="${t.value}" ${t.available ? "" : "disabled"}>${t.label}${t.available ? "" : " (em breve)"}</option>`).join("");
       box.style.display = "block";

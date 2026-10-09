@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kanban — Lumos</title>
+  <title>Kanban | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -14,7 +14,7 @@
     .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
     .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
   </style>
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -89,15 +89,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=66";
-    import { listAgents } from "./js/agents.js?v=66";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=66";
-    import { openLeadPanel } from "./js/leadPanel.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=67";
+    import { listAgents } from "./js/agents.js?v=67";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=67";
+    import { openLeadPanel } from "./js/leadPanel.js?v=67";
 
     await requireSession();
     initThemeToggle();

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notas fiscais — Lumos</title>
+  <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -54,12 +54,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -73,7 +73,7 @@
     document.getElementById("nf-status").innerHTML = `
       <strong>🧾 Emissão real de NF-e / NFC-e: em breve</strong>
       <p class="settings-hint" style="margin-top:6px;">A emissão de verdade depende de um emissor (Focus NFe, Bling, Tiny…), do certificado digital da loja e do cadastro na SEFAZ.
-      ${ativo ? `A loja já configurou <strong>${esc(nfInt.provider)}</strong> em Integrações — assim que a conexão estiver pronta, as notas passam a ser emitidas sozinhas após cada venda paga.` : `Configure o emissor em <a href="integracoes.html?tipo=nota_fiscal">Integrações → Nota fiscal</a> para deixar pronto.`}
+      ${ativo ? `A loja já configurou <strong>${esc(nfInt.provider)}</strong> em Integrações, assim que a conexão estiver pronta, as notas passam a ser emitidas sozinhas após cada venda paga.` : `Configure o emissor em <a href="integracoes.html?tipo=nota_fiscal">Integrações → Nota fiscal</a> para deixar pronto.`}
       Enquanto isso, a lista abaixo mostra as vendas que precisam de nota (as do simulador aparecem com a nota de demonstração).</p>`;
 
     function periodo() {
@@ -89,7 +89,7 @@
       document.getElementById("rows").innerHTML = (data || []).map((o) => `<tr>
         <td>#${o.numero}</td>
         <td>${new Date(o.paid_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-        <td>${esc(o.cliente?.razao_social || o.cliente?.nome || "—")}</td>
+        <td>${esc(o.cliente?.razao_social || o.cliente?.nome || "-")}</td>
         <td>${brl(o.pagamento?.valor_cobrado || o.total)}</td>
         <td>${o.nf_numero ? `<span class="erp-badge info">Nº ${esc(o.nf_numero)}${o.simulado ? " · demonstração" : ""}</span>` : '<span class="erp-badge warn">Não emitida</span>'}</td></tr>`).join("")
         || `<tr><td colspan="5" style="opacity:.7;">Nenhuma venda paga no período.</td></tr>`;

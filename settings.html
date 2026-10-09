@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configurações — Lumos</title>
+  <title>Configurações | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
     .tabs-group-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding-bottom:6px; border-bottom:1px solid var(--panel-border); }
   </style>
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -50,7 +50,7 @@
         <h3>Tipo de negócio</h3>
       </div>
       <div class="settings-block">
-        <p class="settings-hint">Define um modelo de prompt e um conjunto de abas recomendado pro seu nicho. Novos agentes já nascem com esse prompt pré-preenchido. Pros agentes que já existem, você decide um por um se quer atualizar — nada muda sozinho.</p>
+        <p class="settings-hint">Define um modelo de prompt e um conjunto de abas recomendado pro seu nicho. Novos agentes já nascem com esse prompt pré-preenchido. Pros agentes que já existem, você decide um por um se quer atualizar, nada muda sozinho.</p>
         <div class="field">
           <label for="biz-type">Nicho</label>
           <select id="biz-type"></select>
@@ -122,7 +122,7 @@
         <h3>Gerenciar Abas</h3>
       </div>
       <div class="settings-block" style="max-width: 680px;">
-        <p class="settings-hint">Use só o CRM, só o ERP ou os dois — ative as abas que fazem sentido pro seu negócio. As desativadas somem da barra lateral, mas nenhum dado é perdido.</p>
+        <p class="settings-hint">Use só o CRM, só o ERP ou os dois, ative as abas que fazem sentido pro seu negócio. As desativadas somem da barra lateral, mas nenhum dado é perdido.</p>
         <div id="tabs-list" style="display:flex; flex-direction:column; gap:10px; margin-top:14px;"></div>
         <div id="tabs-msg" class="form-msg" style="margin-top:10px;"></div>
         <button id="tabs-save" class="btn btn-primary" style="margin-top:10px;">Salvar abas</button>
@@ -153,16 +153,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=66";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=66";
-    import { listAgents, saveAgent } from "./js/agents.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=67";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=67";
+    import { listAgents, saveAgent } from "./js/agents.js?v=67";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=66";
+    } from "./js/businessConfig.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -323,14 +323,14 @@
         return;
       }
 
-      msg.textContent = `Salvo. Abas recomendadas pra "${info.label}" aplicadas — atualize a página pra ver.`;
+      msg.textContent = `Salvo. Abas recomendadas pra "${info.label}" aplicadas, atualize a página pra ver.`;
       msg.className = "form-msg ok";
 
       document.querySelectorAll(".tab-check").forEach((chk) => {
         chk.checked = !info.disabledTabs.includes(chk.value);
       });
 
-      // Pergunta separadamente se quer atualizar o prompt de algum agente — nunca automático
+      // Pergunta separadamente se quer atualizar o prompt de algum agente, nunca automático
       openPromptUpdateModal(info);
     });
 
@@ -340,7 +340,7 @@
       const list = document.getElementById("prompt-update-list");
 
       // Exemplo do nicho (cardápio do restaurante com mesas, catálogo de materiais)
-      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=66");
+      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=67");
       const ex = EXEMPLO_NICHO[info.key];
       const { count: qtdProdutos } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", await getWorkspaceOwnerIdSafe());
       document.getElementById("exemplo-box").style.display = ex ? "" : "none";
@@ -357,7 +357,7 @@
 
       list.innerHTML = agents.map((a) => `
         <label class="toggle-row" style="justify-content: space-between;">
-          <span>${a.name || "Sem nome"} <span style="color:var(--panel-text-muted); font-weight:400;">— ${a.phone_number || "sem número"}</span></span>
+          <span>${a.name || "Sem nome"} <span style="color:var(--panel-text-muted); font-weight:400;">· ${a.phone_number || "sem número"}</span></span>
           <input type="checkbox" class="toggle-input agent-prompt-check" value="${a.id}" />
         </label>
       `).join("");
@@ -390,7 +390,7 @@
     }
 
     async function getWorkspaceOwnerIdSafe() {
-      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=66");
+      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=67");
       return getWorkspaceOwnerId();
     }
 

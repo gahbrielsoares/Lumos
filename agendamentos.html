@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agendamentos — Lumos</title>
+  <title>Agendamentos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -104,16 +104,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { getRange } from "./js/dateRange.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { updateLeadStage } from "./js/leads.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { getRange } from "./js/dateRange.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { updateLeadStage } from "./js/leads.js?v=67";
     import {
       listAppointmentsInRange, createAppointment, updateAppointmentStatus, APPOINTMENT_STATUS_LABELS,
-    } from "./js/agendamentos.js?v=66";
+    } from "./js/agendamentos.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -142,12 +142,12 @@
 
       body.innerHTML = list.map((a) => `
         <tr>
-          <td>${a.nome || a.leads?.name || "—"}</td>
-          <td>${a.leads?.phone || "—"}</td>
+          <td>${a.nome || a.leads?.name || "-"}</td>
+          <td>${a.leads?.phone || "-"}</td>
           <td>${new Date(a.data_hora_inicio).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
           <td>${a.tipo === "reserva"
             ? `🍽️ Reserva${a.pessoas ? ` · ${a.pessoas} pessoa${a.pessoas > 1 ? "s" : ""}` : ""}${a.ocasiao ? ` · 🎉 ${a.ocasiao}` : ""}${a.observacao ? `<br><span style="opacity:.75;">${a.observacao}</span>` : ""}`
-            : a.leads?.motivo_contato || "—"}</td>
+            : a.leads?.motivo_contato || "-"}</td>
           <td><span class="panel-badge ${a.status}">${APPOINTMENT_STATUS_LABELS[a.status]}</span></td>
           <td>
             <select class="panel-select status-select" data-id="${a.id}" data-lead="${a.lead_id}">

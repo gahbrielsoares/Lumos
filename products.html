@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Produtos — Lumos</title>
+  <title>Produtos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -38,7 +38,7 @@
     <main class="dash-main">
       <a href="settings.html" style="font-size: 13.5px; color: var(--text-muted);">← Configurações</a>
       <h1 style="font-size: 26px; margin-top: 10px;">Produtos</h1>
-      <p style="margin-top: 6px;">Cadastre o que sua loja vende — a IA usa isso pra responder e orçar certo.</p>
+      <p style="margin-top: 6px;">Cadastre o que sua loja vende, a IA usa isso pra responder e orçar certo.</p>
 
       <div class="stat-grid">
         <div class="stat-card"><div class="stat-number" id="stat-products">–</div><div class="stat-label">Produtos</div></div>
@@ -135,13 +135,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { listAgents } from "./js/agents.js?v=66";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=66";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { listAgents } from "./js/agents.js?v=67";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=67";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=67";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -167,7 +167,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=66";
+    } from "./js/products.js?v=67";
 
     await requireSession();
     initThemeToggle();

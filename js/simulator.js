@@ -1,10 +1,10 @@
-import { supabase } from "./supabaseClient.js?v=66";
-import { getWorkspaceOwnerId } from "./workspace.js?v=66";
+import { supabase } from "./supabaseClient.js?v=67";
+import { getWorkspaceOwnerId } from "./workspace.js?v=67";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
-// que finge estar integrado com tudo — pagamento, frete, estoque e nota
-// fiscal — pra demonstrar o atendimento do "oi" até o "obrigado".
+// que finge estar integrado com tudo, pagamento, frete, estoque e nota
+// fiscal, pra demonstrar o atendimento do "oi" até o "obrigado".
 // =====================================================================
 
 export const SIM_BUSINESS_TYPES = [
@@ -24,9 +24,9 @@ export const SIM_PROMPTS = {
 Como atender:
 1. O cliente está no restaurante. As boas-vindas, o número da mesa e o link do cardápio digital são enviados automaticamente pelo sistema.
 2. Depois disso, ajude no que ele precisar: tire dúvidas sobre os pratos e bebidas, sugira acompanhamentos e bebidas de forma natural e anote pedidos feitos por mensagem (confirmando cada rodada).
-3. Se ele preferir, lembre que pode montar o pedido pelo cardápio digital — é só pedir o "cardápio".
+3. Se ele preferir, lembre que pode montar o pedido pelo cardápio digital, é só pedir o "cardápio".
 4. Quando pedirem a conta, feche a conta.
-5. Informe promoções e eventos da casa quando fizer sentido — sem forçar.
+5. Informe promoções e eventos da casa quando fizer sentido, sem forçar.
 
 Se pedirem algo que não está no cardápio, diga com simpatia que não tem hoje e sugira a opção mais parecida.
 Nunca invente item, preço, horário ou promoção além do que está nas informações abaixo.`,
@@ -36,9 +36,9 @@ Como conduzir o atendimento, do "oi" até o fechamento:
 1. Na primeira mensagem, cumprimente e se apresente. Depois disso, não repita "Oi" nem a apresentação.
 2. Entenda a necessidade: qual ambiente (sala, cozinha, banheiro, área externa), se é piso, parede ou os dois, as medidas e o estilo desejado. Se ainda não souber o nome do cliente, pergunte em algum momento de forma natural.
 3. Recomende 1 a 3 opções do catálogo que combinem com o ambiente e explique o porquê (área externa pede antiderrapante; banheiro pede algo fácil de limpar e não escorregadio no piso). Ofereça mandar foto.
-4. Calcule a metragem: área + margem de perda. Para paredes, se o cliente disser "pé-direito padrão", use 2,60 m e desconte cerca de 1,6 m² por porta. Informe a metragem em m² — NÃO informe número de caixas nem valores totais (o resumo oficial calcula as caixas fechadas e os valores).
+4. Calcule a metragem: área + margem de perda. Para paredes, se o cliente disser "pé-direito padrão", use 2,60 m e desconte cerca de 1,6 m² por porta. Informe a metragem em m², NÃO informe número de caixas nem valores totais (o resumo oficial calcula as caixas fechadas e os valores).
 5. Ofereça os complementos que fazem a obra dar certo: argamassa AC-III (porcelanatos grandes), rejunte e kit nivelador. Estimativas práticas: 1 saco de argamassa de 20 kg a cada 4 m² de porcelanato; 1 kg de rejunte a cada 6 m²; 1 kit nivelador a cada 10 m². Rodapé: perímetro do cômodo dividido por 2,4 m (barras).
-6. Pergunte se é entrega ou retirada na loja. Se for entrega, peça o CEP (o sistema descobre rua, bairro e frete) e depois confirme o número, o complemento, se é casa, apartamento ou condomínio, um ponto de referência, quem vai receber e o melhor período (manhã ou tarde). Peça também o nome completo e, para a nota fiscal, CPF ou CNPJ e e-mail (se for CNPJ, peça também a razão social e a inscrição estadual). Faça isso aos poucos, 2 ou 3 dados por mensagem, sem parecer formulário. O frete aparece nas informações da loja — use exatamente o valor informado lá.
+6. Pergunte se é entrega ou retirada na loja. Se for entrega, peça o CEP (o sistema descobre rua, bairro e frete) e depois confirme o número, o complemento, se é casa, apartamento ou condomínio, um ponto de referência, quem vai receber e o melhor período (manhã ou tarde). Peça também o nome completo e, para a nota fiscal, CPF ou CNPJ e e-mail (se for CNPJ, peça também a razão social e a inscrição estadual). Faça isso aos poucos, 2 ou 3 dados por mensagem, sem parecer formulário. O frete aparece nas informações da loja, use exatamente o valor informado lá.
 7. Recapitule o pedido em poucas linhas (itens e metragens) e pergunte se pode fechar. Quando o cliente confirmar, feche na mesma mensagem.
 8. Depois do pagamento o sistema confirma sozinho; se o cliente voltar a falar, agradeça pela preferência e ajude no que precisar.
 
@@ -67,7 +67,7 @@ export const SIM_PRODUCTS = {
     { name: "Balde de Long Neck (6 un.)", categoria: "Cervejas e chope", price: 59.9, img: "balde-long-neck", description: "6 cervejas long neck no balde com gelo.\nServe: para dividir\nMarcas: consulte as disponíveis no dia\nContém: glúten" },
     { name: "Caipirinha de Limão", categoria: "Drinks", price: 24.9, img: "caipirinha", description: "Cachaça artesanal, limão taiti e açúcar.\nTamanho: 350 ml\nDá para pedir: com vodka (+R$ 4), com adoçante, pouco gelo" },
     { name: "Gin Tônica", categoria: "Drinks", price: 32.9, img: "gin-tonica", description: "Gin, água tônica, pepino e zimbro, servido na taça com bastante gelo.\nTamanho: 500 ml\nDá para pedir: tônica zero, sem pepino" },
-    { name: "Drink da Casa — Luz Vermelha", categoria: "Drinks", price: 34.9, img: "drink-da-casa", description: "Vodka, morango, limão siciliano e espuma de gengibre. O mais pedido da casa!\nTamanho: 350 ml\nDá para pedir: sem espuma, versão sem álcool (mocktail)" },
+    { name: "Drink da Casa (Luz Vermelha)", categoria: "Drinks", price: 34.9, img: "drink-da-casa", description: "Vodka, morango, limão siciliano e espuma de gengibre. O mais pedido da casa!\nTamanho: 350 ml\nDá para pedir: sem espuma, versão sem álcool (mocktail)" },
     { name: "Refrigerante Lata", categoria: "Sem álcool", price: 7.9, img: "refrigerante", description: "Coca-Cola, Coca-Cola Zero, Guaraná ou Sprite.\nTamanho: 350 ml\nDá para pedir: com gelo e limão (informe o sabor na observação)" },
     { name: "Água Mineral 500 ml", categoria: "Sem álcool", price: 5.9, img: "agua-mineral", description: "Água mineral com ou sem gás.\nTamanho: 500 ml\nDá para pedir: com gás ou sem gás, com gelo e limão" },
     { name: "Suco Natural 400 ml", categoria: "Sem álcool", price: 12.9, img: "suco-natural", description: "Suco da fruta, feito na hora.\nSabores: laranja, limão, maracujá ou abacaxi com hortelã\nTamanho: 400 ml\nDá para pedir: sem açúcar, com adoçante, sem gelo (informe o sabor na observação)" },
@@ -222,7 +222,7 @@ export async function createSimulator(baseAgentId, businessType = "materiais_con
 
   const { data: sim, error } = await supabase.from("agents").insert({
     owner_id,
-    name: businessType === "restaurante" ? "Simulador — Bar e Restaurante" : "Simulador — Pisos e Acabamentos",
+    name: businessType === "restaurante" ? "Simulador: Bar e Restaurante" : "Simulador: Pisos e Acabamentos",
     phone_number: base.phone_number,
     system_prompt: SIM_PROMPTS[businessType],
     temperature: 0.6,

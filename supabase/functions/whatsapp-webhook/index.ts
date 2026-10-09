@@ -30,6 +30,8 @@ function toWhatsAppFormat(text: string): string {
   return text
     .replace(/\*\*\*(.+?)\*\*\*/g, "*$1*")          // ***negrito itálico*** -> *negrito*
     .replace(/\*\*(.+?)\*\*/g, "*$1*")                // **negrito** -> *negrito*
+    .replace(/\s*\u2014\s*/g, ", ")                       // sem travessão: vira vírgula
+    .replace(/\u2013/g, "-")
     .replace(/__(.+?)__/g, "_$1_")                   // __itálico__ -> _itálico_
     .replace(/~~(.+?)~~/g, "~$1~")                   // ~~tachado~~ -> ~tachado~
     .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")            // # Título -> *Título*
@@ -60,7 +62,7 @@ function looksLikeLeakedReasoning(text: string): boolean {
   return markers.some((m) => lower.includes(m)) || visible.length > 2200;
 }
 
-// Resposta que "enrola" (promete voltar depois) em vez de resolver — a IA não tem como voltar depois
+// Resposta que "enrola" (promete voltar depois) em vez de resolver, a IA não tem como voltar depois
 function looksLikeStall(text: string): boolean {
   const visible = text.replace(/\[[^\]]*\]?/g, " ").toLowerCase();
   if (/\[orcamento:/i.test(text)) return false;
@@ -73,7 +75,7 @@ function onlyDigits(s: string | undefined | null) {
 
 // Normaliza texto pra comparar nomes de produto com segurança: minúsculas,
 // espaços únicos, e trata qualquer tipo de traço/hífen "chique" que a IA
-// às vezes gera (—, –, ‑, −) como um hífen comum.
+// às vezes gera (-, –, ‑, −) como um hífen comum.
 function normalizeForMatch(s: string): string {
   return s
     .toLowerCase()
@@ -523,7 +525,7 @@ const SIM_DEFAULTS: Record<string, { kind: string; provider: string | null; enab
     ia_consulta: true, metodos: ["pix", "cartao", "boleto"], max_parcelas: 10, parcelas_sem_juros: 3, validade_link_horas: 24,
   } },
   frete: { kind: "frete", provider: "proprio", enabled: true, config: {
-    ia_consulta: true, permite_retirada: true, endereco_retirada: "Av. das Indústrias, 1500 — loja de demonstração",
+    ia_consulta: true, permite_retirada: true, endereco_retirada: "Av. das Indústrias, 1500, loja de demonstração",
     frete_gratis_acima: 3000, fora_da_tabela: "humano",
     faixas: [
       { regiao: "Centro", valor: 25, prazo: "1 dia útil" },
@@ -546,7 +548,7 @@ const SIM_RESTAURANTE = {
     eventos: "Happy hour de ter a sex, 18h às 20h: chope Pilsen em dobro. Sexta e sábado: música ao vivo (couvert R$ 12). Aniversariante com reserva ganha um petit gâteau.",
   } },
   frete: { kind: "frete", provider: "proprio", enabled: true, config: {
-    ia_consulta: true, permite_retirada: true, endereco_retirada: "Rua das Palmeiras, 250 — balcão do bar (demonstração)",
+    ia_consulta: true, permite_retirada: true, endereco_retirada: "Rua das Palmeiras, 250, balcão do bar (demonstração)",
     frete_gratis_acima: 150, fora_da_tabela: "humano",
     observacao_entrega: "",
     faixas: [
@@ -570,7 +572,7 @@ function effectiveIntegrations(agent: any, integrations: any[]): any[] {
   if (agent.sim_auto_approve || isResto) vendas.config.aprovacao_humana = false;
   if (isResto) {
     vendas.config.perda_padrao = 0;
-    vendas.config.mensagem_pos_pagamento = "Obrigado pela preferência! 🍻 Bom apetite — e quando quiser, é só chamar aqui.";
+    vendas.config.mensagem_pos_pagamento = "Obrigado pela preferência! 🍻 Bom apetite, e quando quiser, é só chamar aqui.";
   }
   return [
     vendas,
@@ -737,7 +739,7 @@ function parseDados(reply: string): Record<string, string> {
 // Separa o que é válido do que precisa ser conferido com o cliente
 function checkDados(d: Record<string, string>) {
   const invalid: string[] = [];
-  if (d.cpf && !validDoc(d.cpf)) invalid.push(`CPF/CNPJ "${d.cpf}" (${onlyDigits(d.cpf).length} dígitos, não confere — CPF tem 11 e CNPJ 14)`);
+  if (d.cpf && !validDoc(d.cpf)) invalid.push(`CPF/CNPJ "${d.cpf}" (${onlyDigits(d.cpf).length} dígitos, não confere, CPF tem 11 e CNPJ 14)`);
   if (d.email && !validEmail(d.email)) invalid.push(`e-mail "${d.email}" (formato inválido)`);
   if (d.cep && onlyDigits(d.cep).length !== 8) invalid.push(`CEP "${d.cep}" (precisa ter 8 dígitos)`);
   return invalid;
@@ -787,7 +789,7 @@ function describeDados(d: Record<string, string>, missing: { required: string[];
   const have = Object.entries(d).filter(([k]) => DADOS_KEYS[k]).map(([k, v]) => `${k}=${v}`).join("; ");
   const refused = Object.keys(d).filter((k) => k.endsWith("_recusado")).map((k) => DADOS_KEYS[k.replace("_recusado", "")]).filter(Boolean);
   const lines = [`\n\nDados do cliente já registrados: ${have || "(nenhum ainda)"}`];
-  if (refused.length) lines.push(`O cliente preferiu não informar: ${refused.join(", ")} — não peça de novo.`);
+  if (refused.length) lines.push(`O cliente preferiu não informar: ${refused.join(", ")}, não peça de novo.`);
   if (missing.required.length) {
     lines.push(`OBRIGATÓRIO antes de fechar o pedido${entregaTipo === "retirada" ? "" : " (entrega)"}: ${missing.required.map((k) => DADOS_KEYS[k]).join(", ")}.`);
   }
@@ -807,9 +809,9 @@ function describeDelivery(d: any, frete: any): string {
   const gratisTxt = frete?.config?.frete_gratis_acima > 0 ? ` (frete grátis se a compra passar de ${brl(frete.config.frete_gratis_acima)})` : "";
   if (d.tipo === "retirada") return `\n\nEntrega já definida nesta conversa: o cliente vai RETIRAR na loja${d.local ? ` (${d.local})` : ""}. Sem frete.`;
   if (d.valor != null) {
-    return `\n\nEntrega já identificada nesta conversa (calculada pelo sistema — use exatamente estes dados, não recalcule):
+    return `\n\nEntrega já identificada nesta conversa (calculada pelo sistema, use exatamente estes dados, não recalcule):
 ${d.local ? `Endereço: ${d.local}${d.cep ? ` (CEP ${d.cep})` : ""}` : ""}
-Frete: ${brl(d.valor)}${d.prazo ? ` — prazo ${d.prazo}` : ""}${gratisTxt}.`;
+Frete: ${brl(d.valor)}${d.prazo ? `, prazo ${d.prazo}` : ""}${gratisTxt}.`;
   }
   return `\n\nEntrega: o cliente informou ${d.local || "um endereço"}${d.cep ? ` (CEP ${d.cep})` : ""}, que está FORA da tabela de frete.
 Isso é uma pendência da equipe e NÃO trava a venda: diga com naturalidade que o valor do frete para esse endereço vem junto no resumo do pedido, e siga coletando o que falta.`;
@@ -938,7 +940,7 @@ async function insertTableOrder(owner_id: string, lead: any, items: TableItem[])
 }
 
 function confirmCard(items: TableItem[]) {
-  const linhas = items.map((i) => `• ${i.quantity}x *${i.product_name}* — ${brl(i.unit_price * i.quantity)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`);
+  const linhas = items.map((i) => `• ${i.quantity}x *${i.product_name}*, ${brl(i.unit_price * i.quantity)}${i.observacao ? `\n   _obs.: ${i.observacao}_` : ""}`);
   const total = items.reduce((t, i) => t + i.unit_price * i.quantity, 0);
   return `${linhas.join("\n")}${items.length > 1 ? `\n\nTotal: *${brl(total)}*` : ""}\n\nPosso confirmar e mandar pra cozinha? 👇`;
 }
@@ -1151,7 +1153,7 @@ async function handleOwnerMessage(payload: any, msg: any): Promise<Response> {
   const leadUpdate: Record<string, unknown> = { last_message_at: new Date().toISOString() };
   if (agent.pause_on_human !== false && lead.ai_enabled !== false) {
     leadUpdate.ai_enabled = false;
-    console.log("Vendedor respondeu pelo celular — IA pausada para o lead:", lead.id);
+    console.log("Vendedor respondeu pelo celular, IA pausada para o lead:", lead.id);
   }
   await supabase.from("leads").update(leadUpdate).eq("id", lead.id);
 
@@ -1193,7 +1195,7 @@ Deno.serve(async (req) => {
       return new Response("ignored", { status: 200 });
     }
 
-    // Ignora mensagens de grupo — só atende conversa individual
+    // Ignora mensagens de grupo, só atende conversa individual
     if (msg.isGroup || payload.chat?.wa_isGroup) {
       console.log("Mensagem de grupo, ignorando.");
       return new Response("ignored group", { status: 200 });
@@ -1330,7 +1332,7 @@ Deno.serve(async (req) => {
           p.m2_por_caixa ? `caixa com ${String(p.m2_por_caixa).replace(".", ",")} m²` : "",
           p.estoque != null ? (Number(p.estoque) > 0 ? `estoque: ${String(p.estoque).replace(".", ",")} ${p.unit === "m2" ? "m²" : p.unit}` : "SEM ESTOQUE") : "",
         ].filter(Boolean).join("; ");
-        return `- ${catOf(p) ? `[${catOf(p)}] ` : ""}${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? " — " + String(p.description).replace(/\s*\n+\s*/g, " · ") : ""}`;
+        return `- ${catOf(p) ? `[${catOf(p)}] ` : ""}${p.name}: R$ ${p.price} / ${p.unit}${extras ? ` (${extras})` : ""}${p.description ? ", " + String(p.description).replace(/\s*\n+\s*/g, " · ") : ""}`;
       })
       .join("\n");
 
@@ -1376,7 +1378,7 @@ Deno.serve(async (req) => {
 
     const conversation = [...history]
       .reverse()
-      .map((m) => `${m.direction === "in" ? "Cliente" : m.sender === "sistema" ? "[Mensagem automática do sistema — não repita nem imite]" : "Atendente"}: ${m.text}`)
+      .map((m) => `${m.direction === "in" ? "Cliente" : m.sender === "sistema" ? "[Mensagem automática do sistema, não repita nem imite]" : "Atendente"}: ${m.text}`)
       .join("\n");
 
     // 7. Montar o prompt e chamar o provedor de IA ativo
@@ -1584,8 +1586,7 @@ Condução da venda:
   "só um instante", e nunca diga que recebeu confirmação da equipe. Resolva sempre na própria mensagem.
 - Nunca invente preço, frete, prazo ou estoque. Use só o catálogo e as informações da loja.
 ${isRestaurant ? `- Não some o total nem a taxa de entrega: o resumo oficial, com valores calculados pelo sistema, chega logo depois do fechamento.
-- Observações do cliente sobre um item (sem cebola, ao ponto, sem gelo...) vão como 3º campo: [ORCAMENTO: Item | 1 | sem cebola]` : `- Pisos são vendidos em caixas fechadas: fale da metragem em m², mas NÃO informe número de caixas nem valores totais —
-  o resumo oficial, com caixas, valores e frete calculados pelo sistema, chega logo depois do fechamento.`}
+- Observações do cliente sobre um item (sem cebola, ao ponto, sem gelo...) vão como 3º campo: [ORCAMENTO: Item | 1 | sem cebola]` : `- Pisos são vendidos em caixas fechadas: fale da metragem em m², mas NÃO informe número de caixas nem valores totais ·   o resumo oficial, com caixas, valores e frete calculados pelo sistema, chega logo depois do fechamento.`}
 
 Etapas do atendimento (marcações internas, removidas antes de chegar ao cliente, uma por linha no FINAL):
 ${canStage("conversando") ? "- Quando o cliente começar a falar do que precisa (além de um simples oi), inclua: [ETAPA: conversando]\n" : ""}${canStage("consulta_agendada") ? "- Quando uma visita, consulta ou horário for CONFIRMADO pelo cliente, inclua: [ETAPA: consulta_agendada]\n" : ""}- FECHAMENTO: assim que o cliente confirmar a compra ("pode fechar", "sim", "ok", "fechado", "pode mandar"), feche NESSA MESMA
@@ -1615,7 +1616,7 @@ ${freteInt ? "  [ENTREGA: Centro]\n" : ""}  [ETAPA: aguardando_link]
 
 O cliente ESTÁ NO SALÃO, na ${tbl?.label || "mesa"}${lead.dados_cliente?.nome ? `, nome na comanda: ${lead.dados_cliente.nome}` : ""}. Você já sabe a mesa: NUNCA pergunte o número da mesa.
 Itens JÁ ENVIADOS para a cozinha nesta visita: ${ja || "nenhum ainda"}.
-Em [CONFIRMAR] vão SOMENTE os itens NOVOS que o cliente acabou de pedir — nunca repita os itens já enviados.${lead.pedido_pendente?.itens?.length && Date.now() - new Date(lead.pedido_pendente.criado_em).getTime() < 30 * 60e3 ? `
+Em [CONFIRMAR] vão SOMENTE os itens NOVOS que o cliente acabou de pedir, nunca repita os itens já enviados.${lead.pedido_pendente?.itens?.length && Date.now() - new Date(lead.pedido_pendente.criado_em).getTime() < 30 * 60e3 ? `
 Pedido AGUARDANDO a confirmação do cliente: ${lead.pedido_pendente.itens.map((i: { quantity: number; product_name: string }) => `${i.quantity}x ${i.product_name}`).join(", ")}. Se o cliente ajustar, mande um novo [CONFIRMAR] com o pedido completo corrigido.` : ""}`;
     }
 
@@ -1623,46 +1624,46 @@ Pedido AGUARDANDO a confirmação do cliente: ${lead.pedido_pendente.itens.map((
     const restaurantInstructions = !isRestaurant ? "" : `${mesaInfo}
 
 Você atende um restaurante/bar. A casa oferece pelo WhatsApp: ${modalidades.map((m) => modTxt[m] || m).join(", ")}.
-${modalidades.length > 1 && !lead.table_session_id ? "Se ainda não estiver claro, descubra de forma natural o que o cliente quer (está no local, delivery, retirada ou reserva) — sem parecer menu de opções." : ""}
+${modalidades.length > 1 && !lead.table_session_id ? "Se ainda não estiver claro, descubra de forma natural o que o cliente quer (está no local, delivery, retirada ou reserva), sem parecer menu de opções." : ""}
 ${restCfg ? `Informações da casa (use exatamente):
 - Horário de funcionamento:\n${String(restCfg.horarios || "").split("\n").map((l: string) => `  ${l}`).join("\n")}
 - Tempo médio de preparo: ${restCfg.tempo_preparo || 25} min${modalidades.includes("delivery") ? `; tempo médio de entrega: ${restCfg.tempo_entrega || 40} min (além do preparo)` : ""}
-${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico}% (opcional, entra na conta da mesa)\n` : ""}${restCfg.couvert > 0 ? `- Couvert artístico: ${brl(restCfg.couvert)} por pessoa${restCfg.couvert_info ? ` (${restCfg.couvert_info})` : ""} — ${couvertValeAgora(restCfg) ? "é cobrado AGORA" : "NÃO é cobrado agora"}\n` : ""}${restCfg.pedido_minimo_delivery > 0 && modalidades.includes("delivery") ? `- Pedido mínimo no delivery: ${brl(restCfg.pedido_minimo_delivery)} (sem contar a taxa de entrega)\n` : ""}${modalidades.includes("delivery") ? `- Pagamento do delivery: online pelo link (Pix ou cartão)${restCfg.pagamento_na_entrega ? " ou na entrega (dinheiro com troco, ou cartão/Pix na maquininha)" : ""}\n` : ""}${restCfg.eventos ? `- Promoções e eventos: ${restCfg.eventos}\n` : ""}Se a casa estiver fechada agora, avise com simpatia e diga quando abre (reservas podem ser feitas a qualquer hora).` : ""}
+${restCfg.taxa_servico > 0 ? `- Taxa de serviço na mesa: ${restCfg.taxa_servico}% (opcional, entra na conta da mesa)\n` : ""}${restCfg.couvert > 0 ? `- Couvert artístico: ${brl(restCfg.couvert)} por pessoa${restCfg.couvert_info ? ` (${restCfg.couvert_info})` : ""}, ${couvertValeAgora(restCfg) ? "é cobrado AGORA" : "NÃO é cobrado agora"}\n` : ""}${restCfg.pedido_minimo_delivery > 0 && modalidades.includes("delivery") ? `- Pedido mínimo no delivery: ${brl(restCfg.pedido_minimo_delivery)} (sem contar a taxa de entrega)\n` : ""}${modalidades.includes("delivery") ? `- Pagamento do delivery: online pelo link (Pix ou cartão)${restCfg.pagamento_na_entrega ? " ou na entrega (dinheiro com troco, ou cartão/Pix na maquininha)" : ""}\n` : ""}${restCfg.eventos ? `- Promoções e eventos: ${restCfg.eventos}\n` : ""}Se a casa estiver fechada agora, avise com simpatia e diga quando abre (reservas podem ser feitas a qualquer hora).` : ""}
 ${modalidades.includes("mesa") ? `
 NA MESA (cliente no local):
 - Se o cliente está no local e você ainda não sabe a mesa NESTA visita, pergunte o número da mesa. Quando ele disser, inclua no final: [MESA: número]
 - Quando o cliente pedir um item específico (mesmo que só exista uma opção, ex.: "mais um chopp"), NÃO envie direto:
   inclua um item por linha, SÓ com os itens novos: [CONFIRMAR: Nome Exato do Item | quantidade | observação (opcional)]
-  O sistema mostra o item com o preço e pergunta "Posso confirmar?" com botões Sim/Não — o pedido só vai pra cozinha depois do Sim.
+  O sistema mostra o item com o preço e pergunta "Posso confirmar?" com botões Sim/Não, o pedido só vai pra cozinha depois do Sim.
   Quando usar [CONFIRMAR], não escreva mais nada além das marcações (no máximo uma frase curta tipo "Boa escolha!").
 - Se o pedido for genérico e houver mais de uma opção (ex.: "quero uma porção", "um drink", "uma sobremesa"), responda
-  educadamente "Claro! Seguem as opções de [tipo]:" e liste, um por linha, "• Nome — R$ preço", usando a categoria do cardápio; depois pergunte qual ele quer.
+  educadamente "Claro! Seguem as opções de [tipo]:" e liste, um por linha, "• Nome: R$ preço", usando a categoria do cardápio; depois pergunte qual ele quer.
 - Se o cliente mudar o pedido antes de confirmar (ex.: "na verdade são 2"), mande um novo [CONFIRMAR] com o pedido certo.
 - Não use [PEDIDO] nem [ORCAMENTO] na mesa. Não imite as mensagens automáticas do sistema.
 - Quando o cliente pedir a conta, inclua: [CONTA] e ${restCfg?.conta_modo === "atendente" ? "diga que já avisou a equipe e que em breve o atendente leva a conta até a mesa (não fale em link)" : "diga que já está fechando a conta: o sistema manda o resumo com taxa de serviço e o link de pagamento"}.` : ""}
 ${modalidades.includes("delivery") || modalidades.includes("retirada") ? `
-DELIVERY / RETIRADA: siga a "Condução da venda" — anote itens e observações, sugira bebida/sobremesa com naturalidade,
+DELIVERY / RETIRADA: siga a "Condução da venda", anote itens e observações, sugira bebida/sobremesa com naturalidade,
 colete os dados obrigatórios (incluindo a forma de pagamento), recapitule e feche com [ORCAMENTO], [ENTREGA] e [ETAPA: aguardando_link].
 Pagamento: pergunte se prefere pagar online (link) ou na entrega; registre [DADOS: pagamento=online] ou [DADOS: pagamento=na entrega - dinheiro; troco=100].` : ""}
 ${modalidades.includes("reservas") ? `
 RESERVA: colete data, horário, número de pessoas, nome e se há comemoração. Quando o cliente confirmar, inclua:
 [RESERVA: data=AAAA-MM-DD; hora=HH:MM; pessoas=N; nome=Nome; ocasiao=aniversário (ou vazio); obs=pedidos especiais]
 Converta "sábado", "amanhã" etc. para a data certa usando a data de hoje informada acima.${restCfg?.reserva_tolerancia_min ? ` Avise que a tolerância de atraso é de ${restCfg.reserva_tolerancia_min} minutos.` : ""}` : ""}
-Nunca explique essas marcações pro cliente — elas são removidas automaticamente antes de chegar até ele.`;
+Nunca explique essas marcações pro cliente, elas são removidas automaticamente antes de chegar até ele.`;
 
     const imageInstructions = imageUrlForAi ? `
 A mensagem atual do cliente veio com uma IMAGEM anexada, que você consegue ver. Responda com base no que aparece nela
 (ex.: identificar o produto, o ambiente, o problema mostrado). Se a imagem não tiver relação com o atendimento,
 comente de forma natural e leve, sem supor que foi engano.
 Ao final da resposta, em uma linha separada, inclua SEMPRE: [IMAGEM: descrição objetiva do que aparece na imagem, em 1 frase]
-Essa marcação é interna, nunca a explique pro cliente — ela é removida automaticamente e serve pra você lembrar da
+Essa marcação é interna, nunca a explique pro cliente, ela é removida automaticamente e serve pra você lembrar da
 imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como "[Imagem: descrição]".
 ` : "";
 
     const descontoAtivo = Number(lead.desconto_pct || 0) > 0 && lead.desconto_ate && new Date(lead.desconto_ate).getTime() > Date.now()
       ? Number(lead.desconto_pct) : 0;
     const descontoInfo = descontoAtivo
-      ? `\n\nEste cliente recebeu uma oferta de ${descontoAtivo}% de desconto nos produtos, válida até ${new Date(lead.desconto_ate).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}. Se ele fechar, o desconto é aplicado automaticamente no resumo do pedido — pode confirmar isso a ele.`
+      ? `\n\nEste cliente recebeu uma oferta de ${descontoAtivo}% de desconto nos produtos, válida até ${new Date(lead.desconto_ate).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}. Se ele fechar, o desconto é aplicado automaticamente no resumo do pedido, pode confirmar isso a ele.`
       : "";
     const optOutInfo = lead.fu_optout && optOut
       ? "\n\nO cliente acabou de pedir para não receber mais mensagens automáticas: confirme com educação que não vai mais mandar mensagens por conta própria e que ele pode chamar quando quiser."
@@ -1674,7 +1675,7 @@ imagem nas próximas mensagens. No histórico, imagens anteriores aparecem como 
 
 Agora é ${agoraBR} (horário de Brasília).${descontoInfo}${optOutInfo}${returningNote}
 
-Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade — nunca invente produto ou preço.
+Use SOMENTE os produtos do catálogo abaixo para falar de preços e disponibilidade, nunca invente produto ou preço.
 Se o cliente perguntar algo fora do catálogo ou que exija um humano, diga que vai chamar alguém da equipe.
 
 Se o cliente pedir pra ver uma foto de um produto específico que existe no catálogo abaixo, responda normalmente
@@ -1682,26 +1683,27 @@ e adicione, em uma linha separada no FINAL da mensagem, exatamente: [FOTO: Nome 
 Use o nome EXATO como aparece no catálogo. Só use essa marcação quando o produto existir e tiver o pedido claro de foto.
 Nunca explique essa marcação pro cliente, ela é removida automaticamente antes de chegar até ele.
 IMPORTANTE: a foto só é enviada de verdade através dessa marcação. Nunca escreva "segue a foto", "aqui está" ou
-qualquer frase parecida SEM incluir a marcação [FOTO: ...] correspondente — isso engana o cliente, que não recebe nada.
+qualquer frase parecida SEM incluir a marcação [FOTO: ...] correspondente, isso engana o cliente, que não recebe nada.
 Se você já enviou a foto de um produto antes NESTA MESMA conversa (veja o histórico) e o cliente não pediu de novo
-explicitamente, não repita a marcação — só avise em texto que já mandou antes e pergunte se quer que envie de novo.
+explicitamente, não repita a marcação, só avise em texto que já mandou antes e pergunte se quer que envie de novo.
 Se o cliente pedir de novo (algo como "manda de novo", "não recebi", "envia outra vez"), inclua a marcação normalmente.
 
 Além disso, ao final de TODA resposta (mesmo em conversas curtas), inclua em uma linha separada, sempre:
 [CONTEXTO: motivo do contato em 3 a 6 palavras (ex.: "Orçamento piso e parede banheiro") | resumo curto do que já foi conversado até agora, 1-2 frases]
 Atualize esse resumo a cada mensagem, refletindo o estado mais recente da conversa. Essa marcação é interna,
-nunca a explique pro cliente — ela é removida automaticamente antes de chegar até ele.
+nunca a explique pro cliente, ela é removida automaticamente antes de chegar até ele.
 
 Formatação: você está no WhatsApp. Para negrito use UM asterisco de cada lado (*assim*), nunca dois (**assim**).
 Não use títulos com #, tabelas nem links no formato [texto](link).
 
-Tom: converse como uma pessoa no WhatsApp — frases curtas, naturais, uma pergunta por vez, sem repetir as mesmas aberturas.
+Tom: converse como uma pessoa no WhatsApp, frases curtas, naturais, uma pergunta por vez, sem repetir as mesmas aberturas.
 ${isFirstReply ? "Esta é a sua PRIMEIRA resposta nesta conversa: cumprimente e se apresente." : "Você JÁ cumprimentou o cliente nesta conversa: NÃO comece com \"Oi\", \"Olá\" nem se apresente de novo. Vá direto ao assunto, com naturalidade."}
 Se errar alguma informação, corrija com leveza, sem pedir desculpas em excesso.
+Nunca use travessão (o traço longo); use vírgula, ponto ou dois-pontos.
 Varie o começo das mensagens: não abra duas respostas seguidas com a mesma palavra ("Perfeito", "Ótimo", "Excelente"...).
 Se o cliente fizer uma pergunta, RESPONDA a pergunta primeiro, antes de pedir qualquer outra informação. Não presuma o que ele quis dizer: na dúvida, pergunte.
-Se a resposta não estiver nas informações que você tem (ex.: tipo exato de um ingrediente), diga com sinceridade que não tem essa informação e que vai confirmar com a equipe/o garçom — nunca invente.
-Se o cliente disser que não entendeu, explique de outro jeito, mais simples — nunca repita a mesma pergunta com as mesmas palavras.
+Se a resposta não estiver nas informações que você tem (ex.: tipo exato de um ingrediente), diga com sinceridade que não tem essa informação e que vai confirmar com a equipe/o garçom, nunca invente.
+Se o cliente disser que não entendeu, explique de outro jeito, mais simples, nunca repita a mesma pergunta com as mesmas palavras.
 
 Nunca diga espontaneamente que você é um sistema automatizado, um robô ou que "não consegue ver" algo que está no
 histórico. Se faltar alguma informação, peça gentilmente para o cliente explicar. Se o cliente perguntar diretamente
@@ -1778,13 +1780,13 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     }
 
     if (!reply || looksLikeLeakedReasoning(reply)) {
-      reply = "Só um segundinho que minha conexão falhou aqui — pode repetir sua última mensagem, por favor?";
+      reply = "Só um segundinho que minha conexão falhou aqui, pode repetir sua última mensagem, por favor?";
     }
 
     // Guarda a resposta com as marcações (antes de limpá-las) pra ler os dados do cliente
     const rawReplyForMarkers = reply;
 
-    // Extrai TODAS as marcações [FOTO: nome do produto] — o cliente pode pedir mais de uma foto de uma vez
+    // Extrai TODAS as marcações [FOTO: nome do produto], o cliente pode pedir mais de uma foto de uma vez
     const photoMatches = [...reply.matchAll(/\[FOTO:\s*(.+?)\]/gi)];
     const photoProductNames = photoMatches.map((m) => m[1].trim());
 
@@ -1804,7 +1806,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
     // Motivo do contato + resumo da conversa (usado em qualquer tipo de negócio)
     const contextoMatch = reply.match(/\[CONTEXTO:\s*(.+?)\s*\|\s*(.+?)\]/i);
-    // Fallback: às vezes a IA esquece o "|" e escreve só uma frase — ainda aproveitamos como motivo
+    // Fallback: às vezes a IA esquece o "|" e escreve só uma frase, ainda aproveitamos como motivo
     const contextoSimpleMatch = !contextoMatch ? (reply.match(/\[CONTEXTO:\s*(.+?)\]/i) || reply.match(/\[CONTEXTO:\s*([^\]\n]+)$/im)) : null;
 
     reply = reply
@@ -1882,7 +1884,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     } else if (contextoSimpleMatch && !motivoAtual) {
       leadUpdate.motivo_contato = contextoSimpleMatch[1].trim().slice(0, 80);
     }
-    // Pedido: a IA só diz itens, quantidades e entrega — preço, caixas e frete são calculados pelo código
+    // Pedido: a IA só diz itens, quantidades e entrega, preço, caixas e frete são calculados pelo código
     let enteredAwaiting = false;
     // deno-lint-ignore no-explicit-any
     let newOrder: any = null;
@@ -1974,7 +1976,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       const freteDefinido = newOrder.frete != null || newOrder.entrega?.tipo === "retirada";
       if (autoApprove && !freteDefinido) {
         await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber,
-          `Seu pedido *#${newOrder.numero}* está registrado! ✅ Só falta a equipe confirmar o frete para ${newOrder.entrega?.local || "o seu endereço"} — assim que confirmar, te mando ${resumoTxt}.`);
+          `Seu pedido *#${newOrder.numero}* está registrado! ✅ Só falta a equipe confirmar o frete para ${newOrder.entrega?.local || "o seu endereço"}, assim que confirmar, te mando ${resumoTxt}.`);
       }
       if (autoApprove && freteDefinido) {
         // Aprovação automática: a função de pedidos envia o resumo e o link de pagamento
@@ -1990,7 +1992,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         const sellerPhone = onlyDigits(vendasCfg.telefone_aprovacao);
         if (sellerPhone) {
           const itensTxt = (newOrder.itens || [])
-            .map((i: { nome: string; quantidade: number; unidade: string }) => `• ${i.nome} — ${String(i.quantidade).replace(".", ",")} ${i.unidade}`).join("\n");
+            .map((i: { nome: string; quantidade: number; unidade: string }) => `• ${i.nome}, ${String(i.quantidade).replace(".", ",")} ${i.unidade}`).join("\n");
           const aviso = `🟡 *Pedido #${newOrder.numero} aguardando aprovação*\nCliente: ${lead.name || customerNumber} (${customerNumber})\n${itensTxt}\nTotal: ${brl(newOrder.total)}${newOrder.frete == null ? " + frete a calcular" : ""}\n\nAbra o Kanban do Lumos para conferir e aprovar.`;
           await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, sellerPhone, aviso);
         }
@@ -1999,7 +2001,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
     // 10.b Fluxo de restaurante: vincular à mesa, criar pedido, ou marcar aguardando pagamento
     if (isRestaurant) {
-      // [MESA: N] — vincula o lead a uma sessão ativa daquela mesa (cria a sessão se for a primeira pessoa)
+      // [MESA: N], vincula o lead a uma sessão ativa daquela mesa (cria a sessão se for a primeira pessoa)
       if (mesaMatch) {
         const mesaDigits = onlyDigits(mesaMatch[1]);
         const { data: tables } = await supabase
@@ -2039,7 +2041,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         }
       }
 
-      // [PEDIDO: item | qtd] — cria um novo pedido com os itens pedidos
+      // [PEDIDO: item | qtd], cria um novo pedido com os itens pedidos
       // (se a IA pediu confirmação, nada vai direto pra cozinha)
       if (pedidoMatches.length && lead.table_session_id && !confirmButtons) {
         const itemsRaw = pedidoMatches.map((m) => {
@@ -2090,7 +2092,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         }
       }
 
-      // [CONTA] — cliente pediu a conta (a IA marcou): o sistema monta e envia o fechamento
+      // [CONTA], cliente pediu a conta (a IA marcou): o sistema monta e envia o fechamento
       if (contaMatch && lead.table_session_id) {
         if (restCfg?.conta_modo === "atendente") {
           const vendasCfg = effIntegrations.find((i: { kind: string; enabled: boolean }) => i.kind === "vendas" && i.enabled)?.config || {};
@@ -2100,7 +2102,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         }
       }
 
-      // [RESERVA: ...] — registra a reserva na agenda (aparece em Agendamentos)
+      // [RESERVA: ...], registra a reserva na agenda (aparece em Agendamentos)
       const reserva = parseReserva(rawReplyForMarkers);
       if (reserva && !checkReserva(reserva, restCfg)) {
         const dt = reservaDate(reserva)!;

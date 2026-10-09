@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=66";
+import { supabase } from "./supabaseClient.js?v=67";
 
 export const STAGES = [
   "novo_contato",
@@ -26,7 +26,7 @@ export const STAGE_DESCRIPTIONS = {
   novo_contato: "Lead acabou de entrar em contato",
   conversando: "Em conversa, coletando informações",
   consulta_agendada: "Visita/consulta marcada, aguardando comparecimento",
-  aguardando_link: "Pedido montado pela IA — confira e aprove o envio do link",
+  aguardando_link: "Pedido montado pela IA, confira e aprove o envio do link",
   compareceu: "Compareceu e virou cliente",
   follow_up: "O Agente de IA fará o follow up automaticamente",
   fechado: "Negócio fechado, cliente ativo",

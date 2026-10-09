@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard — Lumos</title>
+  <title>Dashboard | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -132,7 +132,7 @@
   <div class="modal-backdrop" id="config-cards-modal" style="display:none;">
     <div class="modal-box">
       <h3 style="font-family: var(--panel-font-display); font-size: 18px;">Cards do Dashboard</h3>
-      <p>Desative cards que não fazem sentido pro seu negócio. Reative quando quiser — nenhum dado é perdido.</p>
+      <p>Desative cards que não fazem sentido pro seu negócio. Reative quando quiser, nenhum dado é perdido.</p>
       <div id="card-toggles" style="display:flex; flex-direction:column; gap:10px; margin: 16px 0;"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="config-cards-cancel">Fechar</button>
@@ -142,15 +142,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=66";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=66";
-    import { listAgents } from "./js/agents.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { getRange } from "./js/dateRange.js?v=66";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=67";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=67";
+    import { listAgents } from "./js/agents.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { getRange } from "./js/dateRange.js?v=67";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -192,9 +192,9 @@
       body.innerHTML = leads.slice(0, 30).map((l) => `
         <tr onclick="window.location.href='${l.is_client ? "clientes.html" : "leads.html"}?id=${l.id}'">
           <td>${l._activity.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-          <td>${l.name || "—"}</td>
+          <td>${l.name || "-"}</td>
           <td>${l.phone}</td>
-          <td>${l.motivo_contato || "—"}</td>
+          <td>${l.motivo_contato || "-"}</td>
           <td><span class="panel-badge ${l.stage}">${STAGE_LABELS[l.stage] || l.stage}</span></td>
         </tr>
       `).join("");

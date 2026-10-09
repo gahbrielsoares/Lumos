@@ -1,8 +1,8 @@
-import { supabase } from "./supabaseClient.js?v=66";
+import { supabase } from "./supabaseClient.js?v=67";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=66";
-import { getIntegration } from "./integrations.js?v=66";
+} from "./leads.js?v=67";
+import { getIntegration } from "./integrations.js?v=67";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -76,7 +76,7 @@ let root, state = { lead: null, order: null, tab: "resumo", onChange: null, time
 
 const ORDER_STATUS = {
   aguardando_aprovacao: "Aguardando aprovação",
-  aguardando_pagamento: "Link enviado — aguardando pagamento",
+  aguardando_pagamento: "Link enviado, aguardando pagamento",
   pago: "Pago",
   cancelado: "Cancelado",
 };
@@ -187,7 +187,7 @@ async function sendMessage() {
   input.value = "";
   input.style.height = "auto";
   if (data?.ai_paused) {
-    showSendMsg("Enviado. A IA foi pausada para este contato — reative no interruptor quando quiser.", "ok");
+    showSendMsg("Enviado. A IA foi pausada para este contato, reative no interruptor quando quiser.", "ok");
     state.lead = await getLeadById(state.lead.id);
     state.onChange?.(state.lead);
   } else {
@@ -272,7 +272,7 @@ function quoteBlock(l) {
           <tr>
             <td>${esc(i.nome)}${i.product_id || i.taxa ? "" : " ⚠️"}${i.sem_estoque ? " 📦" : ""}</td>
             <td class="num">${i.caixas ? `${i.caixas} cx<br><span class="lp-k">${qty(i.quantidade)} m²</span>` : `${qty(i.quantidade)} ${UNIT[i.unidade] || i.unidade || ""}`}</td>
-            <td class="num">${i.preco_unitario != null ? brl(i.preco_unitario) : "—"}</td>
+            <td class="num">${i.preco_unitario != null ? brl(i.preco_unitario) : "-"}</td>
             <td class="num">${brl(i.subtotal)}</td>
           </tr>`).join("")}
         <tr>
@@ -284,8 +284,8 @@ function quoteBlock(l) {
         <tr><td colspan="3" class="total">Total</td><td class="num total">${brl(subtotal + Number(frete || 0))}</td></tr>
       </table>
       ${clienteBlock(o)}
-      ${missing ? `<div class="lp-warn">⚠️ Item não encontrado no catálogo — confira o nome e o preço antes de aprovar.</div>` : ""}
-      ${noStock ? `<div class="lp-warn">📦 Quantidade maior que o estoque cadastrado — confirme a disponibilidade.</div>` : ""}
+      ${missing ? `<div class="lp-warn">⚠️ Item não encontrado no catálogo, confira o nome e o preço antes de aprovar.</div>` : ""}
+      ${noStock ? `<div class="lp-warn">📦 Quantidade maior que o estoque cadastrado, confirme a disponibilidade.</div>` : ""}
       ${o?.pagamento?.link ? `<div class="lp-k" style="margin-top:8px;">Link de pagamento: <a href="${o.pagamento.link}" target="_blank" rel="noopener">abrir</a>${o.simulado ? " (simulado)" : ""}</div>` : ""}
       ${o?.status === "pago" ? `<div class="lp-k" style="margin-top:8px; color:#4A7C59;">✅ Pago em ${new Date(o.paid_at).toLocaleString("pt-BR")}${o.nf_numero ? ` · NF-e nº ${o.nf_numero}` : ""}</div>` : ""}
       <div class="lp-k" style="margin-top:8px;">Montado em ${new Date(o?.created_at || q.criado_em).toLocaleString("pt-BR")}</div>
@@ -310,7 +310,7 @@ function clienteBlock(o) {
   ].filter(Boolean);
   const faltando = o.entrega?.tipo !== "retirada" && (!a?.rua || !a?.numero);
   return `<div style="margin-top:10px; font-size:13px; line-height:1.6;">${rows.join("<br>")}</div>
-    ${faltando ? `<div class="lp-warn">📍 Endereço incompleto — confirme com o cliente antes de aprovar.</div>` : ""}`;
+    ${faltando ? `<div class="lp-warn">📍 Endereço incompleto, confirme com o cliente antes de aprovar.</div>` : ""}`;
 }
 
 function orderActions() {
@@ -369,8 +369,8 @@ async function renderSummary() {
         ${STAGES.map((s) => `<option value="${s}" ${s === l.stage ? "selected" : ""}>${STAGE_LABELS[s]}</option>`).join("")}
       </select>
     </div>
-    <div class="lp-section"><div class="lp-k">Motivo do contato</div><div class="lp-v">${esc(l.motivo_contato || "—")}</div></div>
-    <div class="lp-section"><div class="lp-k">Resumo da conversa</div><div class="lp-v">${esc(l.resumo_conversa || "—")}</div></div>
+    <div class="lp-section"><div class="lp-k">Motivo do contato</div><div class="lp-v">${esc(l.motivo_contato || "-")}</div></div>
+    <div class="lp-section"><div class="lp-k">Resumo da conversa</div><div class="lp-v">${esc(l.resumo_conversa || "-")}</div></div>
     ${!waiting && (o?.itens?.length || l.orcamento?.itens?.length) ? `<div class="lp-section"><div class="lp-k">${o?.status === "pago" ? "Último pedido" : "Último orçamento"}</div>${quoteBlock(l)}
       ${o?.status === "pago" ? `<div class="lp-actions" style="margin-top:12px;">${orderActions()}</div><div class="lp-warn" id="lp-log-msg" style="display:none;"></div>` : ""}</div>` : ""}
   `;
@@ -437,9 +437,9 @@ async function approveLegacy() {
 
   msg.style.display = "block";
   if (!pay?.enabled) {
-    msg.textContent = "Orçamento aprovado. Nenhuma integração de pagamento ativa — envie o link ou a chave Pix manualmente pelo WhatsApp.";
+    msg.textContent = "Orçamento aprovado. Nenhuma integração de pagamento ativa, envie o link ou a chave Pix manualmente pelo WhatsApp.";
   } else {
-    msg.textContent = `Orçamento aprovado. O envio automático do link pelo ${pay.provider} ainda está em desenvolvimento — por enquanto, envie o link manualmente.`;
+    msg.textContent = `Orçamento aprovado. O envio automático do link pelo ${pay.provider} ainda está em desenvolvimento, por enquanto, envie o link manualmente.`;
   }
   state.lead = await getLeadById(state.lead.id);
   state.onChange?.(state.lead);

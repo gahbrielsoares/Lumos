@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=66";
-import { getWorkspaceOwnerId } from "./workspace.js?v=66";
+import { supabase } from "./supabaseClient.js?v=67";
+import { getWorkspaceOwnerId } from "./workspace.js?v=67";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)
@@ -11,7 +11,7 @@ export const num = (n, d = 2) => Number(n || 0).toLocaleString("pt-BR", { maximu
 
 // Datas "AAAA-MM-DD" no fuso de Brasília (sem o dia "pular" por causa do UTC)
 export const todayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-export const fmtDate = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "—");
+export const fmtDate = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "-");
 export const addDaysISO = (iso, n) => {
   const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + n);

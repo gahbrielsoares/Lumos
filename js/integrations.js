@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=66";
-import { getWorkspaceOwnerId } from "./workspace.js?v=66";
+import { supabase } from "./supabaseClient.js?v=67";
+import { getWorkspaceOwnerId } from "./workspace.js?v=67";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -51,7 +51,7 @@ export const INTEGRATIONS = [
         options: [{ value: "link", label: "Enviar a conta com o link de pagamento" }, { value: "atendente", label: "Avisar que o atendente vai levar a conta (sem link)" }],
         hint: "No modo atendente, o cliente aparece destacado como \"Pediu a conta\" na aba Mesas e o responsável (telefone das Regras de venda) recebe um aviso." },
       { key: "taxa_servico", label: "Taxa de serviço na mesa (%)", type: "number", default: 10 },
-      { key: "couvert", label: "Couvert artístico por pessoa (R$) — 0 = sem couvert", type: "number", default: 0 },
+      { key: "couvert", label: "Couvert artístico por pessoa (R$), 0 = sem couvert", type: "number", default: 0 },
       { key: "couvert_info", label: "Quando tem couvert / música ao vivo", type: "text", placeholder: "Ex.: música ao vivo sex e sáb a partir das 21h" },
       { key: "couvert_dias", label: "Dias em que o couvert é cobrado (nenhum marcado = todos)", type: "multi", default: [5, 6],
         options: [
@@ -145,7 +145,7 @@ export const INTEGRATIONS = [
       { key: "fora_da_tabela", label: "Endereço fora da tabela", type: "select", default: "humano",
         options: [{ value: "humano", label: "Chamar um vendedor" }, { value: "recusar", label: "Informar que não entrega na região" }],
         showIf: { provider: ["proprio"] } },
-      { key: "frete_gratis_acima", label: "Frete grátis acima de (R$) — 0 = nunca", type: "number", default: 0,
+      { key: "frete_gratis_acima", label: "Frete grátis acima de (R$), 0 = nunca", type: "number", default: 0,
         showIf: { provider: ["proprio", "melhorenvio"] } },
       { key: "melhorenvio_token", label: "Token do Melhor Envio", type: "password", secret: true,
         showIf: { provider: ["melhorenvio"] } },

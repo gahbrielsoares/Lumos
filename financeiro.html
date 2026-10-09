@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Financeiro — Lumos</title>
+  <title>Financeiro | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -89,12 +89,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -173,7 +173,7 @@
         </div>
         <div class="erp-row2">
           <div class="field"><label>Vencimento</label><input id="m-venc" type="date" value="${l.vencimento || todayISO()}" /></div>
-          <div class="field"><label>Forma</label><select id="m-forma"><option value="">—</option>${FORMAS.map((f) => `<option ${f === l.forma ? "selected" : ""}>${f}</option>`).join("")}</select></div>
+          <div class="field"><label>Forma</label><select id="m-forma"><option value="">-</option>${FORMAS.map((f) => `<option ${f === l.forma ? "selected" : ""}>${f}</option>`).join("")}</select></div>
         </div>
         <div class="field toggle-row" style="justify-content:space-between;"><span>Já foi ${tipo === "receita" ? "recebido" : "pago"}</span><input type="checkbox" class="toggle-input" id="m-pago" ${l.pago_em ? "checked" : ""} /></div>
         <div class="field" id="m-pago-box" style="${l.pago_em ? "" : "display:none;"}"><label>Data do ${tipo === "receita" ? "recebimento" : "pagamento"}</label><input id="m-pagoem" type="date" value="${l.pago_em || todayISO()}" /></div>

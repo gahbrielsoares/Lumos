@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mesas — Lumos</title>
+  <title>Mesas | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -113,19 +113,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=66";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, modal } from "./js/erp.js?v=66";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=66";
-    import { listAgents } from "./js/agents.js?v=66";
+    } from "./js/tables.js?v=67";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, modal } from "./js/erp.js?v=67";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=67";
+    import { listAgents } from "./js/agents.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -148,7 +148,7 @@
     let qrMode = "padrao";
     const qrAgents = (await listAgents()).filter((a) => a.phone_number);
     document.getElementById("qr-agent").innerHTML = qrAgents.map((a) =>
-      `<option value="${a.phone_number.replace(/\D/g, "")}" ${a.enabled ? "selected" : ""}>${a.name} — ${a.phone_number}${a.enabled ? "" : " (inativo)"}</option>`).join("")
+      `<option value="${a.phone_number.replace(/\D/g, "")}" ${a.enabled ? "selected" : ""}>${a.name}, ${a.phone_number}${a.enabled ? "" : " (inativo)"}</option>`).join("")
       || `<option value="">Cadastre um agente com número de WhatsApp</option>`;
 
     async function renderQr() {
@@ -381,7 +381,7 @@
       const lista = produtosDoCliente(lead);
       const grupos = {};
       lista.forEach((p) => { const c = (p.product_categories || []).map((pc) => pc.categories?.name).filter(Boolean)[0] || "Outros"; (grupos[c] = grupos[c] || []).push(p); });
-      const opcoes = Object.entries(grupos).map(([c, ps]) => `<optgroup label="${esc(c)}">${ps.map((p) => `<option value="${p.id}">${esc(p.name)} — ${brl(p.price)}</option>`).join("")}</optgroup>`).join("");
+      const opcoes = Object.entries(grupos).map(([c, ps]) => `<optgroup label="${esc(c)}">${ps.map((p) => `<option value="${p.id}">${esc(p.name)}, ${brl(p.price)}</option>`).join("")}</optgroup>`).join("");
       const m = modal(`
         <h3 style="font-size:19px;">Pedido de ${esc(lead?.dados_cliente?.nome || lead?.name || "cliente")}</h3>
         <p class="settings-hint" style="margin:4px 0 12px;">Vai direto para a Cozinha e entra na comanda.</p>

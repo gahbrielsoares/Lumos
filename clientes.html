@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clientes — Lumos</title>
+  <title>Clientes | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -110,17 +110,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { getRange } from "./js/dateRange.js?v=66";
-    import { listAgents } from "./js/agents.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { getRange } from "./js/dateRange.js?v=67";
+    import { listAgents } from "./js/agents.js?v=67";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
-    } from "./js/leads.js?v=66";
-    import { openLeadPanel } from "./js/leadPanel.js?v=66";
+    } from "./js/leads.js?v=67";
+    import { openLeadPanel } from "./js/leadPanel.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -182,9 +182,9 @@
       body.innerHTML = clients.map((l) => `
         <tr onclick="window.location.href='clientes.html?id=${l.id}'">
           <td>${new Date(l.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-          <td>${l.name || "—"}</td>
+          <td>${l.name || "-"}</td>
           <td>${l.phone}</td>
-          <td>${l.motivo_contato || "—"}</td>
+          <td>${l.motivo_contato || "-"}</td>
         </tr>
       `).join("");
     }
@@ -203,13 +203,13 @@
       document.getElementById("detail-badge").className = `panel-badge ${lead.stage}`;
 
       document.getElementById("d-phone").textContent = lead.phone;
-      document.getElementById("d-motivo").textContent = lead.motivo_contato || "—";
-      document.getElementById("d-resumo").textContent = lead.resumo_conversa || "—";
+      document.getElementById("d-motivo").textContent = lead.motivo_contato || "-";
+      document.getElementById("d-resumo").textContent = lead.resumo_conversa || "-";
       document.getElementById("d-inicio").textContent = new Date(lead.created_at).toLocaleString("pt-BR");
       document.getElementById("d-followups").textContent = [lead.follow_up_1, lead.follow_up_2, lead.follow_up_3]
-        .map((f) => (f ? new Date(f).toLocaleDateString("pt-BR") : "—")).join(" / ");
+        .map((f) => (f ? new Date(f).toLocaleDateString("pt-BR") : "-")).join(" / ");
       document.getElementById("d-agendamento").textContent = lead.data_agendamento
-        ? new Date(lead.data_agendamento).toLocaleString("pt-BR") : "—";
+        ? new Date(lead.data_agendamento).toLocaleString("pt-BR") : "-";
       document.getElementById("d-anotacoes").value = lead.anotacoes || "";
 
       // Botões: conversa, WhatsApp e IA ligada/desligada ficam no painel lateral
@@ -217,15 +217,15 @@
       bar.style.cssText = "display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 4px;";
       bar.innerHTML = `
         <button class="btn btn-primary" id="d-open-chat">Abrir conversa</button>
-        <button class="btn btn-ghost" id="d-open-panel">${lead.ai_enabled === false ? "IA pausada — gerenciar" : "IA ativa — gerenciar"}</button>`;
+        <button class="btn btn-ghost" id="d-open-panel">${lead.ai_enabled === false ? "IA pausada: gerenciar" : "IA ativa: gerenciar"}</button>`;
       document.getElementById("detail-name").closest("div").after(bar);
       document.getElementById("d-open-chat").addEventListener("click", () => openLeadPanel(id, { tab: "conversa" }));
       document.getElementById("d-open-panel").addEventListener("click", () => openLeadPanel(id, {
-        onChange: (l) => (document.getElementById("d-open-panel").textContent = l.ai_enabled === false ? "IA pausada — gerenciar" : "IA ativa — gerenciar"),
+        onChange: (l) => (document.getElementById("d-open-panel").textContent = l.ai_enabled === false ? "IA pausada: gerenciar" : "IA ativa: gerenciar"),
       }));
 
       const latest = await getLatestMessage(id);
-      document.getElementById("d-ultima").textContent = latest?.text || "—";
+      document.getElementById("d-ultima").textContent = latest?.text || "-";
 
       const statusSelect = document.getElementById("d-status");
       statusSelect.innerHTML = STAGES.map((s) => `<option value="${s}" ${s === lead.stage ? "selected" : ""}>${STAGE_LABELS[s]}</option>`).join("");

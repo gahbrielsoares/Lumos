@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Relatórios — Lumos</title>
+  <title>Relatórios | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -97,12 +97,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -152,7 +152,7 @@
         const c = custo[i.product_id];
         if (c != null) { lucro += Number(i.subtotal || 0) - Number(c) * Number(i.quantidade || 0); comCusto += Number(i.subtotal || 0); }
       }
-      document.getElementById("c-lucro").textContent = comCusto ? brl(lucro) : "—";
+      document.getElementById("c-lucro").textContent = comCusto ? brl(lucro) : "-";
       document.getElementById("lucro-hint").textContent = totalItens
         ? (comCusto < totalItens ? `Lucro calculado sobre ${Math.round((comCusto / totalItens) * 100)}% das vendas (itens com custo cadastrado). Cadastre o custo no Estoque ou receba compras pra completar.` : "Lucro calculado com o custo de todos os itens vendidos.")
         : "";
@@ -167,10 +167,10 @@
       const group = (keyFn) => {
         const g = {};
         vendas.forEach((o) => { const k = keyFn(o); g[k] = g[k] || { n: 0, v: 0 }; g[k].n++; g[k].v += valor(o); });
-        return Object.entries(g).sort((x, y) => y[1].v - x[1].v).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td>${brl(v.v)}</td></tr>`).join("") || `<tr><td colspan="3" style="opacity:.7;">—</td></tr>`;
+        return Object.entries(g).sort((x, y) => y[1].v - x[1].v).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v.n}</td><td>${brl(v.v)}</td></tr>`).join("") || `<tr><td colspan="3" style="opacity:.7;">-</td></tr>`;
       };
       const FORMA = { pix: "Pix", cartao: "Cartão de crédito", boleto: "Boleto", manual: "Confirmado pela loja", na_entrega: "Na entrega" };
-      document.getElementById("formas").innerHTML = group((o) => FORMA[o.pagamento?.metodo] || o.pagamento?.metodo || "—");
+      document.getElementById("formas").innerHTML = group((o) => FORMA[o.pagamento?.metodo] || o.pagamento?.metodo || "-");
       document.getElementById("canais").innerHTML = group((o) => CANAL[o.entrega?.tipo] || "WhatsApp");
 
       // Gráfico por dia

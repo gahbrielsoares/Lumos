@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compras — Lumos</title>
+  <title>Compras | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=66" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=66" />
-  <script src="js/dialogs.js?v=66"></script>
+  <script src="js/logo.js?v=67" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=67" />
+  <script src="js/dialogs.js?v=67"></script>
 </head>
 <body>
 
@@ -82,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=66";
-    import { initThemeToggle } from "./js/theme.js?v=66";
-    import { initMobileNav } from "./js/mobileNav.js?v=66";
-    import { renderSidebar } from "./js/sidebar.js?v=66";
-    import { supabase } from "./js/supabaseClient.js?v=66";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=66";
+    import { requireSession, signOut } from "./js/auth.js?v=67";
+    import { initThemeToggle } from "./js/theme.js?v=67";
+    import { initMobileNav } from "./js/mobileNav.js?v=67";
+    import { renderSidebar } from "./js/sidebar.js?v=67";
+    import { supabase } from "./js/supabaseClient.js?v=67";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=67";
 
     await requireSession();
     initThemeToggle();
@@ -106,7 +106,7 @@
         supabase.from("products").select("id, name, unit, custo, estoque").eq("owner_id", owner_id).order("name"),
       ]);
       compras = c.data || []; fornecedores = f.data || []; products = p.data || [];
-      const fname = (id) => fornecedores.find((x) => x.id === id)?.nome || "—";
+      const fname = (id) => fornecedores.find((x) => x.id === id)?.nome || "-";
       const [ini, fim] = monthRange(0);
       document.getElementById("c-abertas").textContent = `${compras.filter((x) => x.status === "aberta").length} · ${brl(compras.filter((x) => x.status === "aberta").reduce((t, x) => t + Number(x.total), 0))}`;
       document.getElementById("c-recebidas").textContent = brl(compras.filter((x) => x.status === "recebida" && x.recebida_em && x.recebida_em.slice(0, 10) >= ini && x.recebida_em.slice(0, 10) <= fim).reduce((t, x) => t + Number(x.total), 0));
@@ -114,7 +114,7 @@
 
       document.getElementById("empty").style.display = compras.length ? "none" : "block";
       document.getElementById("rows").innerHTML = compras.map((x) => `<tr>
-        <td>#${x.numero || "—"}<div style="font-size:12px; opacity:.7;">${fmtDate(x.created_at)}</div></td>
+        <td>#${x.numero || "-"}<div style="font-size:12px; opacity:.7;">${fmtDate(x.created_at)}</div></td>
         <td>${esc(fname(x.fornecedor_id))}</td>
         <td style="max-width:320px;">${(x.itens || []).map((i) => `${num(i.quantidade, 3)}x ${esc(i.nome)}`).join(", ")}</td>
         <td><strong>${brl(x.total)}</strong></td>
@@ -123,8 +123,8 @@
 
       document.getElementById("forn-rows").innerHTML = fornecedores.map((f) => `<tr>
         <td><strong>${esc(f.nome)}</strong>${f.observacao ? `<div style="font-size:12px; opacity:.7;">${esc(f.observacao)}</div>` : ""}</td>
-        <td>${esc([f.contato, f.telefone, f.email].filter(Boolean).join(" · ") || "—")}</td>
-        <td>${esc(f.cnpj || "—")}</td>
+        <td>${esc([f.contato, f.telefone, f.email].filter(Boolean).join(" · ") || "-")}</td>
+        <td>${esc(f.cnpj || "-")}</td>
         <td><div class="erp-actions"><button data-fedit="${f.id}">Editar</button><button class="danger" data-fdel="${f.id}">Excluir</button></div></td></tr>`).join("")
         || `<tr><td colspan="4" style="opacity:.7;">Nenhum fornecedor cadastrado.</td></tr>`;
     }
@@ -212,12 +212,12 @@
       for (const it of c.itens || []) {
         const { data: p } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
         if (!p) continue;
-        await moverEstoque({ product: { ...p, estoque: p.estoque ?? 0 }, tipo: "entrada", quantidade: it.quantidade, motivo: `Compra #${c.numero} — ${fname}`, origem: "compra", ref_id: c.id });
+        await moverEstoque({ product: { ...p, estoque: p.estoque ?? 0 }, tipo: "entrada", quantidade: it.quantidade, motivo: `Compra #${c.numero}, ${fname}`, origem: "compra", ref_id: c.id });
         if (it.custo_unitario > 0) await supabase.from("products").update({ custo: it.custo_unitario }).eq("id", p.id);
       }
       if (Number(c.total) > 0) {
         await supabase.from("fin_lancamentos").insert({
-          owner_id, tipo: "despesa", descricao: `Compra #${c.numero} — ${fname}`, categoria: "Fornecedores", valor: c.total,
+          owner_id, tipo: "despesa", descricao: `Compra #${c.numero}, ${fname}`, categoria: "Fornecedores", valor: c.total,
           vencimento: c.vencimento_pagamento || todayISO(), origem: "compra", ref_id: c.id,
         });
       }
