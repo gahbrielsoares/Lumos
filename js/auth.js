@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=68";
+import { supabase } from "./supabaseClient.js?v=69";
 
 // ---------- Cadastro ----------
 export async function signUp({ name, email, password }) {
@@ -44,13 +44,39 @@ async function teamAccessOk() {
 // Numa instabilidade do servidor, a consulta pode falhar: tenta de novo e, se continuar falhando,
 // avisa a pessoa (em vez de mandá-la para a tela de planos como se a conta não tivesse acesso).
 async function lerPerfil(uid) {
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
+  // "JWT issued at future" (PGRST303): o relógio do banco está alguns minutos atrás do relógio do login.
+  // O acesso passa a valer sozinho em instantes: espera e tenta de novo por até ~3 minutos.
+  const inicio = Date.now();
+  for (let tentativa = 0; ; tentativa++) {
     const { data, error } = await supabase.from("profiles").select("role, status").eq("id", uid).maybeSingle();
-    if (!error && data) return { profile: data, falhou: false };
-    if (!error && !data) return { profile: null, falhou: false }; // conta sem perfil: aí sim é "sem acesso"
+    if (!error && data) { avisoSincronizando(false); return { profile: data, falhou: false }; }
+    if (!error && !data) { avisoSincronizando(false); return { profile: null, falhou: false }; } // conta sem perfil: aí sim é "sem acesso"
+    const relogio = error?.code === "PGRST303" || /issued at future/i.test(error?.message || "");
+    if (relogio && Date.now() - inicio < 200000) {
+      avisoSincronizando(true);
+      await new Promise((ok) => setTimeout(ok, 8000));
+      continue;
+    }
+    if (!relogio && tentativa >= 2) { avisoSincronizando(false); return { profile: null, falhou: true }; }
+    if (relogio) { avisoSincronizando(false); return { profile: null, falhou: true }; }
     await new Promise((ok) => setTimeout(ok, 800 * (tentativa + 1)));
   }
-  return { profile: null, falhou: true };
+}
+
+// Aviso enquanto espera o relógio do servidor alcançar o horário do login
+function avisoSincronizando(mostrar) {
+  let box = document.getElementById("aviso-sincronizando");
+  if (!mostrar) { if (box) box.remove(); return; }
+  if (box) return;
+  box = document.createElement("div");
+  box.id = "aviso-sincronizando";
+  box.style.cssText = "position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,12,18,.72);font-family:inherit;";
+  box.innerHTML = `<div style="background:#fff;color:#1C2B3A;border-radius:18px;padding:24px;max-width:420px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.35);">
+      <div style="font-size:34px;">⏳</div>
+      <h3 style="margin:8px 0 6px;font-size:19px;">Sincronizando com o servidor</h3>
+      <p style="margin:0;font-size:14.5px;line-height:1.5;color:#5E5648;">Aguarde alguns instantes, já vamos entrar. Não precisa fechar a página.</p>
+    </div>`;
+  (document.body || document.documentElement).appendChild(box);
 }
 
 function avisoInstabilidade() {
