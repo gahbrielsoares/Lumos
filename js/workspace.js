@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=69";
+import { supabase } from "./supabaseClient.js?v=70";
 
 // =====================================================================
 // Estabelecimento atual

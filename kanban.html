@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=69" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=69" />
+  <script src="js/logo.js?v=70" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=70" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -14,7 +14,7 @@
     .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
     .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
   </style>
-  <script src="js/dialogs.js?v=69"></script>
+  <script src="js/dialogs.js?v=70"></script>
 </head>
 <body>
 
@@ -53,6 +53,18 @@
         </button>
       </div>
 
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-range="todos">Todos</button>
+        <button class="filter-btn" data-range="hoje">Hoje</button>
+        <button class="filter-btn" data-range="ontem">Ontem</button>
+        <button class="filter-btn" data-range="7d">Últimos 7 dias</button>
+        <button class="filter-btn" data-range="14d">Últimos 14 dias</button>
+        <button class="filter-btn" data-range="mes">Este mês</button>
+        <button class="filter-btn" data-range="mes_passado">Mês passado</button>
+        <button class="filter-btn" data-range="ano">Este ano</button>
+      </div>
+      <p id="range-hint" style="margin-top:8px; font-size:12.5px; color:var(--panel-text-muted); display:none;">Mostrando os contatos que chegaram ou conversaram no período escolhido.</p>
+
       <div style="display:flex; align-items:center; gap:10px; margin-top:14px;">
         <label style="font-size:13px; color:var(--panel-text-muted);">Agente:</label>
         <select class="panel-select" id="agent-filter" style="min-width:220px;">
@@ -89,15 +101,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=69";
-    import { initThemeToggle } from "./js/theme.js?v=69";
-    import { initMobileNav } from "./js/mobileNav.js?v=69";
-    import { renderSidebar } from "./js/sidebar.js?v=69";
-    import { supabase } from "./js/supabaseClient.js?v=69";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=69";
-    import { listAgents } from "./js/agents.js?v=69";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=69";
-    import { openLeadPanel } from "./js/leadPanel.js?v=69";
+    import { requireSession, signOut } from "./js/auth.js?v=70";
+    import { initThemeToggle } from "./js/theme.js?v=70";
+    import { initMobileNav } from "./js/mobileNav.js?v=70";
+    import { renderSidebar } from "./js/sidebar.js?v=70";
+    import { supabase } from "./js/supabaseClient.js?v=70";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=70";
+    import { listAgents } from "./js/agents.js?v=70";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=70";
+    import { openLeadPanel } from "./js/leadPanel.js?v=70";
+    import { getRange } from "./js/dateRange.js?v=70";
 
     await requireSession();
     initThemeToggle();
@@ -113,10 +126,34 @@
     let pendingMove = null; // { leadId, fromStage, toStage }
     let disabledStages = await getDisabledStages();
 
+    // Filtro de período (mesma lógica do Dashboard: contato que chegou OU conversou no período).
+    // A escolha fica guardada neste navegador.
+    const RANGES = ["todos", "hoje", "ontem", "7d", "14d", "mes", "mes_passado", "ano"];
+    let currentRange = "todos";
+    try { const saved = localStorage.getItem("lumos:kanban-range"); if (RANGES.includes(saved)) currentRange = saved; } catch (_) {}
+    function paintRange() {
+      document.querySelectorAll("#filter-bar .filter-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === currentRange));
+      document.getElementById("range-hint").style.display = currentRange === "todos" ? "none" : "block";
+    }
+    paintRange();
+    document.querySelectorAll("#filter-bar .filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentRange = btn.dataset.range;
+        try { localStorage.setItem("lumos:kanban-range", currentRange); } catch (_) {}
+        paintRange();
+        loadBoard();
+      });
+    });
+
     async function loadBoard() {
       const agentId = document.getElementById("agent-filter").value;
       let query = supabase.from("leads").select("*").order("last_message_at", { ascending: false, nullsFirst: false });
       if (agentId) query = query.eq("agent_id", agentId);
+      if (currentRange !== "todos") {
+        const [start, end] = getRange(currentRange);
+        const st = start.toISOString(), en = end.toISOString();
+        query = query.or(`and(created_at.gte.${st},created_at.lt.${en}),and(last_message_at.gte.${st},last_message_at.lt.${en})`);
+      }
       const { data: leads } = await query;
       const visibleStages = STAGES.filter((s) => !disabledStages.includes(s));
 

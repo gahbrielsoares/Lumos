@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Leads | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=69" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=69" />
-  <script src="js/dialogs.js?v=69"></script>
+  <script src="js/logo.js?v=70" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=70" />
+  <script src="js/dialogs.js?v=70"></script>
 </head>
 <body>
 
@@ -110,17 +110,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=69";
-    import { initThemeToggle } from "./js/theme.js?v=69";
-    import { initMobileNav } from "./js/mobileNav.js?v=69";
-    import { renderSidebar } from "./js/sidebar.js?v=69";
-    import { getRange } from "./js/dateRange.js?v=69";
-    import { listAgents } from "./js/agents.js?v=69";
+    import { requireSession, signOut } from "./js/auth.js?v=70";
+    import { initThemeToggle } from "./js/theme.js?v=70";
+    import { initMobileNav } from "./js/mobileNav.js?v=70";
+    import { renderSidebar } from "./js/sidebar.js?v=70";
+    import { getRange } from "./js/dateRange.js?v=70";
+    import { listAgents } from "./js/agents.js?v=70";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
-    } from "./js/leads.js?v=69";
-    import { openLeadPanel } from "./js/leadPanel.js?v=69";
+    } from "./js/leads.js?v=70";
+    import { openLeadPanel } from "./js/leadPanel.js?v=70";
 
     await requireSession();
     initThemeToggle();

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=69" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=69" />
+  <script src="js/logo.js?v=70" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=70" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
     .tabs-group-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding-bottom:6px; border-bottom:1px solid var(--panel-border); }
   </style>
-  <script src="js/dialogs.js?v=69"></script>
+  <script src="js/dialogs.js?v=70"></script>
 </head>
 <body>
 
@@ -153,16 +153,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=69";
-    import { supabase } from "./js/supabaseClient.js?v=69";
-    import { initThemeToggle } from "./js/theme.js?v=69";
-    import { initMobileNav } from "./js/mobileNav.js?v=69";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=69";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=69";
-    import { listAgents, saveAgent } from "./js/agents.js?v=69";
+    import { requireSession, signOut } from "./js/auth.js?v=70";
+    import { supabase } from "./js/supabaseClient.js?v=70";
+    import { initThemeToggle } from "./js/theme.js?v=70";
+    import { initMobileNav } from "./js/mobileNav.js?v=70";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=70";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=70";
+    import { listAgents, saveAgent } from "./js/agents.js?v=70";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=69";
+    } from "./js/businessConfig.js?v=70";
 
     await requireSession();
     initThemeToggle();
@@ -340,7 +340,7 @@
       const list = document.getElementById("prompt-update-list");
 
       // Exemplo do nicho (cardápio do restaurante com mesas, catálogo de materiais)
-      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=69");
+      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=70");
       const ex = EXEMPLO_NICHO[info.key];
       const { count: qtdProdutos } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", await getWorkspaceOwnerIdSafe());
       document.getElementById("exemplo-box").style.display = ex ? "" : "none";
@@ -390,7 +390,7 @@
     }
 
     async function getWorkspaceOwnerIdSafe() {
-      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=69");
+      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=70");
       return getWorkspaceOwnerId();
     }
 
