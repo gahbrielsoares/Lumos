@@ -1675,6 +1675,102 @@ Depois, atualize a Edge Function **`team`** (cole de novo `supabase/functions/te
   NCM de um produto depois não altera os meses já fechados.
 - Clientes que já têm abas liberadas pelo Painel Admin precisam receber a aba **Contabilidade** lá.
 
+## 44. Ficha técnica com baixa automática de insumos (CMV real por prato)
+
+No **SQL Editor**:
+
+```sql
+-- Insumos: produtos que não são vendidos (carne crua, pão, queijo, embalagem). Não aparecem no cardápio nem para a IA.
+alter table public.products add column if not exists is_insumo boolean not null default false;
+-- Mais unidades para insumos
+alter table public.products drop constraint if exists products_unit_check;
+alter table public.products add constraint products_unit_check
+  check (unit in ('unidade','litro','m2','metro','kg','saco','caixa','rolo','pacote','fardo','duzia'));
+
+-- Ficha técnica: quanto de cada insumo vai em 1 unidade do prato
+create table if not exists public.product_recipes (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  product_id uuid references public.products(id) on delete cascade not null,   -- o prato
+  insumo_id uuid references public.products(id) on delete cascade not null,    -- o insumo
+  quantidade numeric(14,4) not null check (quantidade > 0),                   -- na unidade do insumo
+  perda_pct numeric(6,2) not null default 0 check (perda_pct >= 0 and perda_pct < 100), -- perda no preparo
+  created_at timestamptz default now(),
+  unique (product_id, insumo_id)
+);
+alter table public.product_recipes enable row level security;
+drop policy if exists "Dono: fichas tecnicas" on public.product_recipes;
+create policy "Dono: fichas tecnicas" on public.product_recipes for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "Equipe: le fichas tecnicas" on public.product_recipes;
+create policy "Equipe: le fichas tecnicas" on public.product_recipes for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita fichas tecnicas" on public.product_recipes;
+create policy "Equipe: edita fichas tecnicas" on public.product_recipes for all
+  using (public.team_has_tab(owner_id, 'ficha_tecnica')) with check (public.team_has_tab(owner_id, 'ficha_tecnica'));
+-- Quem tem a aba Ficha técnica cadastra e edita insumos
+drop policy if exists "Equipe: cria insumos" on public.products;
+create policy "Equipe: cria insumos" on public.products for insert
+  with check (is_insumo and public.team_has_tab(owner_id, 'ficha_tecnica'));
+drop policy if exists "Equipe: edita insumos" on public.products;
+create policy "Equipe: edita insumos" on public.products for update
+  using (public.team_has_tab(owner_id, 'ficha_tecnica'));
+
+-- Custo do prato = soma dos insumos (com a perda). Recalcula sozinho quando a ficha ou o custo do insumo muda.
+create or replace function public.recalc_custo_prato(p_prato uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare v numeric; n int;
+begin
+  select count(*), sum(r.quantidade / (1 - r.perda_pct / 100) * coalesce(i.custo, 0))
+    into n, v
+    from public.product_recipes r join public.products i on i.id = r.insumo_id
+   where r.product_id = p_prato;
+  if n > 0 then
+    update public.products set custo = round(v, 2) where id = p_prato and custo is distinct from round(v, 2);
+  end if;
+exception when others then null;   -- nunca trava a operação principal
+end $$;
+
+create or replace function public.trg_recipes_custo() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.recalc_custo_prato(coalesce(new.product_id, old.product_id));
+  if tg_op = 'UPDATE' and new.product_id <> old.product_id then perform public.recalc_custo_prato(old.product_id); end if;
+  return null;
+exception when others then return null;
+end $$;
+drop trigger if exists trg_recipes_custo on public.product_recipes;
+create trigger trg_recipes_custo after insert or update or delete on public.product_recipes
+  for each row execute function public.trg_recipes_custo();
+
+create or replace function public.trg_insumo_custo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare r record;
+begin
+  if new.custo is distinct from old.custo then
+    for r in select distinct product_id from public.product_recipes where insumo_id = new.id loop
+      perform public.recalc_custo_prato(r.product_id);
+    end loop;
+  end if;
+  return null;
+exception when others then return null;
+end $$;
+drop trigger if exists trg_insumo_custo on public.products;
+create trigger trg_insumo_custo after update of custo on public.products
+  for each row execute function public.trg_insumo_custo();
+```
+
+Depois, atualize as Edge Functions **na ordem**: `orders` (baixa dos insumos na venda), `menu` e `whatsapp-webhook`
+(insumos não aparecem no cardápio nem para a IA) e `team` (aceita a aba `ficha_tecnica`).
+
+### Como funciona
+- **Insumos** são produtos marcados como `is_insumo` (carne, pão, queijo): ficam no Estoque, nas Compras e na Ficha
+  técnica, mas nunca no cardápio, no garçom ou na IA.
+- A **ficha técnica** diz quanto de cada insumo vai em 1 porção pronta, com a perda do preparo. Quando a venda é paga,
+  a função `orders` baixa do estoque a quantidade bruta de cada insumo (porção / (1 - perda)).
+- O **custo do prato** é recalculado pelo banco sempre que a ficha muda ou o custo de um insumo muda (por exemplo, ao
+  receber uma compra). Relatórios, Contabilidade e CMV usam esse custo automaticamente.
+- Produto sem ficha (bebida, item de revenda) continua com a baixa do próprio estoque, como antes.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

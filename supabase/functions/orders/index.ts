@@ -109,19 +109,33 @@ async function registrarVendaNoErp(order: any, metodo: string, valorRecebido: nu
         vencimento: hoje, pago_em: hoje, forma: METODO[metodo] || metodo, origem: "venda", ref_id: order.id,
       });
     }
-    // Baixa só dos produtos com estoque controlado (estoque preenchido)
+    // Baixa no estoque. Prato com ficha técnica: baixa os insumos (com a perda do preparo).
+    // Sem ficha: baixa o próprio produto, se o estoque dele for controlado.
     const { data: jaBaixou } = await supabase.from("estoque_mov").select("id").eq("origem", "venda").eq("ref_id", order.id).limit(1);
     if (jaBaixou?.length) return;
-    for (const it of (order.itens || []) as { product_id?: string; quantidade: number; taxa?: boolean }[]) {
-      if (!it.product_id || it.taxa) continue;
-      const { data: prod } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
-      if (!prod || prod.estoque == null) continue;
-      const saldo = Math.round((Number(prod.estoque) - Number(it.quantidade)) * 1000) / 1000;
+    const baixar = async (productId: string, quantidade: number, motivo: string, insumo: boolean) => {
+      const { data: prod } = await supabase.from("products").select("id, estoque").eq("id", productId).maybeSingle();
+      if (!prod || (prod.estoque == null && !insumo)) return;
+      const q = Math.round(quantidade * 10000) / 10000;
+      if (!(q > 0)) return;
+      const saldo = Math.round((Number(prod.estoque || 0) - q) * 1000) / 1000;
       await supabase.from("products").update({ estoque: saldo }).eq("id", prod.id);
       await supabase.from("estoque_mov").insert({
-        owner_id: order.owner_id, product_id: prod.id, tipo: "saida", quantidade: Number(it.quantidade),
-        saldo_apos: saldo, motivo: `Venda #${order.numero}`, origem: "venda", ref_id: order.id,
+        owner_id: order.owner_id, product_id: prod.id, tipo: "saida", quantidade: q,
+        saldo_apos: saldo, motivo, origem: "venda", ref_id: order.id,
       });
+    };
+    for (const it of (order.itens || []) as { product_id?: string; quantidade: number; taxa?: boolean; nome?: string }[]) {
+      if (!it.product_id || it.taxa) continue;
+      const { data: ficha } = await supabase.from("product_recipes").select("insumo_id, quantidade, perda_pct").eq("product_id", it.product_id);
+      if (ficha?.length) {
+        for (const r of ficha) {
+          const porUnidade = Number(r.quantidade) / (1 - Number(r.perda_pct || 0) / 100);
+          await baixar(r.insumo_id, porUnidade * Number(it.quantidade), `Venda #${order.numero}: ${it.nome || "prato"}`, true);
+        }
+        continue;
+      }
+      await baixar(it.product_id, Number(it.quantidade), `Venda #${order.numero}`, false);
     }
   } catch (err) {
     console.error("Falha ao registrar venda no ERP:", err);

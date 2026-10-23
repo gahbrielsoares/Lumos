@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=71" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=71" />
+  <script src="js/logo.js?v=72" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=72" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
   </style>
-  <script src="js/dialogs.js?v=71"></script>
+  <script src="js/dialogs.js?v=72"></script>
 </head>
 <body>
 
@@ -114,14 +114,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=71";
-    import { initThemeToggle } from "./js/theme.js?v=71";
-    import { initMobileNav } from "./js/mobileNav.js?v=71";
-    import { renderSidebar } from "./js/sidebar.js?v=71";
-    import { supabase } from "./js/supabaseClient.js?v=71";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=71";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=71";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=71";
+    import { requireSession, signOut } from "./js/auth.js?v=72";
+    import { initThemeToggle } from "./js/theme.js?v=72";
+    import { initMobileNav } from "./js/mobileNav.js?v=72";
+    import { renderSidebar } from "./js/sidebar.js?v=72";
+    import { supabase } from "./js/supabaseClient.js?v=72";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=72";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=72";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=72";
 
     await requireSession();
     initThemeToggle();
@@ -144,7 +144,7 @@
     const hiddenCols = () => disabledAll.filter((d) => d.startsWith("cozinha:")).map((d) => d.slice(8));
     let STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
     // "+ Novo pedido" para funcionários só se o dono liberar (marca "cozinha:equipe_pedidos")
-    const { isTeamMember } = await import("./js/workspace.js?v=71");
+    const { isTeamMember } = await import("./js/workspace.js?v=72");
     const souEquipe = await isTeamMember();
     const equipeLanca = () => disabledAll.includes("cozinha:equipe_pedidos");
     const aplicarBotaoPedido = () => {
@@ -329,10 +329,10 @@
       const [tables, agentsRes, prodRes] = await Promise.all([
         listTables(),
         supabase.from("agents").select("id, name, is_simulator, sim_business_type"),
-        supabase.from("products").select("id, name, price, agent_ids, segmento, product_categories(categories(name))").eq("active", true).order("created_at"),
+        supabase.from("products").select("*, product_categories(categories(name))").eq("active", true).order("created_at"),
       ]);
       agentsById = Object.fromEntries((agentsRes.data || []).map((a) => [a.id, a]));
-      productsAll = prodRes.data || [];
+      productsAll = (prodRes.data || []).filter((p) => p.is_insumo !== true);
 
       const options = [];
       leadInfo = {};

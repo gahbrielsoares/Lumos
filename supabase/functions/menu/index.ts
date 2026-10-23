@@ -51,12 +51,14 @@ async function loadByToken(token: string) {
 async function loadMenu(lead: any, agent: any) {
   const { data: raw } = await supabase
     .from("products")
-    .select("id, name, description, price, photo_urls, agent_ids, segmento, product_categories(categories(name))")
+    .select("*, product_categories(categories(name))")
     .eq("owner_id", lead.owner_id).eq("active", true)
     .order("created_at", { ascending: true });
+  // Insumos da ficha técnica (carne crua, pão...) nunca aparecem no cardápio
+  const vendaveis = (raw || []).filter((p) => p.is_insumo !== true);
   // Cardápio do salão: os produtos de restaurante da casa, não importa por qual agente o cliente chegou
-  const restaurante = (raw || []).filter((p) => p.segmento === "restaurante");
-  const products = restaurante.length ? restaurante : (raw || []).filter((p) => {
+  const restaurante = vendaveis.filter((p) => p.segmento === "restaurante");
+  const products = restaurante.length ? restaurante : vendaveis.filter((p) => {
     const ids: string[] = p.agent_ids || [];
     if (agent?.is_simulator) return ids.includes(agent.id) && (p.segmento || "materiais_construcao") === "restaurante";
     return !ids.length || ids.includes(lead.agent_id);

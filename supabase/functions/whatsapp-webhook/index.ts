@@ -1312,17 +1312,19 @@ Deno.serve(async (req) => {
     // 5. Buscar o catálogo de produtos do dono
     const { data: productsRaw } = await supabase
       .from("products")
-      .select("id, name, description, price, unit, photo_urls, m2_por_caixa, estoque, segmento, product_categories(categories(name))")
+      .select("*, product_categories(categories(name))")
       .eq("owner_id", owner_id)
       .eq("active", true)
       // O simulador só mostra os produtos vinculados a ele; os outros agentes veem também os "de todos"
       .or(agent.is_simulator ? `agent_ids.cs.{${agent_id}}` : `agent_ids.is.null,agent_ids.eq.{},agent_ids.cs.{${agent_id}}`)
-      .limit(120);
+      .limit(400);
 
     // Simulador: só o cardápio/catálogo do nicho que ele está simulando
+    // Insumos da ficha técnica nunca entram no catálogo da IA
+    const vendaveisIa = (productsRaw || []).filter((p) => p.is_insumo !== true).slice(0, 120);
     const products = agent.is_simulator
-      ? (productsRaw || []).filter((p) => (p.segmento || "materiais_construcao") === (agent.sim_business_type || "materiais_construcao"))
-      : productsRaw;
+      ? vendaveisIa.filter((p) => (p.segmento || "materiais_construcao") === (agent.sim_business_type || "materiais_construcao"))
+      : vendaveisIa;
 
     // deno-lint-ignore no-explicit-any
     const catOf = (p: any) => (p.product_categories || []).map((pc: any) => pc.categories?.name).filter(Boolean)[0] || "";

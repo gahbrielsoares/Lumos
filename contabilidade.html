@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=71" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=71" />
-  <script src="js/dialogs.js?v=71"></script>
+  <script src="js/logo.js?v=72" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=72" />
+  <script src="js/dialogs.js?v=72"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -170,14 +170,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=71";
-    import { initThemeToggle } from "./js/theme.js?v=71";
-    import { initMobileNav } from "./js/mobileNav.js?v=71";
-    import { renderSidebar } from "./js/sidebar.js?v=71";
-    import { supabase } from "./js/supabaseClient.js?v=71";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=71";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=71";
-    import * as T from "./js/tributos.js?v=71";
+    import { requireSession, signOut } from "./js/auth.js?v=72";
+    import { initThemeToggle } from "./js/theme.js?v=72";
+    import { initMobileNav } from "./js/mobileNav.js?v=72";
+    import { renderSidebar } from "./js/sidebar.js?v=72";
+    import { supabase } from "./js/supabaseClient.js?v=72";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=72";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=72";
+    import * as T from "./js/tributos.js?v=72";
 
     await requireSession();
     initThemeToggle();
@@ -250,7 +250,7 @@
 
     async function carregarBase() {
       const [prods, fis] = await Promise.all([
-        todos(() => supabase.from("products").select("id, name, custo, estoque, unit, active").eq("owner_id", owner_id).order("name")),
+        todos(() => supabase.from("products").select("*").eq("owner_id", owner_id).order("name")),
         todos(() => supabase.from("product_fiscal").select("*").eq("owner_id", owner_id)),
       ]);
       produtos = prods;
@@ -495,7 +495,7 @@
       document.getElementById("fs-head").innerHTML = `<tr><th>Produto</th><th>Situação</th><th>NCM</th><th>CFOP</th><th>Tipo</th><th>${simples ? "CSOSN" : "CST ICMS"}</th>${simples ? "" : "<th>Alíq. ICMS %</th>"}<th>CST PIS/Cofins</th><th>Monofásico</th><th>ICMS-ST</th><th>CEST</th></tr>`;
       const q = document.getElementById("fs-busca").value.trim().toLowerCase();
       const so = document.getElementById("fs-pend").checked;
-      const lista = produtos.filter((p) => (!q || String(p.name).toLowerCase().includes(q)) && (!so || !T.onlyDigits({ ...(fiscalMap[p.id] || {}), ...(edits[p.id] || {}) }.ncm)));
+      const lista = produtos.filter((p) => p.is_insumo !== true && (!q || String(p.name).toLowerCase().includes(q)) && (!so || !T.onlyDigits({ ...(fiscalMap[p.id] || {}), ...(edits[p.id] || {}) }.ncm)));
       document.getElementById("fs-body").innerHTML = lista.length ? lista.map(linhaFiscal).join("") : `<tr><td colspan="11" style="opacity:.7;">${produtos.length ? "Nenhum produto neste filtro." : "Nenhum produto cadastrado ainda."}</td></tr>`;
     }
     document.getElementById("fs-busca").addEventListener("input", renderFiscal);

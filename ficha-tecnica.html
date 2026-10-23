@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha técnica | Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=72" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=72" />
+  <script src="js/dialogs.js?v=72"></script>
+  <style>
+    .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
+    .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
+    .ft-tab.active { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; font-weight:600; }
+    .ft-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .panel-table th.ft-num { text-align:right; }
+    .ft-tag { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+    .ft-tag.ok { color:#4A7C59; border-color:rgba(74,124,89,.4); }
+    .ft-tag.alto { color:#B94040; border-color:rgba(185,64,64,.4); }
+    .ft-tag.sem { color:#D4834A; border-color:rgba(212,131,74,.4); }
+    .ft-lines { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .ft-line { display:grid; grid-template-columns:minmax(0,1fr) 92px 72px 70px 84px 34px; gap:8px; align-items:center; }
+    .ft-line select, .ft-line input { width:100%; padding:8px 9px; border-radius:9px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); font-family:var(--panel-font-body); font-size:13px; }
+    .ft-line .rm { height:36px; border-radius:9px; border:1px solid rgba(185,64,64,.4); background:transparent; color:#B94040; cursor:pointer; }
+    .ft-line .c { font-size:13px; text-align:right; font-variant-numeric:tabular-nums; }
+    .ft-head { font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--panel-text-muted); }
+    .ft-sum { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:14px; }
+    .ft-sum div { border:1px solid var(--panel-border); border-radius:10px; padding:10px; background:var(--panel-bg); }
+    .ft-sum b { display:block; font-size:11px; color:var(--panel-text-muted); text-transform:uppercase; letter-spacing:.04em; }
+    .ft-sum span { font-size:16px; font-variant-numeric:tabular-nums; }
+    .ft-hint { font-size:12.5px; color:var(--panel-text-muted); line-height:1.5; }
+    .ft-muted { opacity:.7; }
+    @media (max-width: 640px) {
+      .ft-line { grid-template-columns: minmax(0,1fr) 80px 64px 34px; }
+      .ft-line .perda, .ft-line .c { display:none; }
+      .ft-sum { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">Ficha técnica</h1>
+        <p style="margin-top: 6px;">Quanto de cada insumo vai em cada prato. A cada venda, o Lumos baixa os insumos do estoque e calcula o custo real de cada prato (CMV).</p>
+      </div>
+
+      <div class="panel-stat-grid" style="margin-top:18px;">
+        <div class="panel-stat-card"><div><div class="label">Pratos com ficha</div><div class="value" id="c-com">–</div></div></div>
+        <div class="panel-stat-card"><div><div class="label">Pratos sem ficha</div><div class="value" id="c-sem">–</div></div></div>
+        <div class="panel-stat-card ft-custo"><div><div class="label">CMV médio do cardápio</div><div class="value" id="c-cmv">–</div></div></div>
+        <div class="panel-stat-card"><div><div class="label">Insumos abaixo do mínimo</div><div class="value" id="c-baixo">–</div></div></div>
+      </div>
+
+      <div class="ft-tabs">
+        <button class="ft-tab active" data-tab="pratos">Pratos</button>
+        <button class="ft-tab" data-tab="insumos">Insumos</button>
+      </div>
+
+      <section id="tab-pratos">
+        <div class="erp-toolbar">
+          <input id="f-busca" placeholder="Buscar prato" style="min-width:200px;" />
+          <select id="f-filtro"><option value="todos">Todos os pratos</option><option value="sem">Sem ficha técnica</option><option value="alto">CMV acima da meta</option></select>
+          <label class="ft-custo" style="display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--panel-text-muted);">Meta de CMV <input id="f-meta" type="number" min="5" max="90" step="1" style="width:72px;" /> %</label>
+        </div>
+        <div class="panel-table-wrap" style="margin-top:8px;">
+          <table class="panel-table">
+            <thead><tr><th>Prato</th><th class="ft-num">Preço</th><th class="ft-num ft-custo">Custo</th><th class="ft-num ft-custo">CMV</th><th class="ft-num ft-custo">Margem</th><th class="ft-num ft-custo">Preço pela meta</th><th>Situação</th></tr></thead>
+            <tbody id="pratos"><tr><td colspan="7">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+        <p class="ft-hint" style="margin-top:10px;">Bebidas e itens de revenda (refrigerante, cerveja em lata) não precisam de ficha: o Lumos baixa o próprio produto do estoque. A ficha é para o que é preparado na cozinha.</p>
+      </section>
+
+      <section id="tab-insumos" style="display:none;">
+        <div class="erp-toolbar">
+          <input id="i-busca" placeholder="Buscar insumo" style="min-width:200px;" />
+          <button class="btn btn-primary" id="i-novo" style="padding:9px 16px;">Novo insumo</button>
+        </div>
+        <div class="panel-table-wrap" style="margin-top:8px;">
+          <table class="panel-table">
+            <thead><tr><th>Insumo</th><th>Unidade</th><th class="ft-num ft-custo">Custo</th><th class="ft-num">Estoque</th><th class="ft-num">Mínimo</th><th>Usado em</th><th></th></tr></thead>
+            <tbody id="insumos"><tr><td colspan="7">Carregando...</td></tr></tbody>
+          </table>
+        </div>
+        <p class="ft-hint" style="margin-top:10px;">O custo do insumo é atualizado sozinho quando você recebe uma compra na aba Compras, e o custo de todos os pratos que usam esse insumo é recalculado na hora. Entradas, perdas e contagem do estoque ficam na aba Estoque.</p>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=72";
+    import { initThemeToggle } from "./js/theme.js?v=72";
+    import { initMobileNav } from "./js/mobileNav.js?v=72";
+    import { renderSidebar } from "./js/sidebar.js?v=72";
+    import { supabase } from "./js/supabaseClient.js?v=72";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=72";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("ficha_tecnica");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+
+    // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
+    const { getMyAccess } = await import("./js/workspace.js?v=72");
+    const acesso = await getMyAccess().catch(() => ({}));
+    const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
+    if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }
+
+    const UNIDADES = { kg: "kg", litro: "litro", unidade: "unidade", pacote: "pacote", caixa: "caixa", duzia: "dúzia", fardo: "fardo", saco: "saco" };
+    const UN = { kg: "kg", litro: "L", unidade: "un", pacote: "pct", caixa: "cx", duzia: "dz", fardo: "fd", saco: "sc", m2: "m²", metro: "m", rolo: "rl" };
+    // Quantidade na receita: em gramas/ml quando o insumo é por kg/litro
+    const SUB = { kg: [["g", 0.001], ["kg", 1]], litro: [["ml", 0.001], ["L", 1]] };
+    const pctFmt = (n) => `${Number(n).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+    let meta = 30;
+    try { meta = Number(localStorage.getItem("lumos:meta-cmv")) || 30; } catch (_) { /* sem storage */ }
+    document.getElementById("f-meta").value = meta;
+
+    let produtos = [], receitas = [];
+    const insumos = () => produtos.filter((p) => p.is_insumo === true);
+    const pratos = () => produtos.filter((p) => p.is_insumo !== true && p.active !== false);
+    const fichaDe = (id) => receitas.filter((r) => r.product_id === id);
+    const custoFicha = (id) => fichaDe(id).reduce((t, r) => {
+      const i = produtos.find((p) => p.id === r.insumo_id);
+      return t + Number(r.quantidade) / (1 - Number(r.perda_pct || 0) / 100) * Number(i?.custo || 0);
+    }, 0);
+
+    async function load() {
+      const [{ data: p, error }, { data: r }] = await Promise.all([
+        supabase.from("products").select("*").eq("owner_id", owner_id).order("name"),
+        supabase.from("product_recipes").select("*").eq("owner_id", owner_id),
+      ]);
+      if (error) { document.getElementById("pratos").innerHTML = `<tr><td colspan="7">Erro: ${esc(error.message)}</td></tr>`; return; }
+      produtos = p || []; receitas = r || [];
+      if (produtos.length && !("is_insumo" in produtos[0])) {
+        document.getElementById("pratos").innerHTML = `<tr><td colspan="7">Falta aplicar a seção 44 do guia de instalação no banco.</td></tr>`;
+        return;
+      }
+      render();
+    }
+
+    function render() {
+      const lista = pratos();
+      const com = lista.filter((p) => fichaDe(p.id).length);
+      // Revenda com estoque próprio (bebida em lata etc.) não precisa de ficha: baixa direta
+      const direta = (p) => !fichaDe(p.id).length && p.estoque != null;
+      document.getElementById("c-com").textContent = com.length;
+      document.getElementById("c-sem").textContent = lista.filter((p) => !fichaDe(p.id).length && !direta(p)).length;
+      const comPreco = com.filter((p) => Number(p.price) > 0);
+      const somaPreco = comPreco.reduce((t, p) => t + Number(p.price), 0);
+      document.getElementById("c-cmv").textContent = somaPreco ? pctFmt(comPreco.reduce((t, p) => t + custoFicha(p.id), 0) / somaPreco * 100) : "-";
+      document.getElementById("c-baixo").textContent = insumos().filter((i) => i.estoque != null && (Number(i.estoque) <= 0 || (i.estoque_minimo != null && Number(i.estoque) <= Number(i.estoque_minimo)))).length;
+
+      const q = document.getElementById("f-busca").value.toLowerCase(), f = document.getElementById("f-filtro").value;
+      const rows = lista.map((p) => {
+        const tem = fichaDe(p.id).length > 0, custo = custoFicha(p.id), preco = Number(p.price || 0);
+        const cmv = tem && preco > 0 ? custo / preco * 100 : null;
+        return { p, tem, custo, preco, cmv, dir: direta(p) };
+      }).filter((x) => (!q || x.p.name.toLowerCase().includes(q)) && (f === "todos" || (f === "sem" && !x.tem && !x.dir) || (f === "alto" && x.cmv != null && x.cmv > meta)));
+      document.getElementById("pratos").innerHTML = rows.map(({ p, tem, custo, preco, cmv, dir }) => `<tr data-id="${p.id}">
+        <td><strong>${esc(p.name)}</strong>${tem ? `<div class="ft-hint">${fichaDe(p.id).length} insumo(s)</div>` : ""}</td>
+        <td class="ft-num">${preco ? brl(preco) : "-"}</td>
+        <td class="ft-num ft-custo">${tem ? brl(custo) : "-"}</td>
+        <td class="ft-num ft-custo">${cmv == null ? "-" : pctFmt(cmv)}</td>
+        <td class="ft-num ft-custo">${tem && preco ? brl(preco - custo) : "-"}</td>
+        <td class="ft-num ft-custo">${tem && custo ? brl(Math.ceil(custo / (meta / 100) * 10) / 10) : "-"}</td>
+        <td>${dir ? `<span class="ft-tag ok" title="Sem ficha: o próprio produto sai do estoque na venda">Baixa direta</span>` : !tem ? `<span class="ft-tag sem">Sem ficha</span>` : cmv != null && cmv > meta ? `<span class="ft-tag alto">CMV alto</span>` : `<span class="ft-tag ok">OK</span>`}</td>
+      </tr>`).join("") || `<tr><td colspan="7" class="ft-muted">${lista.length ? "Nenhum prato neste filtro." : "Cadastre os pratos na aba Produtos primeiro."}</td></tr>`;
+
+      const qi = document.getElementById("i-busca").value.toLowerCase();
+      document.getElementById("insumos").innerHTML = insumos().filter((i) => !qi || i.name.toLowerCase().includes(qi)).map((i) => {
+        const usado = new Set(receitas.filter((r) => r.insumo_id === i.id).map((r) => r.product_id)).size;
+        const baixo = i.estoque != null && (Number(i.estoque) <= 0 || (i.estoque_minimo != null && Number(i.estoque) <= Number(i.estoque_minimo)));
+        return `<tr data-ins="${i.id}">
+          <td><strong>${esc(i.name)}</strong>${i.active === false ? ` <span class="ft-hint">(inativo)</span>` : ""}</td>
+          <td>${esc(UNIDADES[i.unit] || i.unit || "")}</td>
+          <td class="ft-num ft-custo">${i.custo == null ? "-" : `${brl(i.custo)} / ${UN[i.unit] || ""}`}</td>
+          <td class="ft-num">${i.estoque == null ? "-" : `${num(i.estoque, 3)} ${UN[i.unit] || ""}`}${baixo ? ` <span class="ft-tag alto">baixo</span>` : ""}</td>
+          <td class="ft-num">${i.estoque_minimo == null ? "-" : num(i.estoque_minimo, 3)}</td>
+          <td>${usado ? `${usado} prato(s)` : `<span class="ft-muted">nenhum</span>`}</td>
+          <td><button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-edit="${i.id}">Editar</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="ft-muted">Nenhum insumo ainda. Clique em "Novo insumo" (ex.: carne moída em kg, pão em unidade, queijo em kg).</td></tr>`;
+    }
+
+    // ---------- Abas e filtros ----------
+    document.querySelectorAll(".ft-tab").forEach((b) => b.addEventListener("click", () => {
+      document.querySelectorAll(".ft-tab").forEach((x) => x.classList.toggle("active", x === b));
+      document.getElementById("tab-pratos").style.display = b.dataset.tab === "pratos" ? "" : "none";
+      document.getElementById("tab-insumos").style.display = b.dataset.tab === "insumos" ? "" : "none";
+    }));
+    ["f-busca", "i-busca"].forEach((id) => document.getElementById(id).addEventListener("input", render));
+    document.getElementById("f-filtro").addEventListener("change", render);
+    document.getElementById("f-meta").addEventListener("change", (e) => {
+      meta = Math.min(90, Math.max(5, Number(e.target.value) || 30)); e.target.value = meta;
+      try { localStorage.setItem("lumos:meta-cmv", String(meta)); } catch (_) { /* sem storage */ }
+      render();
+    });
+
+    // ---------- Insumo: criar e editar ----------
+    function editarInsumo(ins, aoSalvar) {
+      const novo = !ins;
+      ins = ins || { name: "", unit: "kg", custo: null, estoque_minimo: null };
+      const m = modal(`
+        <h3 style="font-size:18px;">${novo ? "Novo insumo" : "Editar insumo"}</h3>
+        <p class="ft-hint" style="margin:4px 0 14px;">Insumo é o que entra no preparo e não é vendido sozinho: carne, pão, queijo, óleo, embalagem.</p>
+        <div class="field"><label>Nome</label><input id="m-nome" value="${esc(ins.name)}" placeholder="Ex.: Carne moída" /></div>
+        <div class="erp-row2">
+          <div class="field"><label>Unidade de compra</label><select id="m-un">${Object.entries(UNIDADES).map(([k, l]) => `<option value="${k}" ${ins.unit === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+          ${verCustos ? `<div class="field"><label>Custo por unidade (R$)</label><input id="m-custo" type="number" step="0.01" min="0" value="${ins.custo ?? ""}" /></div>` : ""}
+        </div>
+        <div class="erp-row2">
+          ${novo ? `<div class="field"><label>Quanto tem hoje</label><input id="m-ini" type="number" step="0.001" min="0" value="0" /></div>` : ""}
+          <div class="field"><label>Estoque mínimo (alerta)</label><input id="m-min" type="number" step="0.001" min="0" value="${ins.estoque_minimo ?? ""}" /></div>
+        </div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar</button></div>`, { width: 480 });
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const v = (id) => { const x = m.el.querySelector(id)?.value; return x === "" || x == null ? null : Number(x); };
+        const nome = m.el.querySelector("#m-nome").value.trim();
+        const msg = m.el.querySelector("#m-msg");
+        if (!nome) { msg.textContent = "Informe o nome do insumo."; msg.className = "form-msg error"; return; }
+        const campos = { name: nome, unit: m.el.querySelector("#m-un").value, estoque_minimo: v("#m-min") };
+        if (verCustos) campos.custo = v("#m-custo");
+        let salvo, error;
+        if (novo) ({ data: salvo, error } = await supabase.from("products").insert({ owner_id, ...campos, is_insumo: true, active: true, estoque: 0, price: null }).select().single());
+        else ({ data: salvo, error } = await supabase.from("products").update(campos).eq("id", ins.id).select().single());
+        if (error) { msg.textContent = error.message; msg.className = "form-msg error"; return; }
+        if (novo && v("#m-ini")) await moverEstoque({ product: { ...salvo, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini"), motivo: "Saldo inicial" });
+        m.close();
+        await load();
+        aoSalvar?.(produtos.find((p) => p.id === salvo.id));
+      });
+    }
+    document.getElementById("i-novo").addEventListener("click", () => editarInsumo(null));
+    document.getElementById("insumos").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-edit]"); if (b) editarInsumo(produtos.find((p) => p.id === b.dataset.edit));
+    });
+
+    // ---------- Ficha técnica de um prato ----------
+    function abrirFicha(prato) {
+      let linhas = fichaDe(prato.id).map((r) => {
+        const i = produtos.find((p) => p.id === r.insumo_id);
+        const sub = SUB[i?.unit]?.[0];
+        return { insumo_id: r.insumo_id, qtd: sub ? Number(r.quantidade) / sub[1] : Number(r.quantidade), sub: sub ? sub[0] : null, perda: Number(r.perda_pct || 0) };
+      });
+      const preco = Number(prato.price || 0);
+      const m = modal(`
+        <h3 style="font-size:18px;">Ficha técnica: ${esc(prato.name)}</h3>
+        <p class="ft-hint" style="margin:4px 0 12px;">Informe quanto de cada insumo vai em <b>1 porção pronta</b>. A perda é o que se perde no preparo (ex.: a carne encolhe 20% na chapa); o Lumos baixa do estoque a quantidade bruta.</p>
+        <div class="ft-line ft-head" style="margin-top:6px;"><span>Insumo</span><span>Quantidade</span><span>Unidade</span><span class="perda">Perda %</span><span class="c ft-custo">Custo</span><span></span></div>
+        <div class="ft-lines" id="m-lines"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btn-ghost" id="m-add" style="padding:7px 12px; font-size:13px;">Adicionar insumo</button>
+          <button class="btn btn-ghost" id="m-novo" style="padding:7px 12px; font-size:13px;">Cadastrar insumo novo</button>
+        </div>
+        <div class="ft-sum ft-custo">
+          <div><b>Custo da porção</b><span id="s-custo">-</span></div>
+          <div><b>Preço de venda</b><span>${preco ? brl(preco) : "sem preço"}</span></div>
+          <div><b>CMV</b><span id="s-cmv">-</span></div>
+          <div><b>Preço pela meta (${meta}%)</b><span id="s-sug">-</span></div>
+        </div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Salvar ficha</button></div>`, { width: 720 });
+
+      const box = m.el.querySelector("#m-lines");
+      const fatorDe = (l) => { const i = produtos.find((p) => p.id === l.insumo_id); const s = (SUB[i?.unit] || []).find((x) => x[0] === l.sub); return s ? s[1] : 1; };
+      const custoLinha = (l) => { const i = produtos.find((p) => p.id === l.insumo_id); if (!i) return 0; return Number(l.qtd || 0) * fatorDe(l) / (1 - Number(l.perda || 0) / 100) * Number(i.custo || 0); };
+      function desenhar() {
+        const ops = insumos().filter((i) => i.active !== false).map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join("");
+        box.innerHTML = linhas.map((l, idx) => {
+          const i = produtos.find((p) => p.id === l.insumo_id);
+          const subs = SUB[i?.unit];
+          return `<div class="ft-line" data-i="${idx}">
+            <select data-f="insumo"><option value="">Escolha...</option>${ops}</select>
+            <input data-f="qtd" type="number" step="0.001" min="0" value="${l.qtd ?? ""}" placeholder="Ex.: 150" />
+            ${subs ? `<select data-f="sub">${subs.map(([s]) => `<option ${l.sub === s ? "selected" : ""}>${s}</option>`).join("")}</select>` : `<span class="ft-hint">${esc(UN[i?.unit] || "")}</span>`}
+            <input class="perda" data-f="perda" type="number" step="1" min="0" max="95" value="${l.perda || ""}" placeholder="0" />
+            <span class="c ft-custo">${brl(custoLinha(l))}</span>
+            <button class="rm" data-rm="${idx}" title="Remover">✕</button>
+          </div>`;
+        }).join("") || `<p class="ft-hint">Nenhum insumo ainda. Clique em "Adicionar insumo".</p>`;
+        box.querySelectorAll(".ft-line").forEach((el) => { el.querySelector('[data-f="insumo"]').value = linhas[el.dataset.i].insumo_id || ""; });
+        totais();
+      }
+      function totais() {
+        const custo = linhas.reduce((t, l) => t + custoLinha(l), 0);
+        m.el.querySelector("#s-custo").textContent = brl(custo);
+        m.el.querySelector("#s-cmv").textContent = preco > 0 && custo > 0 ? pctFmt(custo / preco * 100) : "-";
+        m.el.querySelector("#s-cmv").style.color = preco > 0 && custo / preco * 100 > meta ? "#B94040" : "";
+        m.el.querySelector("#s-sug").textContent = custo > 0 ? brl(Math.ceil(custo / (meta / 100) * 10) / 10) : "-";
+        box.querySelectorAll(".ft-line").forEach((el) => { el.querySelector(".c").textContent = brl(custoLinha(linhas[el.dataset.i])); });
+      }
+      box.addEventListener("change", (e) => {
+        const el = e.target.closest("[data-f]"); if (!el) return;
+        const l = linhas[el.closest(".ft-line").dataset.i];
+        if (el.dataset.f === "insumo") {
+          l.insumo_id = el.value || null;
+          const i = produtos.find((p) => p.id === l.insumo_id);
+          l.sub = SUB[i?.unit] ? SUB[i.unit][0][0] : null;
+          desenhar(); return;
+        }
+        if (el.dataset.f === "qtd") l.qtd = el.value === "" ? null : Number(el.value);
+        if (el.dataset.f === "sub") l.sub = el.value;
+        if (el.dataset.f === "perda") l.perda = Math.min(95, Math.max(0, Number(el.value) || 0));
+        totais();
+      });
+      box.addEventListener("input", (e) => {
+        const el = e.target.closest('[data-f="qtd"], [data-f="perda"]'); if (!el) return;
+        const l = linhas[el.closest(".ft-line").dataset.i];
+        if (el.dataset.f === "qtd") l.qtd = el.value === "" ? null : Number(el.value); else l.perda = Math.min(95, Math.max(0, Number(el.value) || 0));
+        totais();
+      });
+      box.addEventListener("click", (e) => { const b = e.target.closest("[data-rm]"); if (b) { linhas.splice(Number(b.dataset.rm), 1); desenhar(); } });
+      m.el.querySelector("#m-add").addEventListener("click", () => { linhas.push({ insumo_id: null, qtd: null, sub: null, perda: 0 }); desenhar(); });
+      m.el.querySelector("#m-novo").addEventListener("click", () => editarInsumo(null, (novo) => { if (novo) { linhas.push({ insumo_id: novo.id, qtd: null, sub: SUB[novo.unit]?.[0][0] || null, perda: 0 }); desenhar(); } }));
+
+      m.el.querySelector("#m-save").addEventListener("click", async () => {
+        const msg = m.el.querySelector("#m-msg");
+        const validas = linhas.filter((l) => l.insumo_id && Number(l.qtd) > 0);
+        if (linhas.some((l) => l.insumo_id && !(Number(l.qtd) > 0))) { msg.textContent = "Informe a quantidade de todos os insumos."; msg.className = "form-msg error"; return; }
+        const ids = validas.map((l) => l.insumo_id);
+        if (new Set(ids).size !== ids.length) { msg.textContent = "O mesmo insumo aparece duas vezes. Some as quantidades numa linha só."; msg.className = "form-msg error"; return; }
+        const rows = validas.map((l) => ({ owner_id, product_id: prato.id, insumo_id: l.insumo_id, quantidade: Math.round(Number(l.qtd) * fatorDe(l) * 10000) / 10000, perda_pct: Number(l.perda || 0) }));
+        const btn = m.el.querySelector("#m-save"); btn.disabled = true;
+        if (rows.length) {
+          const { error } = await supabase.from("product_recipes").upsert(rows, { onConflict: "product_id,insumo_id" });
+          if (error) { btn.disabled = false; msg.textContent = error.message; msg.className = "form-msg error"; return; }
+        }
+        const remover = fichaDe(prato.id).filter((r) => !ids.includes(r.insumo_id)).map((r) => r.id);
+        if (remover.length) await supabase.from("product_recipes").delete().in("id", remover);
+        m.close();
+        await load();
+      });
+      desenhar();
+    }
+    document.getElementById("pratos").addEventListener("click", (e) => {
+      const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+      abrirFicha(produtos.find((p) => p.id === tr.dataset.id));
+    });
+
+    load();
+  </script>
+</body>
+</html>
