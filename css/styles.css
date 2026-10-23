@@ -2468,3 +2468,7 @@ body.sim-on .lumos-tools { display: none; }
 .cr-dia-h span { color: var(--panel-text-muted); font-size: 13px; }
 .cr-simrow td { background: var(--panel-accent-light); }
 .sim-mark { font-size: 10.5px; font-weight: 700; color: #1C1508; background: var(--panel-accent); border-radius: 999px; padding: 1px 8px; }
+.kanban-col.sim-col { border: 2px dashed var(--panel-accent); }
+#sim-conta .pill-tab { background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text-muted); }
+#sim-conta .pill-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #1C2B3A; }
+#sim-conta .pill-tabs .pill-tab.active { background: var(--panel-accent) !important; border-color: var(--panel-accent) !important; color: #1C2B3A !important; font-weight: 700; }

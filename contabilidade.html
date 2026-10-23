@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=75" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=75" />
-  <script src="js/dialogs.js?v=75"></script>
+  <script src="js/logo.js?v=76" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=76" />
+  <script src="js/dialogs.js?v=76"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -170,14 +170,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=75";
-    import { initThemeToggle } from "./js/theme.js?v=75";
-    import { initMobileNav } from "./js/mobileNav.js?v=75";
-    import { renderSidebar } from "./js/sidebar.js?v=75";
-    import { supabase } from "./js/supabaseClient.js?v=75";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=75";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=75";
-    import * as T from "./js/tributos.js?v=75";
+    import { requireSession, signOut } from "./js/auth.js?v=76";
+    import { initThemeToggle } from "./js/theme.js?v=76";
+    import { initMobileNav } from "./js/mobileNav.js?v=76";
+    import { renderSidebar } from "./js/sidebar.js?v=76";
+    import { supabase } from "./js/supabaseClient.js?v=76";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=76";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=76";
+    import * as T from "./js/tributos.js?v=76";
 
     await requireSession();
     initThemeToggle();
@@ -594,7 +594,7 @@
     });
 
     carregarFechamento();
-    import("./js/ajuda.js?v=75").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+    import("./js/ajuda.js?v=76").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
   </script>
 </body>
 </html>

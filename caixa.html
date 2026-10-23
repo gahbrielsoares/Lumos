@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Caixa | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=75" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=75" />
-  <script src="js/dialogs.js?v=75"></script>
+  <script src="js/logo.js?v=76" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=76" />
+  <script src="js/dialogs.js?v=76"></script>
   <style>
     .cx-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .cx-card h3 { font-size:16px; }
@@ -69,13 +69,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=75";
-    import { initThemeToggle } from "./js/theme.js?v=75";
-    import { initMobileNav } from "./js/mobileNav.js?v=75";
-    import { renderSidebar } from "./js/sidebar.js?v=75";
-    import { supabase } from "./js/supabaseClient.js?v=75";
-    import { brl, esc, ownerId, modal } from "./js/erp.js?v=75";
-    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=75";
+    import { requireSession, signOut } from "./js/auth.js?v=76";
+    import { initThemeToggle } from "./js/theme.js?v=76";
+    import { initMobileNav } from "./js/mobileNav.js?v=76";
+    import { renderSidebar } from "./js/sidebar.js?v=76";
+    import { supabase } from "./js/supabaseClient.js?v=76";
+    import { brl, esc, ownerId, modal } from "./js/erp.js?v=76";
+    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=76";
 
     await requireSession();
     initThemeToggle();
@@ -83,7 +83,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=75");
+    const { getMyAccess } = await import("./js/workspace.js?v=76");
     const acesso = await getMyAccess().catch(() => ({}));
     const { data: u } = await supabase.auth.getUser();
     const eu = { id: u?.user?.id || null, nome: acesso?.member?.nome || u?.user?.email || "Responsável" };

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=75" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=75" />
-  <script src="js/dialogs.js?v=75"></script>
+  <script src="js/logo.js?v=76" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=76" />
+  <script src="js/dialogs.js?v=76"></script>
 </head>
 <body>
 
@@ -113,19 +113,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=75";
-    import { initThemeToggle } from "./js/theme.js?v=75";
-    import { initMobileNav } from "./js/mobileNav.js?v=75";
-    import { renderSidebar } from "./js/sidebar.js?v=75";
+    import { requireSession, signOut } from "./js/auth.js?v=76";
+    import { initThemeToggle } from "./js/theme.js?v=76";
+    import { initMobileNav } from "./js/mobileNav.js?v=76";
+    import { renderSidebar } from "./js/sidebar.js?v=76";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=75";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=75";
-    import { supabase } from "./js/supabaseClient.js?v=75";
-    import { brl, esc, modal } from "./js/erp.js?v=75";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=75";
-    import { listAgents } from "./js/agents.js?v=75";
+    } from "./js/tables.js?v=76";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=76";
+    import { supabase } from "./js/supabaseClient.js?v=76";
+    import { brl, esc, modal } from "./js/erp.js?v=76";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=76";
+    import { listAgents } from "./js/agents.js?v=76";
 
     await requireSession();
     initThemeToggle();
@@ -561,7 +561,8 @@
     });
 
     // Atualiza sozinho (pedidos pelo WhatsApp e de outros garçons)
-    setInterval(() => { if (!document.querySelector(".modal-backdrop[style*='flex']")) loadBoard(); }, 30000);
+    // Atualiza sozinha (menos com janela aberta ou durante a simulação, para não apagar a mesa fictícia)
+    setInterval(() => { if (!document.querySelector(".modal-backdrop[style*='flex']") && !document.body.classList.contains("sim-on")) loadBoard(); }, 30000);
 
     document.getElementById("new-table-btn").addEventListener("click", () => {
       document.getElementById("new-table-comanda").checked = ehFuncionario;
@@ -604,6 +605,90 @@
     });
 
     loadBoard();
+
+    // ================= Simulação para apresentação (só administração) =================
+    // A Mesa 7 e o Adalberto existem só na tela: nada é gravado no banco.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=76");
+      const ITENS = [["1x Picanha na chapa", 58], ["2x Cerveja long neck", 28]];
+      const sim = { estado: "livre", pessoas: [] };
+      const cartao = (p) => `
+        <div class="kanban-card ${p.conta ? "pediu-conta" : ""}" data-sim-pessoa="${p.id}">
+          ${p.conta ? `<div class="pediu-conta-tag">🧾 Pediu a conta</div>` : ""}
+          <span class="sim-mark">Simulação</span>
+          <div class="name">${p.nome}</div>
+          <div class="reason">(16) 99999-0000${p.total > 0 ? ` · ${p.itens} ite${p.itens === 1 ? "m" : "ns"} · <b>${brl(p.total)}</b>` : " · sem pedidos ainda"}</div>
+          <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" disabled>Lançar pedido</button>
+            <button class="btn btn-ghost btn-sm" disabled>Conta</button>
+          </div>
+        </div>`;
+      function desenhar() {
+        let col = board.querySelector("[data-sim-mesa]");
+        if (!col) {
+          col = document.createElement("div");
+          col.className = "kanban-col sim-col";
+          col.dataset.simMesa = "1";
+          board.prepend(col);
+          document.getElementById("tables-empty").style.display = "none";
+        }
+        const ocupada = sim.estado !== "livre";
+        col.innerHTML = `
+          <div class="kanban-col-header">
+            <h4>Mesa 7 <span class="pill-badge ${ocupada ? "stage-vendido" : ""}">${ocupada ? "Ocupada" : "Livre"}</span></h4>
+            <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" disabled>+ Abrir comanda</button>
+              ${ocupada ? `<button class="btn btn-ghost btn-sm" disabled>Fechar conta da mesa</button>` : ""}
+            </div>
+          </div>
+          <div class="kanban-col-body">${sim.pessoas.length ? sim.pessoas.map(cartao).join("") : `<p class="settings-hint" style="padding:8px 4px;">Ninguém sentado agora.</p>`}</div>`;
+        return col;
+      }
+      function contaFicticia() {
+        document.getElementById("sim-conta")?.remove();
+        const consumo = ITENS.reduce((t, [, v]) => t + v, 0), taxa = Math.round(consumo * 10) / 100;
+        const el = document.createElement("div");
+        el.id = "sim-conta"; el.className = "modal-backdrop";
+        el.style.cssText = "display:flex; z-index:940; align-items:flex-start; padding-top:5vh;";
+        el.innerHTML = `<div class="modal-box sim-box" style="max-width:520px; width:100%; pointer-events:none;">
+          <span class="sim-mark">Simulação</span>
+          <h3 style="font-size:19px; margin-top:6px;">Conta · Adalberto Souza</h3>
+          <p class="settings-hint" style="margin:4px 0 12px;">Mesa 7</p>
+          <div style="border:1px solid var(--panel-border); border-radius:12px; padding:6px 12px;">
+            ${ITENS.map(([n, v]) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid var(--panel-border); font-size:14px;"><span>${n}</span><span>${brl(v)}</span></div>`).join("")}
+            <div style="display:flex; justify-content:space-between; padding:8px 0; font-weight:600;"><span>Consumo</span><span>${brl(consumo)}</span></div></div>
+          <div class="field toggle-row" style="justify-content:space-between; margin-top:12px;"><span>Taxa de serviço (10%) <small style="opacity:.7;">opcional</small></span><input type="checkbox" class="toggle-input" checked /></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin:12px 0; font-size:18px; font-weight:800;"><span>Total</span><span>${brl(consumo + taxa)}</span></div>
+          <div class="field"><label>Forma de pagamento</label>
+            <div class="pill-tabs">${["Pix", "Crédito", "Débito", "Dinheiro"].map((l, i) => `<button type="button" class="pill-tab ${i === 0 ? "active" : ""}">${l}</button>`).join("")}</div></div>
+          <div class="modal-actions"><button class="btn btn-ghost">Voltar</button><button class="btn btn-primary">Confirmar pagamento e fechar</button></div>
+        </div>`;
+        document.body.appendChild(el);
+      }
+      const fecharConta = () => document.getElementById("sim-conta")?.remove();
+      botaoSimular(() => ({
+        titulo: "Mesas: do QR Code na mesa até a conta paga",
+        antes: "O cliente senta e escaneia o QR Code da mesa (ou o garçom abre a comanda com o nome e o telefone dele). A IA dá as boas-vindas no WhatsApp na hora.",
+        faz: "Mostra cada mesa com quem está sentado, o que cada pessoa pediu e quanto deve, destaca quem pediu a conta e fecha a conta com taxa de serviço, couvert e troco.",
+        depois: "Os pedidos vão para a Cozinha. A conta paga vai para o Caixa, o Financeiro, a Contabilidade e a nota fiscal, e o card do cliente vai para Fechado no Kanban.",
+        preparar: () => { sim.estado = "livre"; sim.pessoas = []; desenhar(); },
+        passos: [
+          { titulo: "Mesa livre", acao: () => destacar(desenhar()),
+            texto: "Cada coluna é uma mesa do salão. A Mesa 7 está livre, esperando o próximo cliente. Os QR Codes de cada mesa, prontos para imprimir, ficam no botão QR Codes." },
+          { titulo: "O cliente escaneou o QR Code", acao: () => { sim.estado = "ocupada"; sim.pessoas = [{ id: "a", nome: "Adalberto Souza", itens: 0, total: 0 }]; desenhar(); destacar(board.querySelector('[data-sim-pessoa="a"]')); },
+            texto: "O Adalberto sentou na Mesa 7 e escaneou o QR Code. O WhatsApp abriu com a mensagem pronta, a IA deu as boas-vindas e ele já aparece aqui, sem o garçom digitar nada. A mesa ficou ocupada sozinha." },
+          { titulo: "Pedidos feitos", acao: () => { sim.pessoas = [{ id: "a", nome: "Adalberto Souza", itens: 3, total: 86 }, { id: "m", nome: "Marina Souza", itens: 1, total: 18 }]; desenhar(); destacar(board.querySelector("[data-sim-mesa] .kanban-col-body")); },
+            texto: "O Adalberto pediu pelo cardápio no celular e a Marina pediu ao garçom, que lançou pelo mesmo cardápio. Cada pessoa tem a sua comanda com o valor certo, e os pedidos já foram direto para a tela da Cozinha." },
+          { titulo: "Pediu a conta", acao: () => { sim.pessoas[0].conta = true; desenhar(); destacar(board.querySelector('[data-sim-pessoa="a"]')); },
+            texto: "O Adalberto pediu a conta pelo celular. O cartão dele fica destacado em laranja e o responsável recebe um aviso no WhatsApp. Ninguém precisa ficar procurando quem quer pagar." },
+          { titulo: "Fechando a conta", acao: () => contaFicticia(),
+            texto: "O garçom abre a Conta: consumo item por item, taxa de serviço de 10% (que pode ser retirada se o cliente pedir), couvert quando houver, e a forma de pagamento. No dinheiro, o troco é calculado na hora. Dá para fechar a conta de uma pessoa ou da mesa inteira." },
+          { titulo: "Conta paga, mesa livre", acao: () => { fecharConta(); sim.estado = "livre"; sim.pessoas = []; destacar(desenhar()); },
+            texto: "Pagamento confirmado: o Adalberto recebe o agradecimento no WhatsApp, a venda entra no Caixa, no Financeiro e na Contabilidade, a nota fiscal é emitida (se estiver conectada) e a Mesa 7 volta a ficar livre para o próximo cliente." },
+        ],
+        limpar: () => { fecharConta(); board.querySelector("[data-sim-mesa]")?.remove(); loadBoard(); },
+      }));
+    }
   </script>
 
 </body>

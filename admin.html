@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=75" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=75" />
-  <script src="js/dialogs.js?v=75"></script>
+  <script src="js/logo.js?v=76" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=76" />
+  <script src="js/dialogs.js?v=76"></script>
 </head>
 <body>
 
@@ -75,12 +75,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=75";
-    import { initThemeToggle } from "./js/theme.js?v=75";
-    import { initMobileNav } from "./js/mobileNav.js?v=75";
-    import { renderSidebar } from "./js/sidebar.js?v=75";
-    import { supabase } from "./js/supabaseClient.js?v=75";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=75";
+    import { requireSession, signOut } from "./js/auth.js?v=76";
+    import { initThemeToggle } from "./js/theme.js?v=76";
+    import { initMobileNav } from "./js/mobileNav.js?v=76";
+    import { renderSidebar } from "./js/sidebar.js?v=76";
+    import { supabase } from "./js/supabaseClient.js?v=76";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=76";
 
     await requireSession();
     initThemeToggle();
@@ -89,7 +89,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=75");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=76");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
