@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=72";
-import { getWorkspaceOwnerId } from "./workspace.js?v=72";
+import { supabase } from "./supabaseClient.js?v=73";
+import { getWorkspaceOwnerId } from "./workspace.js?v=73";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -182,36 +182,12 @@ export const INTEGRATIONS = [
   },
   {
     kind: "nota_fiscal",
-    label: "Nota fiscal",
-    description: "Emissão de NF-e após a venda, pelo ERP ou emissor que a loja já usa.",
+    label: "Nota fiscal (NFC-e)",
+    description: "Emissão de NFC-e pelo emissor da loja: preencha os dados, envie o certificado e clique em conectar.",
+    href: "fiscal.html",
     icon: `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>`,
-    providers: [
-      { value: "nenhum", label: "Não emitir pelo Lumos" },
-      { value: "bling", label: "Bling" },
-      { value: "tiny", label: "Tiny (Olist)" },
-      { value: "focusnfe", label: "Focus NFe" },
-      { value: "enotas", label: "eNotas" },
-    ],
-    fields: [
-      { key: "ambiente", label: "Ambiente", type: "select", default: "homologacao",
-        options: [{ value: "homologacao", label: "Homologação (teste, sem valor fiscal)" }, { value: "producao", label: "Produção" }],
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "token", label: "Token de API", type: "password", secret: true, showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "cnpj", label: "CNPJ emitente", type: "text", placeholder: "00.000.000/0001-00", showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "inscricao_estadual", label: "Inscrição estadual", type: "text", showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "regime", label: "Regime tributário", type: "select", default: "simples",
-        options: [{ value: "simples", label: "Simples Nacional" }, { value: "presumido", label: "Lucro Presumido" }, { value: "real", label: "Lucro Real" }, { value: "mei", label: "MEI" }],
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "cfop", label: "CFOP padrão", type: "text", default: "5102", hint: "5102 = venda de mercadoria dentro do estado. Confirme com o contador.",
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "natureza_operacao", label: "Natureza da operação", type: "text", default: "Venda de mercadoria",
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "emitir_quando", label: "Quando emitir", type: "select", default: "manual",
-        options: [{ value: "manual", label: "Manual (vendedor clica pra emitir)" }, { value: "apos_pagamento", label: "Automático após o pagamento" }],
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-      { key: "enviar_cliente", label: "Enviar o PDF da nota pro cliente no WhatsApp", type: "toggle", default: true,
-        showIf: { provider: ["bling", "tiny", "focusnfe", "enotas"] } },
-    ],
+    providers: [{ value: "focusnfe", label: "Focus NFe" }],
+    fields: [],
   },
   {
     kind: "api_personalizada",

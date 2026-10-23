@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=72" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=72" />
-  <script src="js/dialogs.js?v=72"></script>
+  <script src="js/logo.js?v=73" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=73" />
+  <script src="js/dialogs.js?v=73"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -170,14 +170,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=72";
-    import { initThemeToggle } from "./js/theme.js?v=72";
-    import { initMobileNav } from "./js/mobileNav.js?v=72";
-    import { renderSidebar } from "./js/sidebar.js?v=72";
-    import { supabase } from "./js/supabaseClient.js?v=72";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=72";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=72";
-    import * as T from "./js/tributos.js?v=72";
+    import { requireSession, signOut } from "./js/auth.js?v=73";
+    import { initThemeToggle } from "./js/theme.js?v=73";
+    import { initMobileNav } from "./js/mobileNav.js?v=73";
+    import { renderSidebar } from "./js/sidebar.js?v=73";
+    import { supabase } from "./js/supabaseClient.js?v=73";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=73";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=73";
+    import * as T from "./js/tributos.js?v=73";
 
     await requireSession();
     initThemeToggle();
@@ -271,6 +271,8 @@
           todos(() => supabase.from("fin_lancamentos").select("valor, categoria, origem, descricao, pago_em").eq("owner_id", owner_id).eq("tipo", "despesa").gte("pago_em", `${ym}-01`).lt("pago_em", `${addMes(ym, 1)}-01`)),
           todos(() => supabase.from("estoque_mov").select("product_id, tipo, quantidade").eq("owner_id", owner_id).gte("created_at", fim)),
         ]);
+        // Notas fiscais emitidas no mês (se a tabela ainda não existir, segue sem elas)
+        const { data: notas } = await supabase.from("fiscal_docs").select("*").eq("owner_id", owner_id).eq("teste", false).gte("created_at", ini).lt("created_at", fim).order("created_at").limit(5000).then((r) => r, () => ({ data: [] }));
         // Receita por mês dos 12 meses anteriores (mesma regra da taxa de serviço)
         const meses = Array.from({ length: 12 }, (_, i) => addMes(ym, i - 12));
         const porMes = Object.fromEntries(meses.map((m) => [m, 0]));
@@ -286,6 +288,7 @@
           competencia: ym, cfg, vendas, vendas12: meses.map((m) => porMes[m]), receitaAnoAntes, produtos, fiscalPorProduto: fiscalMap,
           compras, fornecedores, despesas: despesas.filter((d) => d.origem !== "compra"), movsDepois: movs,
         });
+        R.notas = notas || [];
         R.despesasCompras = despesas.filter((d) => d.origem === "compra").reduce((t, d) => t + Number(d.valor || 0), 0);
         renderRelatorio(R);
       } catch (e) {
@@ -449,6 +452,9 @@
         add("Cadastro fiscal", [...cab, ["Produto", "NCM", "Conferido", "CFOP", "Origem", "Tipo", "CSOSN", "CST ICMS", "Alíq. ICMS", "ICMS-ST", "Monofásico", "CST PIS/Cofins", "CEST", "cClassTrib"],
           ...produtos.map((p) => { const f = T.fiscalEfetivo(fiscalMap[p.id], p, cfg); return [p.name, T.fmtNcm(f.ncm), f.cadastrado ? "sim" : "sugerido", f.cfop, f.origem, f.tipo, f.csosn, f.cst_icms, f.icms_aliq || "", f.icms_st ? "sim" : "não", f.monofasico ? "sim" : "não", f.cst_pis, f.cest || "", f.cclass_trib || ""]; })],
           [30, 12, 10, 7, 7, 10, 7, 8, 10, 8, 10, 13, 10, 11]);
+        add("Notas fiscais (NFC-e)", [...cab, ["Data", "Venda", "Número", "Série", "Chave de acesso", "Situação", "Ambiente", "Valor", "XML", "Cupom (DANFE)", "Motivo/retorno"],
+          ...(R.notas || []).map((n) => { const v = R.vendas.find((x) => x.nf === n.numero); return [new Date(n.created_at).toLocaleString("pt-BR"), v ? v.numero : "", n.numero || "", n.serie || "", n.chave || "", { autorizado: "Autorizada", cancelado: "Cancelada", erro: "Erro", processando: "Processando" }[n.status] || n.status, n.ambiente === "producao" ? "Produção" : "Homologação", Number(n.valor || 0), n.xml_url || "", n.danfe_url || "", n.cancelamento_motivo || n.mensagem || ""]; })],
+          [17, 8, 9, 6, 46, 12, 12, 10, 50, 50, 50]);
         add("Pendências", [...cab, ["Prioridade", "Pendência"], ...R.pendencias.map((p) => [p.nivel, p.texto])], [12, 120]);
         const nome = (cfg.nome_fantasia || cfg.razao_social || "empresa").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "_");
         X.writeFile(wb, `Lumos_Contabil_${nome}_${R.competencia}.xlsx`);

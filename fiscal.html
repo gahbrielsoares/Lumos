@@ -5,9 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=72" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=72" />
-  <script src="js/dialogs.js?v=72"></script>
+  <script src="js/logo.js?v=73" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=73" />
+  <script src="js/dialogs.js?v=73"></script>
+  <style>
+    .nf-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
+    .nf-card h3 { font-size:16px; margin-bottom:4px; }
+    .nf-step { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .nf-step .n { width:26px; height:26px; border-radius:50%; background:var(--panel-accent); color:#1C1508; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:13px; flex:0 0 26px; }
+    .nf-step.ok .n { background:#4A7C59; color:#fff; }
+    .nf-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:4px 16px; }
+    .nf-grid .field { margin-bottom:12px; }
+    .nf-hint { font-size:12.5px; color:var(--panel-text-muted); line-height:1.55; }
+    .nf-modo { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; }
+    .nf-modo label { border:1px solid var(--panel-border); border-radius:12px; padding:14px; cursor:pointer; display:flex; gap:10px; align-items:flex-start; background:var(--panel-bg); }
+    .nf-modo label.on { border-color:var(--panel-accent); background:var(--panel-accent-light); }
+    .nf-modo label.off { opacity:.55; cursor:not-allowed; }
+    .nf-modo input { margin-top:3px; accent-color:var(--panel-accent); }
+    .nf-check { display:flex; gap:10px; align-items:flex-start; font-size:14px; margin:8px 0; }
+    .nf-check input { margin-top:3px; accent-color:var(--panel-accent); }
+    .nf-cert { border-radius:12px; padding:12px 14px; margin-top:6px; font-size:13.5px; border:1px solid var(--panel-border); }
+    .nf-cert.ok { border-color:rgba(74,124,89,.45); color:#4A7C59; }
+    .nf-cert.bad { border-color:rgba(185,64,64,.45); color:#B94040; }
+    .nf-passos { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+    .nf-passo { display:flex; gap:10px; align-items:flex-start; font-size:14px; padding:10px 12px; border-radius:10px; border:1px solid var(--panel-border); background:var(--panel-bg); }
+    .nf-passo .i { font-weight:700; width:18px; flex:0 0 18px; }
+    .nf-passo.ok .i { color:#4A7C59; } .nf-passo.bad .i { color:#B94040; }
+    .nf-passo small { display:block; color:var(--panel-text-muted); margin-top:2px; }
+    .nf-status { display:flex; flex-wrap:wrap; gap:10px 24px; margin-top:10px; font-size:14px; }
+    .nf-status b { display:block; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--panel-text-muted); }
+    .nf-actions { display:flex; gap:6px; flex-wrap:wrap; }
+    .nf-actions button, .nf-actions a { padding:6px 10px; font-size:12.5px; border-radius:8px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); cursor:pointer; text-decoration:none; }
+    .nf-actions .pri { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; font-weight:600; }
+    .panel-table tbody tr { cursor:default; }
+    .nf-badge { display:inline-block; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:999px; border:1px solid; white-space:nowrap; }
+    .nf-badge.ok { color:#4A7C59; border-color:rgba(74,124,89,.4); } .nf-badge.err { color:#B94040; border-color:rgba(185,64,64,.4); }
+    .nf-badge.warn { color:#D4834A; border-color:rgba(212,131,74,.4); } .nf-badge.muted { color:var(--panel-text-muted); border-color:var(--panel-border); }
+  </style>
 </head>
 <body>
 
@@ -38,28 +72,111 @@
     <main class="dash-main">
       <div>
         <h1 style="font-size: 28px;">Notas fiscais</h1>
-        <p style="margin-top: 6px;">Notas das vendas pagas.</p>
+        <p style="margin-top: 6px;">Emissão de NFC-e pelo emissor da loja. Preencha os dados uma vez, clique em conectar e as notas passam a sair sozinhas a cada venda paga.</p>
       </div>
-      <div class="settings-block" style="margin-top:18px; max-width:760px;" id="nf-status"></div>
-      <div class="erp-toolbar">
-        <select id="f-periodo"><option value="mes">Este mês</option><option value="mes_passado">Mês passado</option><option value="90">Últimos 90 dias</option></select>
+
+      <div id="conexao"></div>
+
+      <!-- ===== Assistente de conexão ===== -->
+      <div id="wizard" style="display:none;">
+        <div class="nf-card">
+          <div class="nf-step"><span class="n">1</span><h3>Como conectar</h3></div>
+          <div class="nf-modo" id="w-modo">
+            <label data-m="lumos"><input type="radio" name="modo" value="lumos" /><span><b>A Lumos cadastra a loja no emissor</b> (recomendado)<br><span class="nf-hint">Você preenche os dados, envia o certificado e o CSC, e o Lumos faz o resto no Focus NFe.</span><span class="nf-hint" id="w-modo-aviso" style="display:none; color:#D4834A;"><br>Disponível assim que a Lumos ativar a conta no emissor.</span></span></label>
+            <label data-m="token"><input type="radio" name="modo" value="token" /><span><b>A loja já tem conta no Focus NFe</b><br><span class="nf-hint">O certificado e o CSC já estão no painel do emissor. Basta colar o token de acesso.</span></span></label>
+          </div>
+        </div>
+
+        <div class="nf-card">
+          <div class="nf-step"><span class="n">2</span><h3>Dados da empresa</h3></div>
+          <div class="nf-grid">
+            <div class="field"><label>Razão social</label><input id="d-razao" /></div>
+            <div class="field m-lumos"><label>Nome fantasia</label><input id="d-fantasia" /></div>
+            <div class="field"><label>CNPJ</label><input id="d-cnpj" inputmode="numeric" placeholder="00.000.000/0001-00" /></div>
+            <div class="field m-lumos"><label>Inscrição estadual</label><input id="d-ie" inputmode="numeric" /></div>
+            <div class="field"><label>Regime tributário</label><select id="d-regime"><option value="simples">Simples Nacional</option><option value="mei">MEI</option><option value="presumido">Lucro Presumido</option><option value="real">Lucro Real</option></select></div>
+            <div class="field m-lumos"><label>CEP</label><input id="d-cep" inputmode="numeric" placeholder="00000-000" /></div>
+            <div class="field m-lumos"><label>Rua</label><input id="d-rua" /></div>
+            <div class="field m-lumos"><label>Número</label><input id="d-numero" /></div>
+            <div class="field m-lumos"><label>Complemento</label><input id="d-compl" /></div>
+            <div class="field m-lumos"><label>Bairro</label><input id="d-bairro" /></div>
+            <div class="field m-lumos"><label>Município</label><input id="d-municipio" /></div>
+            <div class="field"><label>Estado (UF)</label><select id="d-uf"></select></div>
+            <div class="field m-lumos"><label>Telefone</label><input id="d-tel" inputmode="tel" /></div>
+            <div class="field m-lumos"><label>E-mail</label><input id="d-email" type="email" /></div>
+            <div class="field m-lumos"><label>CNPJ da contabilidade (opcional)</label><input id="d-contab" inputmode="numeric" /></div>
+          </div>
+        </div>
+
+        <div class="nf-card m-lumos">
+          <div class="nf-step"><span class="n">3</span><h3>Certificado digital A1</h3></div>
+          <p class="nf-hint" style="margin-bottom:10px;">O arquivo termina em <b>.pfx</b> ou <b>.p12</b> e vem com uma senha. O Lumos confere o certificado aqui na tela e envia direto para o emissor: ele <b>não fica guardado</b> no Lumos.</p>
+          <div class="nf-grid">
+            <div class="field"><label>Arquivo do certificado</label><input id="c-arquivo" type="file" accept=".pfx,.p12,application/x-pkcs12" /></div>
+            <div class="field"><label>Senha do certificado</label><input id="c-senha" type="password" autocomplete="new-password" /></div>
+          </div>
+          <div id="c-info"></div>
+        </div>
+
+        <div class="nf-card m-lumos">
+          <div class="nf-step"><span class="n">4</span><h3>CSC da Sefaz (código de segurança da NFC-e)</h3></div>
+          <p class="nf-hint" style="margin-bottom:10px;">É gerado pela própria loja no site da Sefaz do estado (em SP: portal da NFC-e, opção de gerenciar o CSC). São dois dados: o <b>ID</b> (número curto) e o <b>código</b> (letras e números). Para testar, use o CSC de homologação.</p>
+          <div class="nf-grid">
+            <div class="field"><label>ID do CSC (produção)</label><input id="s-idp" inputmode="numeric" placeholder="Ex.: 1" /></div>
+            <div class="field"><label>Código CSC (produção)</label><input id="s-cscp" autocomplete="off" /></div>
+            <div class="field"><label>ID do CSC (homologação)</label><input id="s-idh" inputmode="numeric" placeholder="Ex.: 1" /></div>
+            <div class="field"><label>Código CSC (homologação)</label><input id="s-csch" autocomplete="off" /></div>
+          </div>
+        </div>
+
+        <div class="nf-card m-token">
+          <div class="nf-step"><span class="n">3</span><h3>Token do emissor</h3></div>
+          <p class="nf-hint" style="margin-bottom:10px;">No painel do Focus NFe, abra a empresa e copie o token do ambiente escolhido abaixo (homologação ou produção).</p>
+          <div class="field"><label>Token de acesso</label><input id="t-token" type="password" autocomplete="off" /></div>
+        </div>
+
+        <div class="nf-card">
+          <div class="nf-step"><span class="n" id="n-pref">5</span><h3>Como emitir</h3></div>
+          <div class="nf-grid">
+            <div class="field"><label>Ambiente</label><select id="p-amb"><option value="homologacao">Homologação (teste, sem valor fiscal)</option><option value="producao">Produção (notas valendo)</option></select></div>
+            <div class="field"><label>Série da NFC-e</label><input id="p-serie" value="1" inputmode="numeric" /></div>
+          </div>
+          <label class="nf-check"><input type="checkbox" id="p-auto" checked /> <span>Emitir a NFC-e automaticamente quando a venda for paga</span></label>
+          <label class="nf-check"><input type="checkbox" id="p-whats" checked /> <span>Enviar o cupom fiscal para o cliente no WhatsApp</span></label>
+          <label class="nf-check m-lumos"><input type="checkbox" id="p-cont" checked /> <span>Se a Sefaz estiver fora do ar, emitir em contingência e transmitir depois</span></label>
+          <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:14px;">
+            <button class="btn btn-ghost" id="b-cancelar" style="display:none;">Cancelar</button>
+            <button class="btn btn-ghost m-lumos" id="b-conferir">Conferir dados</button>
+            <button class="btn btn-primary" id="b-conectar">Conectar API</button>
+          </div>
+          <div class="nf-passos" id="passos"></div>
+        </div>
       </div>
-      <div class="panel-table-wrap">
+
+      <!-- ===== Notas ===== -->
+      <h3 class="erp-section-title">Notas das vendas</h3>
+      <div class="erp-toolbar" style="margin-top:0;">
+        <select id="f-periodo"><option value="hoje">Hoje</option><option value="mes" selected>Este mês</option><option value="mes_passado">Mês passado</option><option value="90">Últimos 90 dias</option></select>
+        <select id="f-sit"><option value="todas">Todas</option><option value="sem">Sem nota</option><option value="erro">Com erro</option><option value="ok">Autorizadas</option><option value="cancelada">Canceladas</option></select>
+      </div>
+      <div class="panel-table-wrap" style="margin-top:6px;">
         <table class="panel-table">
-          <thead><tr><th>Venda</th><th>Data</th><th>Cliente</th><th>Total</th><th>Nota</th></tr></thead>
-          <tbody id="rows"></tbody>
+          <thead><tr><th>Venda</th><th>Data</th><th>Cliente</th><th>Total</th><th>Nota</th><th></th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6">Carregando...</td></tr></tbody>
         </table>
       </div>
+      <div id="testes"></div>
     </main>
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=72";
-    import { initThemeToggle } from "./js/theme.js?v=72";
-    import { initMobileNav } from "./js/mobileNav.js?v=72";
-    import { renderSidebar } from "./js/sidebar.js?v=72";
-    import { supabase } from "./js/supabaseClient.js?v=72";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=72";
+    import { requireSession, signOut } from "./js/auth.js?v=73";
+    import { initThemeToggle } from "./js/theme.js?v=73";
+    import { initMobileNav } from "./js/mobileNav.js?v=73";
+    import { renderSidebar } from "./js/sidebar.js?v=73";
+    import { supabase } from "./js/supabaseClient.js?v=73";
+    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=73";
+    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=73";
 
     await requireSession();
     initThemeToggle();
@@ -67,35 +184,294 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
+    const { getMyAccess } = await import("./js/workspace.js?v=73");
+    const acesso = await getMyAccess().catch(() => ({}));
+    const souDono = !acesso?.member;
 
-    const { data: nfInt } = await supabase.from("integrations").select("provider, enabled, config").eq("owner_id", owner_id).eq("kind", "nota_fiscal").maybeSingle();
-    const ativo = nfInt?.enabled && nfInt.provider && nfInt.provider !== "nenhum";
-    document.getElementById("nf-status").innerHTML = `
-      <strong>🧾 Emissão real de NF-e / NFC-e: em breve</strong>
-      <p class="settings-hint" style="margin-top:6px;">A emissão de verdade depende de um emissor (Focus NFe, Bling, Tiny…), do certificado digital da loja e do cadastro na SEFAZ.
-      ${ativo ? `A loja já configurou <strong>${esc(nfInt.provider)}</strong> em Integrações, assim que a conexão estiver pronta, as notas passam a ser emitidas sozinhas após cada venda paga.` : `Configure o emissor em <a href="integracoes.html?tipo=nota_fiscal">Integrações → Nota fiscal</a> para deixar pronto.`}
-      Enquanto isso, a lista abaixo mostra as vendas que precisam de nota (as do simulador aparecem com a nota de demonstração).</p>`;
+    async function call(body) {
+      const { data, error } = await supabase.functions.invoke("fiscal", { body });
+      if (error || data?.error) {
+        let m = data?.error || error?.message || "Erro";
+        let corpo = null;
+        try { corpo = await error?.context?.json(); if (corpo?.error) m = corpo.error; } catch (_) { /* sem JSON */ }
+        const e = new Error(m); e.data = corpo || data; throw e;
+      }
+      return data;
+    }
+    const UFS = ["AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"];
+    document.getElementById("d-uf").innerHTML = UFS.map((u) => `<option ${u === "SP" ? "selected" : ""}>${u}</option>`).join("");
+    const $ = (id) => document.getElementById(id);
+    const fmtDH = (iso) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
+    // ================= Conexão =================
+    let st = { conectado: false, config: {} };
+    let cert = null; // { base64, info }
+    async function carregarStatus() {
+      try { st = await call({ action: "status" }); } catch (e) { st = { conectado: false, config: {}, erro: e.message }; }
+      renderConexao();
+      if (vendas.length) renderNotas();   // botões de emitir dependem da conexão
+    }
+    function renderConexao() {
+      const c = st.config || {};
+      const box = $("conexao");
+      if (st.erro) {
+        box.innerHTML = `<div class="nf-card"><b>Não foi possível ler a conexão.</b><p class="nf-hint">${esc(st.erro)}. Se for a primeira vez, confira se a função "fiscal" e a seção 45 do guia foram aplicadas.</p></div>`;
+        if (souDono) abrirWizard(); return;
+      }
+      if (!st.conectado) {
+        box.innerHTML = `<div class="nf-card"><h3>Emissão de NFC-e ainda não conectada</h3><p class="nf-hint">${souDono ? "Preencha os passos abaixo e clique em <b>Conectar API</b>. Comece em homologação para testar sem valor fiscal." : "Peça ao responsável pela loja para conectar o emissor."}</p></div>`;
+        if (souDono) abrirWizard();
+        return;
+      }
+      const venc = c.certificado?.validade ? new Date(c.certificado.validade) : null;
+      const dias = venc ? Math.ceil((venc - Date.now()) / 86400000) : null;
+      box.innerHTML = `<div class="nf-card">
+        <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+          <div><h3>✓ NFC-e conectada ao Focus NFe</h3>
+            <p class="nf-hint">${c.ambiente === "producao" ? "Ambiente de <b>produção</b>: as notas têm valor fiscal." : "Ambiente de <b>homologação</b>: notas de teste, sem valor fiscal. Quando tudo estiver certo, passe para produção."}</p></div>
+          <span class="nf-badge ${c.ambiente === "producao" ? "ok" : "warn"}">${c.ambiente === "producao" ? "Produção" : "Homologação"}</span>
+        </div>
+        <div class="nf-status">
+          <div><b>CNPJ</b>${esc(c.cnpj || "-")}</div>
+          <div><b>Série</b>${esc(c.serie || "1")}</div>
+          <div><b>Emissão</b>${(c.emitir_quando || "apos_pagamento") === "apos_pagamento" ? "automática após o pagamento" : "manual"}</div>
+          <div><b>Cupom no WhatsApp</b>${c.enviar_cliente !== false ? "sim" : "não"}</div>
+          ${venc ? `<div><b>Certificado</b>${dias < 0 ? `<span style="color:#B94040;">vencido</span>` : `válido até ${venc.toLocaleDateString("pt-BR")}${dias <= 30 ? ` <span style="color:#D4834A;">(vence em ${dias} dias)</span>` : ""}`}</div>` : ""}
+          <div><b>Conectado em</b>${c.conectado_em ? fmtDH(c.conectado_em) : "-"}</div>
+        </div>
+        ${souDono ? `<div class="nf-actions" style="margin-top:14px;">
+          ${st.tem_token_homologacao || c.ambiente !== "producao" ? `<button id="b-teste">Emitir nota de teste</button>` : ""}
+          <button id="b-alterar">Alterar configuração</button>
+          ${c.ambiente !== "producao" ? `<button class="pri" id="b-producao">Passar para produção</button>` : ""}
+          <button id="b-desc">Desconectar</button></div>` : ""}
+      </div>`;
+      $("wizard").style.display = "none";
+      $("b-alterar")?.addEventListener("click", () => abrirWizard(true));
+      $("b-producao")?.addEventListener("click", () => { abrirWizard(true); $("p-amb").value = "producao"; $("s-idp").focus(); });
+      $("b-desc")?.addEventListener("click", async () => {
+        if (!(await lumosConfirm("Desconectar a emissão de NFC-e? As notas já emitidas continuam guardadas."))) return;
+        try { await call({ action: "desconectar" }); await carregarStatus(); } catch (e) { lumosAlert(e.message); }
+      });
+      $("b-teste")?.addEventListener("click", async (ev) => {
+        ev.target.disabled = true; ev.target.textContent = "Emitindo...";
+        try { const r = await call({ action: "emitir_teste" }); await lumosAlert(r.ok ? `Nota de teste autorizada (nº ${r.numero}). A conexão está funcionando.` : `A Sefaz recusou a nota de teste: ${r.mensagem || "veja os detalhes abaixo"}.`); }
+        catch (e) { await lumosAlert(e.message); }
+        ev.target.disabled = false; ev.target.textContent = "Emitir nota de teste"; carregarNotas();
+      });
+    }
+
+    // ================= Assistente =================
+    async function abrirWizard(alterando = false) {
+      $("wizard").style.display = "";
+      $("b-cancelar").style.display = alterando ? "" : "none";
+      const c = st.config || {};
+      const { data: fc } = await supabase.from("fiscal_config").select("dados").eq("owner_id", owner_id).maybeSingle();
+      const f = fc?.dados || {}, e = f.endereco || {};
+      const set = (id, v) => { if (v !== undefined && v !== null && !$(id).value) $(id).value = v; };
+      set("d-razao", f.razao_social); set("d-fantasia", f.nome_fantasia); set("d-cnpj", f.cnpj || c.cnpj); set("d-ie", f.inscricao_estadual);
+      set("d-cep", e.cep); set("d-rua", e.logradouro); set("d-numero", e.numero); set("d-compl", e.complemento); set("d-bairro", e.bairro); set("d-municipio", f.municipio);
+      set("d-tel", e.telefone); set("d-email", e.email);
+      $("d-regime").value = c.regime || f.regime || "simples";
+      $("d-uf").value = c.uf || f.uf || "SP";
+      if (c.serie) $("p-serie").value = c.serie;
+      if (c.ambiente) $("p-amb").value = c.ambiente;
+      $("p-auto").checked = (c.emitir_quando || "apos_pagamento") === "apos_pagamento";
+      $("p-whats").checked = c.enviar_cliente !== false;
+      if (c.csc_id_producao) $("s-idp").value = c.csc_id_producao;
+      const lumosOk = !!st.cadastro_pela_lumos;
+      $("w-modo-aviso").style.display = lumosOk ? "none" : "";
+      document.querySelector('[data-m="lumos"]').classList.toggle("off", !lumosOk);
+      document.querySelector('[data-m="lumos"] input').disabled = !lumosOk;
+      escolherModo(c.modo || (lumosOk ? "lumos" : "token"));
+      $("wizard").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    let modo = "lumos";
+    function escolherModo(m) {
+      modo = m;
+      document.querySelectorAll("#w-modo label").forEach((l) => { l.classList.toggle("on", l.dataset.m === m); l.querySelector("input").checked = l.dataset.m === m; });
+      document.querySelectorAll(".m-lumos").forEach((el) => (el.style.display = m === "lumos" ? "" : "none"));
+      document.querySelectorAll(".m-token").forEach((el) => (el.style.display = m === "token" ? "" : "none"));
+      $("n-pref").textContent = m === "lumos" ? "5" : "4";
+      $("passos").innerHTML = "";
+    }
+    document.querySelectorAll("#w-modo input").forEach((i) => i.addEventListener("change", () => escolherModo(i.value)));
+    $("b-cancelar").addEventListener("click", () => { $("wizard").style.display = "none"; window.scrollTo({ top: 0, behavior: "smooth" }); });
+
+    // CEP preenche o endereço
+    $("d-cep").addEventListener("blur", async () => {
+      const cep = onlyDigits($("d-cep").value);
+      if (cep.length !== 8) return;
+      try {
+        const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`); const j = await r.json();
+        if (j && !j.erro) { $("d-rua").value ||= j.logradouro || ""; $("d-bairro").value ||= j.bairro || ""; $("d-municipio").value ||= j.localidade || ""; if (j.uf) $("d-uf").value = j.uf; }
+      } catch (_) { /* sem internet para o CEP: preenche à mão */ }
+    });
+
+    // Certificado: confere na hora (senha, CNPJ e validade)
+    async function conferirCertificado() {
+      const file = $("c-arquivo").files[0], senha = $("c-senha").value;
+      const box = $("c-info");
+      if (!file) { cert = null; box.innerHTML = ""; return; }
+      if (!senha) { box.innerHTML = `<div class="nf-cert">Agora digite a senha do certificado.</div>`; cert = null; return; }
+      box.innerHTML = `<div class="nf-cert">Conferindo o certificado...</div>`;
+      const r = await lerCertificado(file, senha);
+      cert = r.base64 ? r : null;
+      if (r.erro && !r.base64) { box.innerHTML = `<div class="nf-cert bad">✗ ${esc(r.erro)}</div>`; return; }
+      if (r.erro) { box.innerHTML = `<div class="nf-cert">${esc(r.erro)}</div>`; return; }
+      const cnpjForm = onlyDigits($("d-cnpj").value);
+      const vencido = r.info.validade && new Date(r.info.validade) < new Date();
+      const outro = r.info.cnpj && cnpjForm && r.info.cnpj !== cnpjForm;
+      box.innerHTML = `<div class="nf-cert ${vencido || outro ? "bad" : "ok"}">${vencido || outro ? "✗" : "✓"} <b>${esc(r.info.titular || "Certificado lido")}</b><br>
+        CNPJ do certificado: ${esc(r.info.cnpj || "não identificado")}${outro ? " (diferente do CNPJ da empresa)" : ""}<br>
+        Válido até: ${r.info.validade ? new Date(r.info.validade).toLocaleDateString("pt-BR") : "-"}${vencido ? " (vencido)" : ""}</div>`;
+      if (!cnpjForm && r.info.cnpj) $("d-cnpj").value = r.info.cnpj;
+    }
+    $("c-arquivo").addEventListener("change", conferirCertificado);
+    $("c-senha").addEventListener("change", conferirCertificado);
+
+    function coletar() {
+      const v = (id) => $(id).value.trim();
+      return {
+        razao_social: v("d-razao"), nome_fantasia: v("d-fantasia"), cnpj: onlyDigits(v("d-cnpj")), inscricao_estadual: onlyDigits(v("d-ie")),
+        regime: v("d-regime"), cep: onlyDigits(v("d-cep")), logradouro: v("d-rua"), numero: v("d-numero"), complemento: v("d-compl"),
+        bairro: v("d-bairro"), municipio: v("d-municipio"), uf: v("d-uf"), telefone: onlyDigits(v("d-tel")), email: v("d-email"), cpf_cnpj_contabilidade: onlyDigits(v("d-contab")),
+        certificado_base64: cert?.base64 || null, certificado_senha: $("c-senha").value, certificado_info: cert?.info || null,
+        csc_id_producao: v("s-idp"), csc_producao: v("s-cscp"), csc_id_homologacao: v("s-idh"), csc_homologacao: v("s-csch"),
+        token: v("t-token"), ambiente: v("p-amb"), serie: v("p-serie") || "1",
+        emitir_quando: $("p-auto").checked ? "apos_pagamento" : "manual", enviar_cliente: $("p-whats").checked, contingencia: $("p-cont").checked,
+      };
+    }
+    // Conferência no navegador (a função confere tudo de novo)
+    function conferirLocal(d) {
+      const p = [];
+      if (!d.razao_social) p.push("Informe a razão social.");
+      if (!cnpjValido(d.cnpj)) p.push("CNPJ inválido (confira os 14 números).");
+      if (modo === "token") { if (!d.token) p.push("Cole o token do emissor."); return p; }
+      if (!ieValida(d.inscricao_estadual, d.uf)) p.push(d.uf === "SP" ? "Inscrição estadual inválida para SP (12 números com dígitos que conferem)." : "Inscrição estadual inválida.");
+      if (d.cep.length !== 8) p.push("CEP inválido.");
+      if (!d.logradouro || !d.bairro || !d.municipio) p.push("Complete o endereço (rua, bairro e município).");
+      if (!$("c-arquivo").files[0]) p.push("Envie o arquivo do certificado digital A1.");
+      else if (!d.certificado_senha) p.push("Informe a senha do certificado.");
+      else if (!cert) p.push("O certificado não foi lido: confira o arquivo e a senha.");
+      if (d.ambiente === "producao" && !cscValido(d.csc_id_producao, d.csc_producao)) p.push("CSC de produção: o ID tem até 6 números e o código tem de 16 a 36 letras e números.");
+      if (d.csc_homologacao && !cscValido(d.csc_id_homologacao, d.csc_homologacao)) p.push("CSC de homologação inválido.");
+      if (d.ambiente === "homologacao" && !d.csc_homologacao && !d.csc_producao) p.push("Informe o CSC de homologação para os testes.");
+      return p;
+    }
+    function mostrarPassos(passos) {
+      $("passos").innerHTML = passos.map((p) => `<div class="nf-passo ${p.ok ? "ok" : "bad"}"><span class="i">${p.ok ? "✓" : "✗"}</span><span>${esc(p.passo)}${p.detalhe ? `<small>${esc(p.detalhe)}</small>` : ""}</span></div>`).join("");
+    }
+    async function executar(acao) {
+      const d = coletar();
+      const local = conferirLocal(d);
+      if (local.length) { mostrarPassos([{ passo: "Dados conferidos", ok: false, detalhe: local.join(" ") }]); return; }
+      const btns = [$("b-conferir"), $("b-conectar")]; btns.forEach((b) => (b.disabled = true));
+      mostrarPassos([{ passo: acao === "conferir" ? "Conferindo com o emissor..." : "Conectando ao emissor...", ok: true }]);
+      try {
+        const r = await call({ action: modo === "token" ? "conectar_token" : acao, dados: d });
+        mostrarPassos(r.passos || []);
+        if (r.ok && acao !== "conferir") {
+          $("c-senha").value = ""; $("s-cscp").value = ""; $("s-csch").value = ""; $("t-token").value = ""; $("c-arquivo").value = ""; cert = null;
+          await lumosAlert(d.ambiente === "producao" ? "Conectado em produção. A partir de agora as vendas pagas recebem NFC-e com valor fiscal." : "Conectado em homologação. Emita uma nota de teste para conferir.");
+          await carregarStatus();
+        }
+      } catch (e) { mostrarPassos(e.data?.passos || [{ passo: "Não foi possível concluir", ok: false, detalhe: e.message }]); }
+      btns.forEach((b) => (b.disabled = false));
+    }
+    $("b-conferir").addEventListener("click", () => executar("conferir"));
+    $("b-conectar").addEventListener("click", () => executar("conectar"));
+
+    // ================= Notas =================
     function periodo() {
-      const v = document.getElementById("f-periodo").value;
+      const v = $("f-periodo").value, hoje = todayISO();
+      if (v === "hoje") return [hoje, hoje];
       if (v === "mes") return monthRange(0);
       if (v === "mes_passado") return monthRange(-1);
-      return [addDaysISO(todayISO(), -89), todayISO()];
+      return [addDaysISO(hoje, -89), hoje];
     }
-    async function load() {
+    let vendas = [], docs = {};
+    async function carregarNotas() {
       const [a, b] = periodo();
-      const { data } = await supabase.from("sales_orders").select("numero, paid_at, cliente, total, pagamento, nf_numero, simulado")
-        .eq("owner_id", owner_id).eq("status", "pago").gte("paid_at", `${a}T00:00:00-03:00`).lte("paid_at", `${b}T23:59:59-03:00`).order("paid_at", { ascending: false });
-      document.getElementById("rows").innerHTML = (data || []).map((o) => `<tr>
-        <td>#${o.numero}</td>
-        <td>${new Date(o.paid_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-        <td>${esc(o.cliente?.razao_social || o.cliente?.nome || "-")}</td>
-        <td>${brl(o.pagamento?.valor_cobrado || o.total)}</td>
-        <td>${o.nf_numero ? `<span class="erp-badge info">Nº ${esc(o.nf_numero)}${o.simulado ? " · demonstração" : ""}</span>` : '<span class="erp-badge warn">Não emitida</span>'}</td></tr>`).join("")
-        || `<tr><td colspan="5" style="opacity:.7;">Nenhuma venda paga no período.</td></tr>`;
+      const { data } = await supabase.from("sales_orders").select("id, numero, paid_at, cliente, total, pagamento, nf_numero, simulado")
+        .eq("owner_id", owner_id).eq("status", "pago").gte("paid_at", `${a}T00:00:00-03:00`).lte("paid_at", `${b}T23:59:59-03:00`).order("paid_at", { ascending: false }).limit(500);
+      vendas = data || [];
+      docs = {};
+      const ids = vendas.map((v) => v.id);
+      for (let i = 0; i < ids.length; i += 150) {
+        const { data: fd } = await supabase.from("fiscal_docs").select("*").in("sales_order_id", ids.slice(i, i + 150)).order("created_at", { ascending: false });
+        for (const d of fd || []) if (!docs[d.sales_order_id]) docs[d.sales_order_id] = d;
+      }
+      renderNotas();
+      const { data: testes } = await supabase.from("fiscal_docs").select("*").eq("owner_id", owner_id).eq("teste", true).order("created_at", { ascending: false }).limit(5);
+      $("testes").innerHTML = (testes || []).length ? `<h3 class="erp-section-title">Notas de teste (homologação)</h3><div class="panel-table-wrap" style="margin-top:6px;"><table class="panel-table"><tbody>${testes.map((t) => `<tr><td>${fmtDH(t.created_at)}</td><td>${badge(t)}</td><td class="nf-hint">${esc(t.mensagem || "")}</td><td><div class="nf-actions">${t.danfe_url ? `<a href="${esc(t.danfe_url)}" target="_blank" rel="noopener">Ver cupom</a>` : ""}</div></td></tr>`).join("")}</tbody></table></div>` : "";
     }
-    document.getElementById("f-periodo").addEventListener("change", load);
-    load();
+    function badge(d, v) {
+      if (!d) return v?.simulado && v?.nf_numero ? `<span class="nf-badge muted">Demonstração</span>` : `<span class="nf-badge warn">Sem nota</span>`;
+      if (d.status === "autorizado") return `<span class="nf-badge ok">NFC-e nº ${esc(d.numero || "")}${d.ambiente === "homologacao" ? " (teste)" : ""}</span>`;
+      if (d.status === "cancelado") return `<span class="nf-badge muted">Cancelada</span>`;
+      if (d.status === "processando") return `<span class="nf-badge warn">Processando</span>`;
+      return `<span class="nf-badge err" title="${esc(d.mensagem || "")}">Erro</span>`;
+    }
+    function renderNotas() {
+      const f = $("f-sit").value;
+      const conectado = st.conectado;
+      const lista = vendas.filter((v) => {
+        const d = docs[v.id];
+        if (f === "sem") return !d || d.status === "cancelado";
+        if (f === "erro") return d?.status === "erro";
+        if (f === "ok") return d?.status === "autorizado";
+        if (f === "cancelada") return d?.status === "cancelado";
+        return true;
+      });
+      $("rows").innerHTML = lista.map((v) => {
+        const d = docs[v.id];
+        const acoes = [];
+        if (d?.status === "autorizado") {
+          if (d.danfe_url) acoes.push(`<a href="${esc(d.danfe_url)}" target="_blank" rel="noopener">Cupom</a>`);
+          if (d.xml_url) acoes.push(`<a href="${esc(d.xml_url)}" target="_blank" rel="noopener">XML</a>`);
+          acoes.push(`<button data-cancel="${d.id}">Cancelar</button>`);
+        } else if (d?.status === "processando") acoes.push(`<button data-consult="${d.id}">Atualizar</button>`);
+        else if (!v.simulado && conectado) acoes.push(`<button class="pri" data-emit="${v.id}">${d?.status === "erro" ? "Tentar de novo" : "Emitir"}</button>`);
+        return `<tr>
+          <td>#${v.numero}</td><td>${fmtDH(v.paid_at)}</td><td>${esc(v.cliente?.razao_social || v.cliente?.nome || "-")}</td>
+          <td>${brl(v.pagamento?.valor_cobrado || v.total)}</td>
+          <td>${badge(d, v)}${d?.status === "erro" ? `<div class="nf-hint" style="max-width:320px;">${esc(d.mensagem || "")}</div>` : ""}</td>
+          <td><div class="nf-actions">${acoes.join("")}</div></td></tr>`;
+      }).join("") || `<tr><td colspan="6" style="opacity:.7;">Nenhuma venda neste filtro.</td></tr>`;
+    }
+    $("f-periodo").addEventListener("change", carregarNotas);
+    $("f-sit").addEventListener("change", renderNotas);
+    $("rows").addEventListener("click", async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      b.disabled = true;
+      try {
+        if (b.dataset.emit) {
+          b.textContent = "Emitindo...";
+          const r = await call({ action: "emitir", sales_order_id: b.dataset.emit });
+          if (!r.ok) await lumosAlert(`A nota não foi autorizada: ${r.mensagem || "veja o motivo na lista"}.`);
+        } else if (b.dataset.consult) await call({ action: "consultar", doc_id: b.dataset.consult });
+        else if (b.dataset.cancel) {
+          const m = modal(`<h3 style="font-size:18px;">Cancelar NFC-e</h3>
+            <p class="nf-hint" style="margin:6px 0 12px;">O cancelamento vai para a Sefaz e não pode ser desfeito. Em geral, a NFC-e só pode ser cancelada pouco tempo depois da emissão (em SP, até 30 minutos).</p>
+            <div class="field"><label>Motivo (mínimo 15 letras)</label><input id="m-j" placeholder="Ex.: venda lançada em duplicidade" /></div>
+            <div id="m-msg" class="form-msg"></div>
+            <div class="modal-actions"><button class="btn btn-ghost" data-close>Voltar</button><button class="btn btn-primary" id="m-ok">Cancelar nota</button></div>`, { width: 460 });
+          await new Promise((res) => {
+            m.el.querySelector("#m-ok").addEventListener("click", async () => {
+              const j = m.el.querySelector("#m-j").value.trim();
+              if (j.length < 15) { m.el.querySelector("#m-msg").textContent = "Escreva o motivo com pelo menos 15 letras."; m.el.querySelector("#m-msg").className = "form-msg error"; return; }
+              try { await call({ action: "cancelar", doc_id: b.dataset.cancel, justificativa: j }); m.close(); res(); }
+              catch (err) { m.el.querySelector("#m-msg").textContent = err.message; m.el.querySelector("#m-msg").className = "form-msg error"; }
+            });
+            m.el.querySelectorAll("[data-close]").forEach((x) => x.addEventListener("click", res));
+          });
+        }
+      } catch (err) { await lumosAlert(err.message); }
+      await carregarNotas();
+    });
+
+    await carregarStatus();
+    carregarNotas();
   </script>
 </body>
 </html>

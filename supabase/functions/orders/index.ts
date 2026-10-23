@@ -142,6 +142,29 @@ async function registrarVendaNoErp(order: any, metodo: string, valorRecebido: nu
   }
 }
 
+// ---------- NFC-e automática depois do pagamento ----------
+// Se a loja conectou o emissor em "Notas fiscais" com "emitir após o pagamento", pede a nota para a função fiscal.
+// Nunca trava a venda: se a nota falhar, ela fica com erro na tela de Notas fiscais para emitir de novo.
+// deno-lint-ignore no-explicit-any
+async function emitirNfceAutomatica(order: any) {
+  try {
+    if (!order?.id || order.simulado) return;
+    const { data: nf } = await supabase.from("integrations").select("enabled, provider, config").eq("owner_id", order.owner_id).eq("kind", "nota_fiscal").maybeSingle();
+    if (!nf?.enabled || nf.provider !== "focusnfe" || (nf.config?.emitir_quando || "apos_pagamento") !== "apos_pagamento") return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/fiscal`, {
+      method: "POST", signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
+      body: JSON.stringify({ action: "emitir", owner_id: order.owner_id, sales_order_id: order.id }),
+    });
+    clearTimeout(timer);
+    if (!res.ok) console.error("NFC-e automática não emitida:", res.status, (await res.text()).slice(0, 300));
+  } catch (err) {
+    console.error("Falha na NFC-e automática:", err);
+  }
+}
+
 // Horário previsto (Brasília) daqui a N minutos
 function horaPrevista(min: number) {
   const d = new Date(Date.now() + min * 60000);
@@ -360,6 +383,7 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     const semJurosErp = Number(ctx.pagamento?.config?.parcelas_sem_juros || 1);
     const recebido = metodo === "cartao" && parcelas ? valorCartao(Number(order.total), parcelas, semJurosErp) : Number(order.total);
     await registrarVendaNoErp(order, metodo, recebido);
+    await emitirNfceAutomatica({ ...order, status: "pago" });
   }
 
   // Conta da mesa: agradece e libera a mesa
@@ -542,6 +566,7 @@ async function mesaFechar(c: any, metodo: string, cobrarTaxa: boolean, cobrarCou
       }
     }
     await registrarVendaNoErp(so, metodo, total);
+    await emitirNfceAutomatica(so);
   }
 
   // Libera as pessoas da conta; se a mesa ficou vazia, ela fica livre

@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=72";
+import { supabase } from "./supabaseClient.js?v=73";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -51,6 +51,10 @@ export const NAV_ITEMS = [
   {
     key: "compras", group: "erp", href: "compras.html", label: "Compras",
     icon: `<circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.6 12.4a1.5 1.5 0 0 0 1.5 1.1h8.7a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>`,
+  },
+  {
+    key: "caixa", group: "erp", href: "caixa.html", label: "Caixa",
+    icon: `<rect x="3" y="10" width="18" height="10" rx="2"/><path d="M7 10V6h10v4M7 15h4M15 15h2"/>`,
   },
   {
     key: "financeiro", group: "erp", href: "financeiro.html", label: "Financeiro",
@@ -114,7 +118,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=72");
+    const { getMyAccess } = await import("./workspace.js?v=73");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));

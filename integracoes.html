@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Integrações | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=72" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=72" />
+  <script src="js/logo.js?v=73" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=73" />
   <style>
     .int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 24px; }
     .int-grid .hub-card { cursor: pointer; transition: border-color .2s ease, transform .2s ease; }
@@ -29,7 +29,7 @@
     .int-table .row-del { background: none; border: none; color: #B94040; cursor: pointer; font-size: 18px; padding: 4px 8px; }
     .secret-saved { font-size: 12px; color: #7FBF8A; margin-top: 6px; }
   </style>
-  <script src="js/dialogs.js?v=72"></script>
+  <script src="js/dialogs.js?v=73"></script>
 </head>
 <body>
 
@@ -98,14 +98,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=72";
-    import { initThemeToggle } from "./js/theme.js?v=72";
-    import { initMobileNav } from "./js/mobileNav.js?v=72";
-    import { renderSidebar } from "./js/sidebar.js?v=72";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=72";
+    import { requireSession, signOut } from "./js/auth.js?v=73";
+    import { initThemeToggle } from "./js/theme.js?v=73";
+    import { initMobileNav } from "./js/mobileNav.js?v=73";
+    import { renderSidebar } from "./js/sidebar.js?v=73";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=73";
     import {
       INTEGRATIONS, getIntegrationDef, listIntegrations, getIntegration, saveIntegration,
-    } from "./js/integrations.js?v=72";
+    } from "./js/integrations.js?v=73";
 
     await requireSession();
     initThemeToggle();
@@ -144,7 +144,7 @@
           : s ? `<span class="pill-badge">Configurada, inativa</span>`
           : `<span class="pill-badge">Não configurada</span>`;
         return `
-          <div class="hub-card" onclick="window.location.href='integracoes.html?tipo=${def.kind}'">
+          <div class="hub-card" onclick="window.location.href='${def.href || `integracoes.html?tipo=${def.kind}`}'">
             <div class="hub-icon">${svg(def.icon)}</div>
             <div class="hub-body">
               <div class="hub-title-row">
@@ -161,6 +161,8 @@
 
     async function loadDetail(k) {
       def = getIntegrationDef(k);
+      // Integrações com tela própria (ex.: Nota fiscal) abrem a página delas
+      if (def?.href) { window.location.replace(def.href); return; }
       [saved, businessType] = await Promise.all([
         getIntegration(k),
         getBusinessConfig().then((c) => c?.business_type || "geral"),
