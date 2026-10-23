@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=74" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=74" />
-  <script src="js/dialogs.js?v=74"></script>
+  <script src="js/logo.js?v=75" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=75" />
+  <script src="js/dialogs.js?v=75"></script>
 </head>
 <body>
 
@@ -249,20 +249,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=74";
-    import { initThemeToggle } from "./js/theme.js?v=74";
-    import { initMobileNav } from "./js/mobileNav.js?v=74";
-    import { renderSidebar } from "./js/sidebar.js?v=74";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=74";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=74";
+    import { requireSession, signOut } from "./js/auth.js?v=75";
+    import { initThemeToggle } from "./js/theme.js?v=75";
+    import { initMobileNav } from "./js/mobileNav.js?v=75";
+    import { renderSidebar } from "./js/sidebar.js?v=75";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=75";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=75";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=74";
+    } from "./js/agents.js?v=75";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=74";
+    } from "./js/simulator.js?v=75";
 
     await requireSession();
     initThemeToggle();
@@ -574,7 +574,7 @@
     document.getElementById("copy-webhook").addEventListener("click", () => {
       navigator.clipboard.writeText(document.getElementById("webhook-url").value);
     });
-    import("./js/ajuda.js?v=74").then(({ botaoAjuda }) => botaoAjuda("agents"));
+    import("./js/ajuda.js?v=75").then(({ botaoAjuda }) => botaoAjuda("agents"));
   </script>
 
 </body>

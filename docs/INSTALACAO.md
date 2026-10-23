@@ -1943,6 +1943,45 @@ só um pedido de verdade move para "Pedido feito").
 - **Simular** (só administrador e suporte): apresentação guiada com dados fictícios montados só na tela. Nada é
   gravado no banco. Primeira página com simulação: Kanban.
 
+## 47. Clientes do restaurante (visitas, sumidos e autorização para promoções)
+
+No **SQL Editor**:
+
+```sql
+-- Clientes do restaurante: autorização para receber promoções (base para campanhas, LGPD)
+-- null = ainda não perguntado; true = aceitou; false = não aceitou
+alter table public.leads add column if not exists marketing_optin boolean;
+alter table public.leads add column if not exists marketing_optin_em timestamptz;
+alter table public.leads add column if not exists aniversario date;
+
+-- Quem pediu para não receber mensagens (fu_optout) nunca aparece como "aceita promoções"
+create or replace function public.leads_optin_coerente() returns trigger
+language plpgsql as $$
+begin
+  if new.fu_optout is true and new.marketing_optin is true then
+    new.marketing_optin := false;
+  end if;
+  if new.marketing_optin is distinct from old.marketing_optin then
+    new.marketing_optin_em := now();
+  end if;
+  return new;
+exception when others then return new;
+end $$;
+drop trigger if exists trg_leads_optin on public.leads;
+create trigger trg_leads_optin before update of marketing_optin, fu_optout on public.leads
+  for each row execute function public.leads_optin_coerente();
+```
+
+Nenhuma Edge Function muda.
+
+### Como funciona
+- No nicho **Restaurante e bar**, a aba Clientes mostra todo mundo que falou com a casa, com visitas (dias com conta
+  paga), última visita, total gasto, ticket médio e a autorização para promoções.
+- Grupos: Consumiram, Novos, Voltaram, Frequentes (3+ visitas), Sumidos (30+ dias sem vir), Só mandaram oi,
+  Aniversariantes do mês e Aceitam promoções. Visão por nome (A a Z) ou por dia.
+- "Baixar lista (Excel)" e "Copiar números". Para campanhas, só entra quem aceitou receber promoções (LGPD e regras
+  do WhatsApp). Quem pediu para não receber mensagens nunca aparece como autorizado.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

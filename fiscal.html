@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=74" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=74" />
-  <script src="js/dialogs.js?v=74"></script>
+  <script src="js/logo.js?v=75" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=75" />
+  <script src="js/dialogs.js?v=75"></script>
   <style>
     .nf-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .nf-card h3 { font-size:16px; margin-bottom:4px; }
@@ -170,13 +170,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=74";
-    import { initThemeToggle } from "./js/theme.js?v=74";
-    import { initMobileNav } from "./js/mobileNav.js?v=74";
-    import { renderSidebar } from "./js/sidebar.js?v=74";
-    import { supabase } from "./js/supabaseClient.js?v=74";
-    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=74";
-    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=74";
+    import { requireSession, signOut } from "./js/auth.js?v=75";
+    import { initThemeToggle } from "./js/theme.js?v=75";
+    import { initMobileNav } from "./js/mobileNav.js?v=75";
+    import { renderSidebar } from "./js/sidebar.js?v=75";
+    import { supabase } from "./js/supabaseClient.js?v=75";
+    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=75";
+    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=75";
 
     await requireSession();
     initThemeToggle();
@@ -184,7 +184,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=74");
+    const { getMyAccess } = await import("./js/workspace.js?v=75");
     const acesso = await getMyAccess().catch(() => ({}));
     const souDono = !acesso?.member;
 
@@ -472,7 +472,7 @@
 
     await carregarStatus();
     carregarNotas();
-    import("./js/ajuda.js?v=74").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
+    import("./js/ajuda.js?v=75").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
   </script>
 </body>
 </html>
