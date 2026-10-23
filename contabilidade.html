@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contabilidade | Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=71" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=71" />
+  <script src="js/dialogs.js?v=71"></script>
+  <style>
+    .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
+    .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
+    .cb-tab.active { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; font-weight:600; }
+    .cb-sec { margin-top:26px; }
+    .cb-sec h3 { font-size:17px; margin-bottom:4px; }
+    .cb-sec > p.cb-sub { font-size:13px; color:var(--panel-text-muted); margin-bottom:10px; }
+    .cb-sec .panel-table-wrap { margin-top:10px; }
+    .cb-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .panel-table th.cb-num { text-align:right; }
+    .cb-tot td { font-weight:700; background:var(--panel-accent-light); }
+    .cb-grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; }
+    .cb-pend { border-radius:12px; padding:12px 14px; border:1px solid var(--panel-border); background:var(--panel-card); display:flex; gap:10px; align-items:flex-start; font-size:14px; margin-top:8px; }
+    .cb-pend .dot { width:9px; height:9px; border-radius:50%; margin-top:6px; flex:0 0 9px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .cb-pend.alta .dot { background:#B94040; } .cb-pend.media .dot { background:#D4834A; } .cb-pend.baixa .dot { background:#7A8B99; }
+    .cb-ok { border-radius:12px; padding:12px 14px; border:1px solid rgba(74,124,89,.4); color:#4A7C59; background:var(--panel-card); font-size:14px; margin-top:8px; }
+    .cb-kv { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:10px; }
+    .cb-kv > div { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:12px; padding:12px 14px; }
+    .cb-kv b { display:block; font-size:12px; color:var(--panel-text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; }
+    .cb-kv span { font-size:16px; font-variant-numeric:tabular-nums; }
+    .cb-note { font-size:12.5px; color:var(--panel-text-muted); line-height:1.55; }
+    .cb-tag { display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid; }
+    .cb-tag.ok { color:#4A7C59; border-color:rgba(74,124,89,.4); } .cb-tag.sug { color:#D4834A; border-color:rgba(212,131,74,.4); }
+    .cb-fis input[type=text], .cb-fis input[type=number], .cb-fis select { padding:7px 9px; border-radius:8px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); font-family:var(--panel-font-body); font-size:13px; }
+    .cb-fis td { padding:8px 10px; vertical-align:middle; }
+    .cb-fis th { padding:10px; }
+    .cb-fis tbody tr { cursor:default; }
+    .cb-fis tr.changed td { background:var(--panel-accent-light); }
+    .cb-form { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:4px 16px; }
+    .cb-form .field { margin-bottom:12px; }
+    .cb-check { display:flex; gap:10px; align-items:flex-start; font-size:14px; margin:8px 0; }
+    .cb-check input { margin-top:3px; accent-color:var(--panel-accent); }
+    .cb-print-head { display:none; }
+    .cb-dre td.d { font-weight:700; }
+    @media print {
+      @page { size: A4; margin: 14mm 12mm; }
+      body { background:#fff !important; color:#111 !important; }
+      .dash-side, .mobile-nav-toggle, .mobile-nav-backdrop, .luzes, .cb-tabs, .erp-toolbar, .cb-noprint, #suporte-bar, #tab-fiscal, #tab-config { display:none !important; }
+      .dash-shell { display:block !important; }
+      .dash-main { padding:0 !important; margin:0 !important; max-width:none !important; }
+      .cb-print-head { display:block; border-bottom:2px solid #C9A84C; padding-bottom:10px; margin-bottom:6px; }
+      .panel-table-wrap, .cb-kv > div, .cb-pend, .panel-stat-card { background:#fff !important; border-color:#ccc !important; box-shadow:none !important; overflow:visible !important; }
+      .panel-table th, .panel-table td { color:#111 !important; padding:5px 8px !important; font-size:10.5px !important; }
+      .cb-sec { break-inside:auto; margin-top:16px; }
+      .cb-sec h3 { break-after:avoid; color:#111 !important; }
+      tr { break-inside:avoid; }
+      .panel-stat-grid { display:grid !important; grid-template-columns:repeat(3, 1fr) !important; gap:8px !important; }
+      .panel-stat-card .value { font-size:16px !important; color:#111 !important; }
+      h1, h3, p, span, b, td, th, div { color:#111 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div class="cb-print-head" id="print-head"></div>
+      <div class="cb-noprint">
+        <h1 style="font-size: 28px;">Contabilidade</h1>
+        <p style="margin-top: 6px;">Impostos calculados, cadastro fiscal e o fechamento do mês pronto para o escritório de contabilidade.</p>
+      </div>
+
+      <div class="cb-tabs" id="cb-tabs">
+        <button class="cb-tab active" data-tab="fechamento">Fechamento do mês</button>
+        <button class="cb-tab" data-tab="fiscal">Cadastro fiscal dos produtos</button>
+        <button class="cb-tab" data-tab="config">Configuração fiscal</button>
+      </div>
+
+      <!-- ================= FECHAMENTO ================= -->
+      <section id="tab-fechamento">
+        <div class="erp-toolbar">
+          <select id="f-mes"></select>
+          <button class="btn btn-primary" id="b-excel" style="padding:9px 16px;">Baixar Excel para o contador</button>
+          <button class="btn btn-ghost" id="b-print" style="padding:9px 16px;">Imprimir ou salvar em PDF</button>
+        </div>
+        <div id="relatorio"><p class="cb-note">Carregando o fechamento...</p></div>
+      </section>
+
+      <!-- ================= CADASTRO FISCAL ================= -->
+      <section id="tab-fiscal" style="display:none;">
+        <p class="cb-note" style="margin-top:16px;">Cada produto precisa de NCM, CFOP e a situação tributária para a nota fiscal e para o cálculo dos impostos. Onde estiver vazio, o Lumos mostra uma <b>sugestão</b> (em laranja). Peça ao contador para conferir uma vez; depois é só manter.</p>
+        <div class="erp-toolbar">
+          <input id="fs-busca" placeholder="Buscar produto" style="min-width:220px;" />
+          <label class="cb-check" style="margin:0;"><input type="checkbox" id="fs-pend" /> Só os que faltam conferir</label>
+          <button class="btn btn-ghost" id="fs-sugerir" style="padding:9px 14px;">Preencher vazios com a sugestão</button>
+          <button class="btn btn-primary" id="fs-salvar" style="padding:9px 16px;">Salvar alterações</button>
+        </div>
+        <datalist id="ncm-list"></datalist>
+        <div class="panel-table-wrap" style="margin-top:8px;">
+          <table class="panel-table cb-fis">
+            <thead id="fs-head"></thead>
+            <tbody id="fs-body"><tr><td>Carregando...</td></tr></tbody>
+          </table>
+        </div>
+        <p class="cb-note" style="margin-top:10px;">Monofásico: bebidas como água, refrigerante e cerveja já tiveram PIS e Cofins pagos pelo fabricante; na venda, isso sai da conta e o imposto diminui. ICMS-ST: o ICMS já foi recolhido antes (substituição tributária); no Simples, essa parte sai do ICMS do DAS.</p>
+      </section>
+
+      <!-- ================= CONFIGURAÇÃO ================= -->
+      <section id="tab-config" style="display:none;">
+        <div class="panel-card" style="padding:20px; margin-top:16px;">
+          <h3 style="font-size:16px; margin-bottom:14px;">Empresa</h3>
+          <div class="cb-form">
+            <div class="field"><label>Razão social</label><input id="c-razao" /></div>
+            <div class="field"><label>Nome fantasia</label><input id="c-fantasia" /></div>
+            <div class="field"><label>CNPJ</label><input id="c-cnpj" placeholder="00.000.000/0001-00" /></div>
+            <div class="field"><label>Inscrição estadual</label><input id="c-ie" /></div>
+            <div class="field"><label>Inscrição municipal</label><input id="c-im" /></div>
+            <div class="field"><label>CNAE principal</label><input id="c-cnae" placeholder="Ex.: 5611-2/01 (restaurantes)" /></div>
+            <div class="field"><label>Estado (UF)</label><select id="c-uf"></select></div>
+            <div class="field"><label>Município</label><input id="c-municipio" /></div>
+          </div>
+          <h3 style="font-size:16px; margin:10px 0 14px;">Tributação</h3>
+          <div class="cb-form">
+            <div class="field"><label>Regime tributário</label><select id="c-regime"></select></div>
+            <div class="field" data-show="simples"><label>Receita bruta dos últimos 12 meses (RBT12)</label><input id="c-rbt12" type="number" step="0.01" min="0" placeholder="Deixe vazio para o Lumos calcular" />
+              <p class="settings-hint" style="margin-top:6px;">Use o valor do último PGDAS. Se ficar vazio, o Lumos calcula pelo que foi vendido aqui dentro.</p></div>
+            <div class="field" data-show="mei"><label>Valor mensal do DAS-MEI (R$)</label><input id="c-meidas" type="number" step="0.01" min="0" /></div>
+            <div class="field" data-show="presumido real"><label>Alíquota interna de ICMS (%)</label><input id="c-icms" type="number" step="0.01" min="0" placeholder="SP: 18" /></div>
+          </div>
+          <label class="cb-check" data-show="presumido real" id="c-ret-wrap"><input type="checkbox" id="c-ret" /> <span>Usa o regime especial de ICMS de São Paulo para bares e restaurantes (4% sobre a receita bruta, vigente até 31/12/2026)</span></label>
+          <h3 style="font-size:16px; margin:16px 0 8px;">O que entra na receita tributável</h3>
+          <label class="cb-check"><input type="checkbox" id="c-taxa" /> <span>Taxa de serviço (10%) entra na receita tributável. <span class="cb-note">Padrão desmarcado: pela Lei 13.419/2017, a gorjeta repassada à equipe não é receita da empresa. O contador confirma.</span></span></label>
+          <label class="cb-check"><input type="checkbox" id="c-couvert" /> <span>Couvert artístico entra na receita tributável</span></label>
+          <label class="cb-check"><input type="checkbox" id="c-frete" /> <span>Taxa de entrega entra na receita tributável</span></label>
+          <h3 style="font-size:16px; margin:16px 0 14px;">Escritório de contabilidade</h3>
+          <div class="cb-form">
+            <div class="field"><label>Contador(a) responsável</label><input id="c-cont-nome" /></div>
+            <div class="field"><label>CRC</label><input id="c-cont-crc" /></div>
+            <div class="field"><label>E-mail do escritório</label><input id="c-cont-email" type="email" /></div>
+            <div class="field"><label>Telefone</label><input id="c-cont-tel" /></div>
+          </div>
+          <p class="cb-note">Dica: crie um acesso para o contador em <b>Equipe</b>, com a função <b>Contador</b>. Ele entra com usuário e senha próprios e vê só esta aba e os relatórios.</p>
+          <div style="display:flex; justify-content:flex-end; margin-top:14px;"><button class="btn btn-primary" id="c-salvar" style="padding:10px 20px;">Salvar configuração</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=71";
+    import { initThemeToggle } from "./js/theme.js?v=71";
+    import { initMobileNav } from "./js/mobileNav.js?v=71";
+    import { renderSidebar } from "./js/sidebar.js?v=71";
+    import { supabase } from "./js/supabaseClient.js?v=71";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=71";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=71";
+    import * as T from "./js/tributos.js?v=71";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("contabilidade");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+    const biz = await getBusinessConfig().catch(() => null);
+    const nicho = biz?.business_type === "restaurante" ? "restaurante" : (biz?.business_type || "restaurante");
+
+    // ---------- utilidades ----------
+    const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    const nomeMes = (ym) => `${MESES[Number(ym.slice(5, 7)) - 1]} de ${ym.slice(0, 4)}`;
+    const addMes = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
+    const inicioMes = (ym) => new Date(`${ym}-01T00:00:00-03:00`).toISOString();
+    const pct = (n) => `${Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`;
+    const td = (v, cls = "") => `<td class="${cls}">${v}</td>`;
+    const tdn = (v) => `<td class="cb-num">${brl(v)}</td>`;
+    async function todos(build) {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await build().range(from, from + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return out;
+    }
+    const naoSimulado = (q) => q.or("simulado.is.null,simulado.eq.false");
+
+    // ---------- configuração fiscal ----------
+    let cfg = {};
+    async function carregarCfg() {
+      const { data } = await supabase.from("fiscal_config").select("dados").eq("owner_id", owner_id).maybeSingle();
+      cfg = data?.dados || {};
+      // Primeira vez: aproveita o que já estava na integração de Nota fiscal
+      if (!data) {
+        const { data: nf } = await supabase.from("integrations").select("config").eq("owner_id", owner_id).eq("kind", "nota_fiscal").maybeSingle().then((r) => r, () => ({ data: null }));
+        const c = nf?.config || {};
+        cfg = { cnpj: c.cnpj || "", inscricao_estadual: c.inscricao_estadual || "", regime: c.regime || "simples", uf: "SP" };
+      }
+      cfg.uf = cfg.uf || "SP";
+      cfg.regime = cfg.regime || "simples";
+      cfg.nicho = nicho;
+    }
+    await carregarCfg();
+
+    // ---------- abas ----------
+    const tabs = { fechamento: document.getElementById("tab-fechamento"), fiscal: document.getElementById("tab-fiscal"), config: document.getElementById("tab-config") };
+    document.querySelectorAll(".cb-tab").forEach((b) => b.addEventListener("click", () => {
+      document.querySelectorAll(".cb-tab").forEach((x) => x.classList.toggle("active", x === b));
+      Object.entries(tabs).forEach(([k, el]) => (el.style.display = k === b.dataset.tab ? "" : "none"));
+      if (b.dataset.tab === "fiscal") carregarFiscal();
+      if (b.dataset.tab === "config") preencherCfg();
+      if (b.dataset.tab === "fechamento") carregarFechamento();
+    }));
+
+    // =================================================================
+    // FECHAMENTO DO MÊS
+    // =================================================================
+    const sel = document.getElementById("f-mes");
+    const atual = todayISO().slice(0, 7);
+    for (let i = 0; i < 24; i++) { const ym = addMes(atual, -i); sel.insertAdjacentHTML("beforeend", `<option value="${ym}">${nomeMes(ym)}${i === 0 ? " (em andamento)" : ""}</option>`); }
+    // Nos primeiros 10 dias do mês, abre no mês anterior (é quando o contador fecha)
+    sel.value = Number(todayISO().slice(8, 10)) <= 10 ? addMes(atual, -1) : atual;
+    sel.addEventListener("change", carregarFechamento);
+
+    let R = null; // último relatório calculado
+    let produtos = [], fiscalMap = {};
+
+    async function carregarBase() {
+      const [prods, fis] = await Promise.all([
+        todos(() => supabase.from("products").select("id, name, custo, estoque, unit, active").eq("owner_id", owner_id).order("name")),
+        todos(() => supabase.from("product_fiscal").select("*").eq("owner_id", owner_id)),
+      ]);
+      produtos = prods;
+      fiscalMap = Object.fromEntries(fis.map((f) => [f.product_id, f]));
+    }
+
+    async function carregarFechamento() {
+      const box = document.getElementById("relatorio");
+      box.innerHTML = `<p class="cb-note">Calculando o fechamento de ${nomeMes(sel.value)}...</p>`;
+      try {
+        const ym = sel.value, ini = inicioMes(ym), fim = inicioMes(addMes(ym, 1)), ini12 = inicioMes(addMes(ym, -12));
+        await carregarBase();
+        const [vendas, hist, compras, fornecedores, despesas, movs] = await Promise.all([
+          todos(() => naoSimulado(supabase.from("sales_orders").select("*").eq("owner_id", owner_id).eq("status", "pago").gte("paid_at", ini).lt("paid_at", fim).order("paid_at"))),
+          todos(() => naoSimulado(supabase.from("sales_orders").select("paid_at, total, frete, itens, pagamento").eq("owner_id", owner_id).eq("status", "pago").gte("paid_at", ini12).lt("paid_at", ini))),
+          todos(() => supabase.from("compras").select("*").eq("owner_id", owner_id).eq("status", "recebida").gte("recebida_em", ini).lt("recebida_em", fim)),
+          todos(() => supabase.from("fornecedores").select("id, nome, cnpj").eq("owner_id", owner_id)),
+          todos(() => supabase.from("fin_lancamentos").select("valor, categoria, origem, descricao, pago_em").eq("owner_id", owner_id).eq("tipo", "despesa").gte("pago_em", `${ym}-01`).lt("pago_em", `${addMes(ym, 1)}-01`)),
+          todos(() => supabase.from("estoque_mov").select("product_id, tipo, quantidade").eq("owner_id", owner_id).gte("created_at", fim)),
+        ]);
+        // Receita por mês dos 12 meses anteriores (mesma regra da taxa de serviço)
+        const meses = Array.from({ length: 12 }, (_, i) => addMes(ym, i - 12));
+        const porMes = Object.fromEntries(meses.map((m) => [m, 0]));
+        for (const v of hist) {
+          const m = new Date(v.paid_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
+          if (!(m in porMes)) continue;
+          let val = Number(v.pagamento?.valor_cobrado ?? v.total ?? 0);
+          if (cfg.taxa_servico_tributavel !== true) val -= (v.itens || []).filter((i) => T.tipoLinha(i) === "taxa_servico").reduce((t, i) => t + Number(i.subtotal || 0), 0);
+          porMes[m] += val;
+        }
+        const receitaAnoAntes = meses.filter((m) => m.slice(0, 4) === ym.slice(0, 4)).reduce((t, m) => t + porMes[m], 0);
+        R = T.apurarMes({
+          competencia: ym, cfg, vendas, vendas12: meses.map((m) => porMes[m]), receitaAnoAntes, produtos, fiscalPorProduto: fiscalMap,
+          compras, fornecedores, despesas: despesas.filter((d) => d.origem !== "compra"), movsDepois: movs,
+        });
+        R.despesasCompras = despesas.filter((d) => d.origem === "compra").reduce((t, d) => t + Number(d.valor || 0), 0);
+        renderRelatorio(R);
+      } catch (e) {
+        console.error(e);
+        box.innerHTML = `<div class="cb-pend alta"><span class="dot"></span><span>Não foi possível montar o fechamento: ${esc(e.message || e)}. Se for a primeira vez, confira se a seção 43 do guia de instalação foi aplicada no banco.</span></div>`;
+      }
+    }
+
+    function tabela(cab, linhas, { total = null, vazio = "Sem movimento no período." } = {}) {
+      const th = cab.map((c) => `<th class="${c.n ? "cb-num" : ""}">${c.t}</th>`).join("");
+      const body = linhas.length ? linhas.join("") : `<tr><td colspan="${cab.length}" style="opacity:.7;">${vazio}</td></tr>`;
+      return `<div class="panel-table-wrap"><table class="panel-table"><thead><tr>${th}</tr></thead><tbody>${body}${total || ""}</tbody></table></div>`;
+    }
+    const sec = (titulo, sub, html) => `<div class="cb-sec"><h3>${titulo}</h3>${sub ? `<p class="cb-sub">${sub}</p>` : ""}${html}</div>`;
+
+    function renderRelatorio(R) {
+      const s = R.resumo, ap = R.apuracao;
+      const regimeNome = T.REGIMES[cfg.regime] || "Simples Nacional";
+      document.getElementById("print-head").innerHTML = `
+        <div style="display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+          <div><div style="font-size:20px; font-weight:700;">Fechamento fiscal e contábil: ${nomeMes(R.competencia)}</div>
+          <div style="font-size:12px; margin-top:4px;">${esc(cfg.razao_social || cfg.nome_fantasia || "")} ${cfg.cnpj ? `| CNPJ ${esc(cfg.cnpj)}` : ""} ${cfg.inscricao_estadual ? `| IE ${esc(cfg.inscricao_estadual)}` : ""} | ${regimeNome}${cfg.municipio ? ` | ${esc(cfg.municipio)}/${cfg.uf || ""}` : cfg.uf ? ` | ${cfg.uf}` : ""}</div></div>
+          <div style="font-size:11px; text-align:right;">Gerado em ${new Date(R.geradoEm).toLocaleString("pt-BR")}<br>Lumos, regras fiscais versão ${R.versaoRegras}${cfg.contador_nome ? `<br>Para: ${esc(cfg.contador_nome)}${cfg.contador_crc ? `, CRC ${esc(cfg.contador_crc)}` : ""}` : ""}</div>
+        </div>`;
+
+      const cards = [
+        ["Receita bruta", brl(s.bruto)], ["Receita tributável", brl(s.receitaTributavel)], [ap.regime === "simples" ? "DAS estimado" : "Tributos estimados", brl(ap.total)],
+        ["CMV", brl(s.cmv)], ["Vendas no mês", num(s.vendas, 0)], ["Ticket médio", brl(s.ticket)],
+      ].map(([l, v]) => `<div class="panel-stat-card"><div><div class="label">${l}</div><div class="value">${v}</div></div></div>`).join("");
+
+      // Pendências
+      const pend = R.pendencias.length
+        ? R.pendencias.sort((a, b) => ({ alta: 0, media: 1, baixa: 2 }[a.nivel] - { alta: 0, media: 1, baixa: 2 }[b.nivel])).map((p) => `<div class="cb-pend ${p.nivel}"><span class="dot"></span><span>${esc(p.texto)}</span></div>`).join("")
+        : `<div class="cb-ok">Tudo conferido: nenhuma pendência para este mês.</div>`;
+
+      // Apuração
+      let apHtml = "";
+      if (ap.regime === "simples") {
+        const x = ap.simples;
+        apHtml = `<div class="cb-kv">
+            <div><b>RBT12 (receita 12 meses)</b><span>${brl(ap.rbt12.valor)}</span><div class="cb-note">${{ informado: "informado na configuração", historico: "calculado pelo histórico", proporcional: `proporcional (${ap.rbt12.meses} meses de histórico)`, inicio_atividade: "início de atividade (receita do mês x 12)" }[ap.rbt12.origem]}</div></div>
+            <div><b>Faixa do Anexo I</b><span>${x.faixa}ª faixa</span><div class="cb-note">nominal ${pct(x.aliqNominal)}, dedução ${brl(x.deduzir)}</div></div>
+            <div><b>Alíquota efetiva</b><span>${pct(x.aliqEfetiva)}</span></div>
+            <div><b>Economia com a segregação</b><span>${brl(x.economiaSegregacao)}</span><div class="cb-note">DAS sem separar: ${brl(x.dasSemSegregar)}</div></div>
+          </div>` +
+          tabela([{ t: "Tributo" }, { t: "Valor", n: 1 }, { t: "Observação" }], ap.linhas.map((l) => `<tr>${td(esc(l.tributo))}${tdn(l.valor)}${td(esc(l.obs))}</tr>`),
+            { total: `<tr class="cb-tot"><td>Total do DAS estimado</td>${tdn(ap.total)}<td></td></tr>` }) +
+          sec("Segregação das receitas (PGDAS-D)", "Como a receita deve ser informada no PGDAS-D. Separar monofásico e ICMS-ST reduz o DAS legalmente.",
+            tabela([{ t: "Tipo de receita" }, { t: "Receita", n: 1 }, { t: "Alíquota aplicada", n: 1 }, { t: "DAS", n: 1 }],
+              [["normal", "Revenda/venda sem substituição tributária"], ["monofasico", "Com PIS/Cofins monofásico"], ["st", "Com ICMS por substituição tributária"], ["monofasico_st", "Monofásico e com ICMS-ST"]]
+                .filter(([k]) => x.detalhe[k].receita > 0 || k === "normal")
+                .map(([k, l]) => `<tr>${td(l)}${tdn(x.detalhe[k].receita)}<td class="cb-num">${pct(x.detalhe[k].aliquota)}</td>${tdn(x.detalhe[k].das)}</tr>`),
+              { total: `<tr class="cb-tot"><td>Total</td>${tdn(Object.values(R.seg).reduce((a, b) => a + b, 0))}<td></td>${tdn(x.das)}</tr>` }));
+      } else {
+        apHtml = tabela([{ t: "Tributo" }, { t: "Valor", n: 1 }, { t: "Observação" }], ap.linhas.map((l) => `<tr>${td(esc(l.tributo))}${tdn(l.valor)}${td(esc(l.obs))}</tr>`),
+          { total: `<tr class="cb-tot"><td>Total estimado</td>${tdn(ap.total)}<td></td></tr>` });
+      }
+      const rf = R.reforma;
+      const reformaHtml = rf.ano >= 2026 ? `<div class="cb-kv">
+          <div><b>CBS (federal)</b><span>${rf.cbs_valor != null ? brl(rf.cbs_valor) : "-"}</span><div class="cb-note">${rf.cbs != null ? `teste ${pct(rf.cbs)}` : "alíquota a definir"}</div></div>
+          <div><b>IBS (estados e municípios)</b><span>${rf.ibs_valor != null ? brl(rf.ibs_valor) : "-"}</span><div class="cb-note">${rf.ibs != null ? `teste ${pct(rf.ibs)}` : ""}</div></div>
+          <div style="grid-column: span 2;"><b>Situação</b><span style="font-size:13.5px;">${esc(rf.texto || rf.nota || "")}</span></div>
+        </div>` : "";
+
+      const agr = (rows, rot) => tabela([{ t: rot }, { t: "Base", n: 1 }, { t: "ICMS", n: 1 }, { t: "PIS", n: 1 }, { t: "Cofins", n: 1 }],
+        rows.map((r) => `<tr>${td(esc(r.chave))}${tdn(r.base)}${tdn(r.icms)}${tdn(r.pis)}${tdn(r.cofins)}</tr>`),
+        { total: rows.length ? `<tr class="cb-tot"><td>Total</td>${tdn(rows.reduce((t, r) => t + r.base, 0))}${tdn(rows.reduce((t, r) => t + r.icms, 0))}${tdn(rows.reduce((t, r) => t + r.pis, 0))}${tdn(rows.reduce((t, r) => t + r.cofins, 0))}</tr>` : "" });
+      const notaDestaque = cfg.regime === "simples" ? "No Simples o ICMS, PIS e Cofins são pagos dentro do DAS; por isso os destaques por item ficam zerados." : "Destaque estimado por item.";
+
+      const simples2 = (rows, a, b) => tabela([{ t: a }, { t: "Vendas", n: 1 }, { t: "Total", n: 1 }], rows.map((r) => `<tr>${td(esc(r[b]))}<td class="cb-num">${r.vendas}</td>${tdn(r.valor)}</tr>`),
+        { total: rows.length ? `<tr class="cb-tot"><td>Total</td><td class="cb-num">${rows.reduce((t, r) => t + r.vendas, 0)}</td>${tdn(rows.reduce((t, r) => t + r.valor, 0))}</tr>` : "" });
+
+      const html = `
+        <div class="panel-stat-grid" style="margin-top:6px;">${cards}</div>
+        ${sec("Pendências para o relatório ficar 100%", "Resolva estes pontos antes de enviar ao contador.", pend)}
+        ${sec(`Apuração estimada: ${esc(regimeNome)}`, "Estimativa gerencial para conferência e provisão. A apuração oficial é feita pelo contador.", apHtml)}
+        ${reformaHtml ? sec("Reforma tributária (IBS e CBS)", "Acompanhamento da transição.", reformaHtml) : ""}
+        ${sec("Composição da receita", "", tabela([{ t: "Item" }, { t: "Valor", n: 1 }], [
+          `<tr>${td("Receita bruta (valor cobrado dos clientes)")}${tdn(s.bruto)}</tr>`,
+          s.taxaServico ? `<tr>${td(`Taxa de serviço ${cfg.taxa_servico_tributavel ? "(tributável)" : "(fora da receita tributável)"}`)}${tdn(s.taxaServico)}</tr>` : "",
+          s.couvert ? `<tr>${td(`Couvert artístico ${cfg.couvert_tributavel === false ? "(fora da receita tributável)" : "(tributável)"}`)}${tdn(s.couvert)}</tr>` : "",
+          s.frete ? `<tr>${td(`Taxa de entrega ${cfg.frete_tributavel === false ? "(fora da receita tributável)" : "(tributável)"}`)}${tdn(s.frete)}</tr>` : "",
+          s.descontos ? `<tr>${td("Descontos e arredondamentos")}${tdn(-s.descontos)}</tr>` : "",
+          `<tr class="cb-tot">${td("Receita tributável")}${tdn(s.receitaTributavel)}</tr>`,
+        ].filter(Boolean)))}
+        ${sec("Receita por NCM", notaDestaque, agr(R.porNcm, "NCM"))}
+        <div class="cb-grid2">
+          ${sec("Receita por CFOP", "", agr(R.porCfop, "CFOP"))}
+          ${sec(cfg.regime === "simples" ? "Receita por CSOSN e CST de PIS/Cofins" : "Receita por CST", "", agr(R.porCst, "Situação tributária"))}
+        </div>
+        <div class="cb-grid2">
+          ${sec("Formas de pagamento", "Para conferir com o extrato das maquininhas e do banco (a Receita e a Sefaz recebem esses dados das operadoras).", simples2(R.porPagamento, "Forma", "forma"))}
+          ${sec("Canais de venda", "", simples2(R.porCanal, "Canal", "canal"))}
+        </div>
+        ${sec("Demonstrativo do resultado (DRE gerencial)", R.despesasCompras ? `Pagamentos de compras de mercadoria (${brl(R.despesasCompras)}) não entram como despesa: o custo delas já está no CMV.` : "", `<div class="panel-table-wrap"><table class="panel-table cb-dre"><tbody>${R.dre.map((d) => `<tr><td class="${d.destaque ? "d" : ""}">${esc(d.conta)}</td><td class="cb-num ${d.destaque ? "d" : ""}">${brl(d.valor)}</td></tr>`).join("")}</tbody></table></div>`)}
+        ${sec("Produtos vendidos, custo e margem", `CMV calculado com o custo cadastrado de cada produto${s.coberturaCmv < 100 ? ` (${s.coberturaCmv}% da receita de produtos tem custo)` : ""}.`,
+          tabela([{ t: "Produto" }, { t: "NCM" }, { t: "Qtd", n: 1 }, { t: "Receita", n: 1 }, { t: "Custo (CMV)", n: 1 }, { t: "Margem", n: 1 }],
+            R.produtosVendidos.map((p) => `<tr>${td(esc(p.nome))}${td(esc(T.fmtNcm(p.ncm)))}<td class="cb-num">${num(p.qtd, 3)}</td>${tdn(p.receita)}<td class="cb-num">${p.custo == null ? "sem custo" : brl(p.custo)}</td><td class="cb-num">${p.margem == null ? "-" : pct(p.margem)}</td></tr>`)))}
+        ${sec("Faturamento por dia", "", simples2(R.porDia.map((d) => ({ ...d, dia: fmtDate(d.data) })), "Dia", "dia"))}
+        ${sec("Entradas: compras recebidas", "O contador precisa do XML ou da nota de cada compra (entrada).",
+          tabela([{ t: "Compra" }, { t: "Data" }, { t: "Fornecedor" }, { t: "CNPJ" }, { t: "Valor", n: 1 }], R.entradas.map((c) => `<tr>${td(`#${c.numero}`)}${td(fmtDate(c.data))}${td(esc(c.fornecedor))}${td(esc(c.cnpj || "não informado"))}${tdn(c.valor)}</tr>`),
+            { total: R.entradas.length ? `<tr class="cb-tot"><td colspan="4">Total</td>${tdn(s.compras)}</tr>` : "" }))}
+        ${sec("Despesas pagas por categoria", "", tabela([{ t: "Categoria" }, { t: "Valor", n: 1 }], R.despesasPorCategoria.map((d) => `<tr>${td(esc(d.categoria))}${tdn(d.valor)}</tr>`),
+          { total: R.despesasPorCategoria.length ? `<tr class="cb-tot"><td>Total</td>${tdn(s.despesas)}</tr>` : "" }))}
+        ${sec(`Inventário de estoque no fim de ${nomeMes(R.competencia)}`, "Saldo de cada produto no último dia do mês, valorizado pelo custo. Em dezembro, este é o inventário anual (Bloco H do SPED).",
+          tabela([{ t: "Produto" }, { t: "NCM" }, { t: "Unidade" }, { t: "Saldo", n: 1 }, { t: "Custo unit.", n: 1 }, { t: "Valor", n: 1 }],
+            R.inventario.map((i) => `<tr>${td(esc(i.nome))}${td(esc(T.fmtNcm(i.ncm)))}${td(esc(i.unidade))}<td class="cb-num">${num(i.saldo, 3)}</td><td class="cb-num">${i.custo == null ? "-" : brl(i.custo)}</td><td class="cb-num">${i.valor == null ? "-" : brl(i.valor)}</td></tr>`),
+            { total: R.inventario.length ? `<tr class="cb-tot"><td colspan="5">Total do estoque</td>${tdn(R.inventarioTotal)}</tr>` : "", vazio: "Nenhum produto com controle de estoque." }))}
+        ${sec("Vendas do mês", `${R.vendas.length} venda(s). A lista completa, item por item, está no Excel.`,
+          tabela([{ t: "Nº" }, { t: "Data" }, { t: "Hora" }, { t: "Cliente" }, { t: "Canal" }, { t: "Pagamento" }, { t: "NF" }, { t: "Valor", n: 1 }],
+            R.vendas.slice(0, 300).map((v) => `<tr>${td(`#${v.numero}`)}${td(fmtDate(v.data))}${td(v.hora)}${td(esc(v.cliente))}${td(esc(v.canal))}${td(esc(v.forma))}${td(esc(v.nf || "-"))}${tdn(v.valor)}</tr>`)))}
+        ${sec("Premissas e notas", "", `<div class="cb-note">
+          <p>1. Valores de tributos são estimativas gerenciais calculadas pelo Lumos (regras versão ${R.versaoRegras}) para conferência e provisão. A apuração e as declarações oficiais (PGDAS-D, DCTFWeb, EFD, SPED) são de responsabilidade do contador.</p>
+          <p>2. Simples Nacional: Anexo I da LC 123/2006 (redação da LC 155/2016), alíquota efetiva = (RBT12 x alíquota nominal - parcela a deduzir) / RBT12, com segregação de receitas monofásicas e com ICMS-ST.</p>
+          <p>3. Lucro Presumido: PIS 0,65%, Cofins 3%, presunção de 8% (IRPJ) e 12% (CSLL), com acréscimo de 10% na presunção sobre a receita anual acima de R$ 5 milhões (LC 224/2025). IRPJ e CSLL são trimestrais; aqui aparecem por mês para provisão.</p>
+          <p>4. São Paulo: regime especial de bares e restaurantes, 4% sobre a receita bruta (Decreto 69.314/2025), vigente até 31/12/2026, quando marcado na configuração.</p>
+          <p>5. Reforma tributária (LC 214/2025): 2026 é ano de teste da CBS (0,9%) e do IBS (0,1%); para o Simples Nacional, a obrigatoriedade começa em 01/01/2027.</p>
+          <p>6. Vendas de teste (simulador) não entram. Vendas canceladas não entram. Datas no horário de Brasília. O NCM marcado como "sugerido" ainda não foi conferido.</p>
+        </div>`)}
+      `;
+      document.getElementById("relatorio").innerHTML = html;
+    }
+
+    // ---------- Excel para o contador ----------
+    async function carregarXlsx() {
+      if (window.XLSX) return window.XLSX;
+      await new Promise((ok, erro) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = ok; s.onerror = erro; document.head.appendChild(s); });
+      return window.XLSX;
+    }
+    document.getElementById("b-excel").addEventListener("click", async () => {
+      if (!R) return;
+      const btn = document.getElementById("b-excel"); const txt = btn.textContent; btn.disabled = true; btn.textContent = "Gerando...";
+      try {
+        const X = await carregarXlsx();
+        const wb = X.utils.book_new();
+        const add = (nome, linhas, larg) => { const ws = X.utils.aoa_to_sheet(linhas); ws["!cols"] = (larg || []).map((w) => ({ wch: w })); X.utils.book_append_sheet(wb, ws, nome.slice(0, 31)); };
+        const s = R.resumo, ap = R.apuracao;
+        const cab = [[`Fechamento fiscal e contábil: ${nomeMes(R.competencia)}`], [`Empresa: ${cfg.razao_social || cfg.nome_fantasia || ""}`, `CNPJ: ${cfg.cnpj || ""}`, `IE: ${cfg.inscricao_estadual || ""}`], [`Regime: ${T.REGIMES[cfg.regime] || ""}`, `UF: ${cfg.uf || ""}`, `Gerado em: ${new Date(R.geradoEm).toLocaleString("pt-BR")}`, `Regras Lumos ${R.versaoRegras}`], []];
+        add("Resumo", [...cab, ["Indicador", "Valor"], ["Receita bruta", s.bruto], ["Taxa de serviço", s.taxaServico], ["Couvert", s.couvert], ["Taxa de entrega", s.frete], ["Descontos", s.descontos], ["Receita tributável", s.receitaTributavel],
+          ["Quantidade de vendas", s.vendas], ["Ticket médio", s.ticket], ["Tributos estimados", ap.total], ["CMV", s.cmv], ["Compras recebidas", s.compras], ["Despesas pagas", s.despesas], ["Estoque final (custo)", R.inventarioTotal]], [34, 18, 18, 22]);
+        const apl = [...cab, ["Tributo", "Valor", "Observação"], ...ap.linhas.map((l) => [l.tributo, l.valor, l.obs]), ["Total", ap.total]];
+        if (ap.regime === "simples") apl.push([], ["RBT12", ap.rbt12.valor, ap.rbt12.origem], ["Faixa", ap.simples.faixa], ["Alíquota nominal (%)", ap.simples.aliqNominal], ["Parcela a deduzir", ap.simples.deduzir], ["Alíquota efetiva (%)", ap.simples.aliqEfetiva], ["DAS sem segregar", ap.simples.dasSemSegregar], ["Economia com segregação", ap.simples.economiaSegregacao]);
+        add("Apuração", apl, [42, 16, 70]);
+        if (ap.regime === "simples") add("Segregação PGDAS", [...cab, ["Tipo de receita", "Receita", "Alíquota aplicada (%)", "DAS"], ...Object.entries(ap.simples.detalhe).map(([k, d]) => [{ normal: "Normal", monofasico: "PIS/Cofins monofásico", st: "ICMS-ST", monofasico_st: "Monofásico e ICMS-ST" }[k], d.receita, d.aliquota, d.das])], [30, 16, 20, 14]);
+        const agr = (rows, rot) => [...cab, [rot, "Quantidade", "Base", "ICMS", "PIS", "Cofins", "CBS (teste)", "IBS (teste)"], ...rows.map((r) => [r.chave, r.qtd, r.base, r.icms, r.pis, r.cofins, r.cbs, r.ibs])];
+        add("Por NCM", agr(R.porNcm, "NCM"), [26, 12, 14, 12, 12, 12, 12, 12]);
+        add("Por CFOP", agr(R.porCfop, "CFOP"), [20, 12, 14, 12, 12, 12, 12, 12]);
+        add("Por CST-CSOSN", agr(R.porCst, "Situação tributária"), [36, 12, 14, 12, 12, 12, 12, 12]);
+        add("Pagamentos", [...cab, ["Forma", "Vendas", "Total"], ...R.porPagamento.map((p) => [p.forma, p.vendas, p.valor])], [24, 10, 14]);
+        add("Canais", [...cab, ["Canal", "Vendas", "Total"], ...R.porCanal.map((p) => [p.canal, p.vendas, p.valor])], [24, 10, 14]);
+        add("Por dia", [...cab, ["Data", "Vendas", "Total"], ...R.porDia.map((d) => [fmtDate(d.data), d.vendas, d.valor])], [14, 10, 14]);
+        add("Vendas", [...cab, ["Número", "Data", "Hora", "Cliente", "CPF/CNPJ", "Canal", "Forma de pagamento", "Nota fiscal", "Valor"], ...R.vendas.map((v) => [v.numero, fmtDate(v.data), v.hora, v.cliente, v.documento, v.canal, v.forma, v.nf, v.valor])], [10, 12, 8, 26, 18, 16, 20, 12, 12]);
+        add("Itens vendidos", [...cab, ["Venda", "Data", "Item", "Tipo", "NCM", "NCM conferido", "CFOP", "CSOSN", "CST ICMS", "CST PIS/Cofins", "Monofásico", "ICMS-ST", "cClassTrib", "Qtd", "Unitário", "Base", "ICMS", "PIS", "Cofins", "CBS (teste)", "IBS (teste)", "Custo"],
+          ...R.linhas.map((l) => [l.venda, fmtDate(l.data), l.nome, l.tipo, T.fmtNcm(l.fiscal.ncm), l.fiscal.cadastrado ? "sim" : "sugerido", l.fiscal.cfop, l.fiscal.csosn, l.fiscal.cst_icms, l.fiscal.cst_pis, l.fiscal.monofasico ? "sim" : "não", l.fiscal.icms_st ? "sim" : "não", l.fiscal.cclass_trib || "", l.quantidade, l.unitario, l.base, l.trib.icms, l.trib.pis, l.trib.cofins, l.trib.cbs, l.trib.ibs, l.custo])],
+          [8, 11, 28, 12, 12, 12, 7, 7, 8, 12, 10, 8, 10, 7, 10, 10, 9, 9, 9, 10, 10, 10]);
+        add("Produtos e CMV", [...cab, ["Produto", "NCM", "Quantidade", "Receita", "Custo (CMV)", "Margem (%)"], ...R.produtosVendidos.map((p) => [p.nome, T.fmtNcm(p.ncm), p.qtd, p.receita, p.custo, p.margem])], [30, 12, 12, 14, 14, 12]);
+        add("Entradas (compras)", [...cab, ["Compra", "Data", "Fornecedor", "CNPJ", "Itens", "Valor"], ...R.entradas.map((c) => [c.numero, fmtDate(c.data), c.fornecedor, c.cnpj, c.itens, c.valor])], [10, 12, 30, 20, 8, 14]);
+        add("Despesas", [...cab, ["Categoria", "Valor"], ...R.despesasPorCategoria.map((d) => [d.categoria, d.valor])], [30, 14]);
+        add("DRE", [...cab, ["Conta", "Valor"], ...R.dre.map((d) => [d.conta, d.valor])], [52, 16]);
+        add("Inventário", [...cab, ["Produto", "NCM", "Unidade", "Saldo", "Custo unitário", "Valor"], ...R.inventario.map((i) => [i.nome, T.fmtNcm(i.ncm), i.unidade, i.saldo, i.custo, i.valor]), ["Total", "", "", "", "", R.inventarioTotal]], [30, 12, 10, 10, 14, 14]);
+        add("Cadastro fiscal", [...cab, ["Produto", "NCM", "Conferido", "CFOP", "Origem", "Tipo", "CSOSN", "CST ICMS", "Alíq. ICMS", "ICMS-ST", "Monofásico", "CST PIS/Cofins", "CEST", "cClassTrib"],
+          ...produtos.map((p) => { const f = T.fiscalEfetivo(fiscalMap[p.id], p, cfg); return [p.name, T.fmtNcm(f.ncm), f.cadastrado ? "sim" : "sugerido", f.cfop, f.origem, f.tipo, f.csosn, f.cst_icms, f.icms_aliq || "", f.icms_st ? "sim" : "não", f.monofasico ? "sim" : "não", f.cst_pis, f.cest || "", f.cclass_trib || ""]; })],
+          [30, 12, 10, 7, 7, 10, 7, 8, 10, 8, 10, 13, 10, 11]);
+        add("Pendências", [...cab, ["Prioridade", "Pendência"], ...R.pendencias.map((p) => [p.nivel, p.texto])], [12, 120]);
+        const nome = (cfg.nome_fantasia || cfg.razao_social || "empresa").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "_");
+        X.writeFile(wb, `Lumos_Contabil_${nome}_${R.competencia}.xlsx`);
+      } catch (e) {
+        await lumosAlert("Não foi possível gerar o Excel agora. Confira a internet e tente de novo.");
+      } finally { btn.disabled = false; btn.textContent = txt; }
+    });
+    document.getElementById("b-print").addEventListener("click", () => window.print());
+
+    // =================================================================
+    // CADASTRO FISCAL DOS PRODUTOS
+    // =================================================================
+    document.getElementById("ncm-list").innerHTML = T.NCM_SUGESTOES.map((n) => `<option value="${n.ncm}">${esc(n.desc)}</option>`).join("");
+    const edits = {}; // product_id -> campos alterados
+    const CAMPOS_SIMPLES = ["ncm", "cfop", "tipo", "csosn", "cst_pis", "monofasico", "icms_st", "cest"];
+    async function carregarFiscal() {
+      await carregarBase();
+      renderFiscal();
+    }
+    function linhaFiscal(p) {
+      const salvo = { ...(fiscalMap[p.id] || {}), ...(edits[p.id] || {}) };
+      const temNcm = !!T.onlyDigits(salvo.ncm);
+      const sug = T.sugerirFiscal(p, cfg);
+      const v = (k) => (salvo[k] ?? "") === "" ? "" : salvo[k];
+      const inp = (k, w, ph, extra = "") => `<input type="text" data-k="${k}" value="${esc(v(k))}" placeholder="${esc(ph || "")}" style="width:${w}px;" ${extra} />`;
+      const simples = cfg.regime === "simples" || cfg.regime === "mei";
+      const ck = (k) => `<input type="checkbox" data-k="${k}" ${(salvo[k] ?? sug[k]) ? "checked" : ""} />`;
+      return `<tr data-id="${p.id}" class="${edits[p.id] ? "changed" : ""}">
+        <td style="min-width:180px;"><b>${esc(p.name)}</b>${p.active === false ? ` <span class="cb-note">(inativo)</span>` : ""}</td>
+        <td>${temNcm ? `<span class="cb-tag ok">conferido</span>` : `<span class="cb-tag sug">sugestão</span>`}</td>
+        <td>${inp("ncm", 104, sug.ncm, `list="ncm-list" inputmode="numeric"`)}${temNcm && !T.ncmValido(salvo.ncm) ? `<div style="color:#B94040; font-size:11px;">NCM precisa ter 8 números</div>` : ""}</td>
+        <td>${inp("cfop", 62, sug.cfop, `inputmode="numeric"`)}</td>
+        <td><select data-k="tipo"><option value="">${sug.tipo === "producao" ? "Produção (sug.)" : "Revenda (sug.)"}</option><option value="producao" ${salvo.tipo === "producao" ? "selected" : ""}>Produção própria</option><option value="revenda" ${salvo.tipo === "revenda" ? "selected" : ""}>Revenda</option></select></td>
+        <td>${simples ? inp("csosn", 54, sug.csosn, `inputmode="numeric"`) : inp("cst_icms", 48, sug.cst_icms, `inputmode="numeric"`)}</td>
+        ${simples ? "" : `<td>${inp("icms_aliq", 56, String(cfg.icms_interna || T.ICMS_INTERNA_PADRAO[cfg.uf] || ""), `inputmode="decimal"`)}</td>`}
+        <td>${inp("cst_pis", 42, sug.cst_pis, `inputmode="numeric"`)}</td>
+        <td style="text-align:center;">${ck("monofasico")}</td>
+        <td style="text-align:center;">${ck("icms_st")}</td>
+        <td>${inp("cest", 80, "", `inputmode="numeric"`)}</td>
+      </tr>`;
+    }
+    function renderFiscal() {
+      const simples = cfg.regime === "simples" || cfg.regime === "mei";
+      document.getElementById("fs-head").innerHTML = `<tr><th>Produto</th><th>Situação</th><th>NCM</th><th>CFOP</th><th>Tipo</th><th>${simples ? "CSOSN" : "CST ICMS"}</th>${simples ? "" : "<th>Alíq. ICMS %</th>"}<th>CST PIS/Cofins</th><th>Monofásico</th><th>ICMS-ST</th><th>CEST</th></tr>`;
+      const q = document.getElementById("fs-busca").value.trim().toLowerCase();
+      const so = document.getElementById("fs-pend").checked;
+      const lista = produtos.filter((p) => (!q || String(p.name).toLowerCase().includes(q)) && (!so || !T.onlyDigits({ ...(fiscalMap[p.id] || {}), ...(edits[p.id] || {}) }.ncm)));
+      document.getElementById("fs-body").innerHTML = lista.length ? lista.map(linhaFiscal).join("") : `<tr><td colspan="11" style="opacity:.7;">${produtos.length ? "Nenhum produto neste filtro." : "Nenhum produto cadastrado ainda."}</td></tr>`;
+    }
+    document.getElementById("fs-busca").addEventListener("input", renderFiscal);
+    document.getElementById("fs-pend").addEventListener("change", renderFiscal);
+    document.getElementById("fs-body").addEventListener("change", (e) => {
+      const el = e.target.closest("[data-k]"); if (!el) return;
+      const tr = el.closest("tr"); const id = tr.dataset.id; const k = el.dataset.k;
+      let val = el.type === "checkbox" ? el.checked : el.value.trim();
+      if (["ncm", "cfop", "csosn", "cst_icms", "cst_pis", "cest"].includes(k)) val = T.onlyDigits(val);
+      if (k === "icms_aliq") val = val === "" ? null : Number(String(val).replace(",", "."));
+      edits[id] = { ...(edits[id] || {}), [k]: val };
+      // Ao informar um NCM de bebida, já marca monofásico/ST (dá pra desmarcar)
+      if (k === "ncm" && T.ncmValido(val)) {
+        const pref = val.slice(0, 4);
+        const mono = ["2201", "2202", "2203"].includes(pref);
+        edits[id].monofasico = mono;
+        if (cfg.uf === "SP") edits[id].icms_st = ["2201", "2202", "2203", "2105", "2523", "3208", "3209", "3210"].includes(pref);
+      }
+      tr.classList.add("changed");
+      if (k === "ncm") renderFiscal();
+    });
+    document.getElementById("fs-sugerir").addEventListener("click", async () => {
+      let n = 0;
+      for (const p of produtos) {
+        const atual = { ...(fiscalMap[p.id] || {}), ...(edits[p.id] || {}) };
+        const sug = T.sugerirFiscal(p, cfg);
+        const novo = {};
+        for (const k of CAMPOS_SIMPLES.concat(["cst_icms", "cclass_trib", "origem"])) if ((atual[k] === undefined || atual[k] === null || atual[k] === "") && sug[k] !== undefined && sug[k] !== "") novo[k] = sug[k];
+        if (Object.keys(novo).length) { edits[p.id] = { ...(edits[p.id] || {}), ...novo }; n++; }
+      }
+      renderFiscal();
+      await lumosAlert(n ? `Sugestões preenchidas em ${n} produto(s). Confira e clique em "Salvar alterações". O ideal é o contador revisar uma vez.` : "Nenhum campo vazio para preencher.");
+    });
+    document.getElementById("fs-salvar").addEventListener("click", async () => {
+      const ids = Object.keys(edits);
+      if (!ids.length) return lumosAlert("Nenhuma alteração para salvar.");
+      const invalidos = ids.filter((id) => edits[id].ncm && !T.ncmValido(edits[id].ncm));
+      if (invalidos.length) return lumosAlert("Há NCM com quantidade errada de números. O NCM tem sempre 8 números (ex.: 22021000).");
+      const rows = ids.map((id) => ({ ...(fiscalMap[id] || {}), ...edits[id], product_id: id, owner_id, updated_at: new Date().toISOString() }));
+      const btn = document.getElementById("fs-salvar"); btn.disabled = true;
+      const { error } = await supabase.from("product_fiscal").upsert(rows, { onConflict: "product_id" });
+      btn.disabled = false;
+      if (error) return lumosAlert(`Não foi possível salvar: ${error.message}`);
+      for (const id of ids) delete edits[id];
+      await carregarFiscal();
+      await lumosAlert(`Cadastro fiscal salvo (${rows.length} produto(s)).`);
+    });
+
+    // =================================================================
+    // CONFIGURAÇÃO FISCAL
+    // =================================================================
+    const ufSel = document.getElementById("c-uf"); ufSel.innerHTML = T.UFS.map((u) => `<option>${u}</option>`).join("");
+    document.getElementById("c-regime").innerHTML = Object.entries(T.REGIMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join("");
+    const CAMPOS = { "c-razao": "razao_social", "c-fantasia": "nome_fantasia", "c-cnpj": "cnpj", "c-ie": "inscricao_estadual", "c-im": "inscricao_municipal", "c-cnae": "cnae", "c-uf": "uf", "c-municipio": "municipio",
+      "c-regime": "regime", "c-rbt12": "rbt12_manual", "c-meidas": "mei_das", "c-icms": "icms_interna", "c-cont-nome": "contador_nome", "c-cont-crc": "contador_crc", "c-cont-email": "contador_email", "c-cont-tel": "contador_tel" };
+    function mostrarCampos() {
+      const r = document.getElementById("c-regime").value, uf = document.getElementById("c-uf").value;
+      document.querySelectorAll("#tab-config [data-show]").forEach((el) => (el.style.display = el.dataset.show.split(" ").includes(r) ? "" : "none"));
+      document.getElementById("c-ret-wrap").style.display = (r === "presumido" || r === "real") && uf === "SP" ? "" : "none";
+    }
+    function preencherCfg() {
+      for (const [id, k] of Object.entries(CAMPOS)) document.getElementById(id).value = cfg[k] ?? "";
+      document.getElementById("c-uf").value = cfg.uf || "SP";
+      document.getElementById("c-regime").value = cfg.regime || "simples";
+      document.getElementById("c-ret").checked = !!cfg.ret_sp_restaurante;
+      document.getElementById("c-taxa").checked = cfg.taxa_servico_tributavel === true;
+      document.getElementById("c-couvert").checked = cfg.couvert_tributavel !== false;
+      document.getElementById("c-frete").checked = cfg.frete_tributavel !== false;
+      mostrarCampos();
+    }
+    document.getElementById("c-regime").addEventListener("change", mostrarCampos);
+    document.getElementById("c-uf").addEventListener("change", mostrarCampos);
+    document.getElementById("c-salvar").addEventListener("click", async () => {
+      const novo = { ...cfg };
+      for (const [id, k] of Object.entries(CAMPOS)) {
+        const v = document.getElementById(id).value.trim();
+        novo[k] = ["rbt12_manual", "mei_das", "icms_interna"].includes(k) ? (v === "" ? null : Number(v)) : v;
+      }
+      if (novo.cnpj && T.onlyDigits(novo.cnpj).length !== 14) return lumosAlert("O CNPJ precisa ter 14 números.");
+      novo.ret_sp_restaurante = document.getElementById("c-ret").checked;
+      novo.taxa_servico_tributavel = document.getElementById("c-taxa").checked;
+      novo.couvert_tributavel = document.getElementById("c-couvert").checked;
+      novo.frete_tributavel = document.getElementById("c-frete").checked;
+      delete novo.nicho;
+      const { error } = await supabase.from("fiscal_config").upsert({ owner_id, dados: novo, updated_at: new Date().toISOString() }, { onConflict: "owner_id" });
+      if (error) return lumosAlert(`Não foi possível salvar: ${error.message}`);
+      cfg = { ...novo, nicho };
+      await lumosAlert("Configuração fiscal salva. O fechamento já usa as novas regras.");
+    });
+
+    carregarFechamento();
+  </script>
+</body>
+</html>

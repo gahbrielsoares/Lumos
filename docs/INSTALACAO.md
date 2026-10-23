@@ -1583,6 +1583,98 @@ update public.sales_orders set itens = replace(itens::text, ' — ', ', ')::json
 
 Atualize as funções **`whatsapp-webhook`**, **`orders`**, **`follow-up`** e **`menu`**.
 
+## 43. Contabilidade: cálculo de impostos, cadastro fiscal e fechamento para o contador
+
+No **SQL Editor**:
+
+```sql
+-- Configuração fiscal da empresa (regime, CNPJ, UF, RBT12, tratamento da taxa de serviço etc.)
+create table if not exists public.fiscal_config (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  dados jsonb not null default '{}'::jsonb,
+  updated_at timestamptz default now()
+);
+alter table public.fiscal_config enable row level security;
+drop policy if exists "Dono: configuracao fiscal" on public.fiscal_config;
+create policy "Dono: configuracao fiscal" on public.fiscal_config for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "Equipe: configuracao fiscal" on public.fiscal_config;
+create policy "Equipe: configuracao fiscal" on public.fiscal_config for all
+  using (public.team_has_tab(owner_id, 'contabilidade')) with check (public.team_has_tab(owner_id, 'contabilidade'));
+
+-- Cadastro fiscal de cada produto (separado do produto: quem cuida do fiscal não mexe em preço)
+create table if not exists public.product_fiscal (
+  product_id uuid primary key references public.products(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete cascade not null,
+  ncm text, cest text, cfop text, origem text default '0',
+  tipo text default 'revenda',            -- revenda | producao
+  csosn text, cst_icms text, icms_aliq numeric(6,2),
+  icms_st boolean default false, monofasico boolean default false,
+  cst_pis text, cclass_trib text,
+  extra jsonb default '{}'::jsonb,
+  updated_at timestamptz default now()
+);
+alter table public.product_fiscal enable row level security;
+drop policy if exists "Dono: fiscal dos produtos" on public.product_fiscal;
+create policy "Dono: fiscal dos produtos" on public.product_fiscal for all
+  using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+drop policy if exists "Equipe: le fiscal dos produtos" on public.product_fiscal;
+create policy "Equipe: le fiscal dos produtos" on public.product_fiscal for select using (public.is_team_of(owner_id));
+drop policy if exists "Equipe: edita fiscal dos produtos" on public.product_fiscal;
+create policy "Equipe: edita fiscal dos produtos" on public.product_fiscal for all
+  using (public.team_has_tab(owner_id, 'contabilidade') or public.team_has_tab(owner_id, 'produtos'))
+  with check (public.team_has_tab(owner_id, 'contabilidade') or public.team_has_tab(owner_id, 'produtos'));
+
+-- Quem tem a aba Contabilidade (ex.: o contador) LÊ financeiro, compras, fornecedores e estoque
+drop policy if exists "Equipe contabilidade: le financeiro" on public.fin_lancamentos;
+create policy "Equipe contabilidade: le financeiro" on public.fin_lancamentos for select using (public.team_has_tab(owner_id, 'contabilidade'));
+drop policy if exists "Equipe contabilidade: le compras" on public.compras;
+create policy "Equipe contabilidade: le compras" on public.compras for select using (public.team_has_tab(owner_id, 'contabilidade'));
+drop policy if exists "Equipe contabilidade: le fornecedores" on public.fornecedores;
+create policy "Equipe contabilidade: le fornecedores" on public.fornecedores for select using (public.team_has_tab(owner_id, 'contabilidade'));
+drop policy if exists "Equipe contabilidade: le estoque" on public.estoque_mov;
+create policy "Equipe contabilidade: le estoque" on public.estoque_mov for select using (public.team_has_tab(owner_id, 'contabilidade'));
+
+-- Fotografia fiscal da venda: no momento do pagamento, guarda o cadastro fiscal de cada produto vendido.
+-- Assim, se o NCM de um produto mudar depois, o relatório dos meses passados não muda.
+alter table public.sales_orders add column if not exists fiscal jsonb;
+
+create or replace function public.sales_orders_fiscal_snapshot() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'pago' and new.fiscal is null then
+    begin
+      select coalesce(jsonb_object_agg(pf.product_id::text, to_jsonb(pf) - 'owner_id' - 'updated_at'), '{}'::jsonb)
+        into new.fiscal
+        from public.product_fiscal pf
+       where pf.owner_id = new.owner_id
+         and pf.product_id in (
+           select (i->>'product_id')::uuid from jsonb_array_elements(coalesce(new.itens, '[]'::jsonb)) i
+            where coalesce(i->>'product_id', '') ~ '^[0-9a-f-]{36}$');
+    exception when others then
+      new.fiscal := null;   -- nunca trava a venda
+    end;
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_sales_orders_fiscal on public.sales_orders;
+create trigger trg_sales_orders_fiscal before insert or update on public.sales_orders
+  for each row execute function public.sales_orders_fiscal_snapshot();
+```
+
+Depois, atualize a Edge Function **`team`** (cole de novo `supabase/functions/team/index.ts`): ela passa a aceitar a aba
+`contabilidade` e a função **Contador**.
+
+### Como funciona
+- Todas as regras e alíquotas ficam num arquivo só: `js/tributos.js` (Simples Nacional Anexo I com segregação de
+  monofásico e ICMS-ST, Lucro Presumido com a LC 224/2025, Lucro Real, MEI, regime especial de ICMS de SP para
+  restaurantes, IBS/CBS da reforma). Revisar esse arquivo todo ano (`VERSAO_REGRAS`).
+- A aba **Contabilidade** tem três partes: Fechamento do mês (com Excel para o contador e impressão em PDF),
+  Cadastro fiscal dos produtos (NCM, CFOP, CSOSN/CST, monofásico, ICMS-ST, CEST) e Configuração fiscal.
+- Quando a venda é paga, o banco guarda a "fotografia fiscal" dos produtos (`sales_orders.fiscal`). Assim, mudar o
+  NCM de um produto depois não altera os meses já fechados.
+- Clientes que já têm abas liberadas pelo Painel Admin precisam receber a aba **Contabilidade** lá.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

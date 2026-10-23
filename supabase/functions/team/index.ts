@@ -22,8 +22,8 @@ const json = (body: unknown, status = 200) =>
 
 // Abas que um funcionário pode receber (Equipe e Painel Admin nunca)
 const TAB_KEYS = ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "estoque",
-  "compras", "financeiro", "relatorios", "fiscal", "integracoes", "agents", "settings"];
-const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "personalizado"];
+  "compras", "financeiro", "relatorios", "contabilidade", "fiscal", "integracoes", "agents", "settings"];
+const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "contador", "personalizado"];
 const USER_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
 
 function cleanTabs(tabs: unknown, ownerTabs: string[] | null) {

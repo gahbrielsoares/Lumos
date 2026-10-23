@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=70" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=70" />
-  <script src="js/dialogs.js?v=70"></script>
+  <script src="js/logo.js?v=71" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=71" />
+  <script src="js/dialogs.js?v=71"></script>
 </head>
 <body>
 
@@ -75,12 +75,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=70";
-    import { initThemeToggle } from "./js/theme.js?v=70";
-    import { initMobileNav } from "./js/mobileNav.js?v=70";
-    import { renderSidebar } from "./js/sidebar.js?v=70";
-    import { supabase } from "./js/supabaseClient.js?v=70";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=70";
+    import { requireSession, signOut } from "./js/auth.js?v=71";
+    import { initThemeToggle } from "./js/theme.js?v=71";
+    import { initMobileNav } from "./js/mobileNav.js?v=71";
+    import { renderSidebar } from "./js/sidebar.js?v=71";
+    import { supabase } from "./js/supabaseClient.js?v=71";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=71";
 
     await requireSession();
     initThemeToggle();
@@ -89,7 +89,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=70");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=71");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -104,8 +104,8 @@
       ["sistema", "Sistema", TABS.filter((t) => !t.group)],
     ];
     const PACOTES = {
-      "Lojas (materiais)": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "fiscal", "settings", "equipe"],
-      "Restaurante": ["dashboard", "clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "settings", "equipe"],
+      "Lojas (materiais)": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "financeiro", "relatorios", "contabilidade", "fiscal", "settings", "equipe"],
+      "Restaurante": ["dashboard", "clientes", "agendamentos", "produtos", "mesas", "cozinha", "estoque", "compras", "financeiro", "relatorios", "contabilidade", "settings", "equipe"],
       "Só CRM": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "settings", "equipe"],
       "CRM + ERP": ["dashboard", ...TABS.filter((t) => t.group).map((t) => t.key), "settings", "equipe"],
     };
