@@ -272,7 +272,8 @@
           todos(() => supabase.from("estoque_mov").select("product_id, tipo, quantidade").eq("owner_id", owner_id).gte("created_at", fim)),
         ]);
         // Notas fiscais emitidas no mês (se a tabela ainda não existir, segue sem elas)
-        const { data: notas } = await supabase.from("fiscal_docs").select("*").eq("owner_id", owner_id).eq("teste", false).gte("created_at", ini).lt("created_at", fim).order("created_at").limit(5000).then((r) => r, () => ({ data: [] }));
+        let notas = [];
+        try { notas = await todos(() => supabase.from("fiscal_docs").select("*").eq("owner_id", owner_id).eq("teste", false).gte("created_at", ini).lt("created_at", fim).order("created_at")); } catch (_) { notas = []; }
         // Receita por mês dos 12 meses anteriores (mesma regra da taxa de serviço)
         const meses = Array.from({ length: 12 }, (_, i) => addMes(ym, i - 12));
         const porMes = Object.fromEntries(meses.map((m) => [m, 0]));
