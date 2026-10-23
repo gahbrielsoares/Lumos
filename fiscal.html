@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=73" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=73" />
-  <script src="js/dialogs.js?v=73"></script>
+  <script src="js/logo.js?v=74" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=74" />
+  <script src="js/dialogs.js?v=74"></script>
   <style>
     .nf-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .nf-card h3 { font-size:16px; margin-bottom:4px; }
@@ -82,8 +82,8 @@
         <div class="nf-card">
           <div class="nf-step"><span class="n">1</span><h3>Como conectar</h3></div>
           <div class="nf-modo" id="w-modo">
-            <label data-m="lumos"><input type="radio" name="modo" value="lumos" /><span><b>A Lumos cadastra a loja no emissor</b> (recomendado)<br><span class="nf-hint">Você preenche os dados, envia o certificado e o CSC, e o Lumos faz o resto no Focus NFe.</span><span class="nf-hint" id="w-modo-aviso" style="display:none; color:#D4834A;"><br>Disponível assim que a Lumos ativar a conta no emissor.</span></span></label>
-            <label data-m="token"><input type="radio" name="modo" value="token" /><span><b>A loja já tem conta no Focus NFe</b><br><span class="nf-hint">O certificado e o CSC já estão no painel do emissor. Basta colar o token de acesso.</span></span></label>
+            <label data-m="token"><input type="radio" name="modo" value="token" /><span><b>A loja já tem conta no emissor</b> (recomendado)<br><span class="nf-hint">A loja (ou o contador) cadastra o certificado e o CSC no painel do Focus NFe. A Lumos só cola o token e conecta, sem custo extra.</span></span></label>
+            <label data-m="lumos"><input type="radio" name="modo" value="lumos" /><span><b>A Lumos cadastra a loja no emissor</b><br><span class="nf-hint">Para quem não tem conta: o Lumos cadastra a loja na conta da Lumos no emissor, com o certificado e o CSC.</span><span class="nf-hint" id="w-modo-aviso" style="display:none; color:#D4834A;"><br>Disponível assim que a Lumos ativar a conta no emissor.</span></span></label>
           </div>
         </div>
 
@@ -170,13 +170,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=73";
-    import { initThemeToggle } from "./js/theme.js?v=73";
-    import { initMobileNav } from "./js/mobileNav.js?v=73";
-    import { renderSidebar } from "./js/sidebar.js?v=73";
-    import { supabase } from "./js/supabaseClient.js?v=73";
-    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=73";
-    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=73";
+    import { requireSession, signOut } from "./js/auth.js?v=74";
+    import { initThemeToggle } from "./js/theme.js?v=74";
+    import { initMobileNav } from "./js/mobileNav.js?v=74";
+    import { renderSidebar } from "./js/sidebar.js?v=74";
+    import { supabase } from "./js/supabaseClient.js?v=74";
+    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=74";
+    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=74";
 
     await requireSession();
     initThemeToggle();
@@ -184,7 +184,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=73");
+    const { getMyAccess } = await import("./js/workspace.js?v=74");
     const acesso = await getMyAccess().catch(() => ({}));
     const souDono = !acesso?.member;
 
@@ -282,7 +282,7 @@
       $("w-modo-aviso").style.display = lumosOk ? "none" : "";
       document.querySelector('[data-m="lumos"]').classList.toggle("off", !lumosOk);
       document.querySelector('[data-m="lumos"] input').disabled = !lumosOk;
-      escolherModo(c.modo || (lumosOk ? "lumos" : "token"));
+      escolherModo(c.modo || "token");
       $("wizard").scrollIntoView({ behavior: "smooth", block: "start" });
     }
     let modo = "lumos";
@@ -472,6 +472,7 @@
 
     await carregarStatus();
     carregarNotas();
+    import("./js/ajuda.js?v=74").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
   </script>
 </body>
 </html>

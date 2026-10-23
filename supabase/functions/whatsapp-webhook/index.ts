@@ -1450,7 +1450,7 @@ Deno.serve(async (req) => {
         await supabase.from("leads").update({
           last_message_at: new Date().toISOString(),
           ...(visit ? { visit_status: visit } : {}),
-          ...(["novo_contato"].includes(lead.stage) && canStage("conversando") ? { stage: "conversando" } : {}),
+          // No restaurante, o card só vai para "Pedido feito" quando um pedido é criado (regra no banco, seção 46)
         }).eq("id", lead.id);
         return new Response("mesa flow", { status: 200 });
       };

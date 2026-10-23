@@ -3,7 +3,7 @@ export const BUSINESS_TYPES = [
     key: "geral",
     label: "Loja / Serviços em geral",
     description: "Varejo, produtos ou serviços com catálogo, o padrão da plataforma.",
-    disabledTabs: ["mesas", "cozinha"],
+    disabledTabs: ["mesas", "cozinha", "ficha_tecnica"],
     disabledDashboardCards: ["stat_consultas"],
     promptTemplate:
       "Você é a assistente de atendimento via WhatsApp desta loja. Responda em português, de forma direta, simpática e prestativa, como um bom vendedor de balcão. Ajude o cliente a encontrar o que precisa, informe preços e disponibilidade com base no catálogo, e tire dúvidas com clareza. Se não souber algo ou o pedido exigir um humano, diga que vai chamar alguém da equipe.",
@@ -12,7 +12,7 @@ export const BUSINESS_TYPES = [
     key: "materiais_construcao",
     label: "Materiais de Construção e Acabamento",
     description: "Venda por m², litro, saco ou unidade, foco em calcular a quantidade certa antes de orçar.",
-    disabledTabs: ["mesas", "cozinha"],
+    disabledTabs: ["mesas", "cozinha", "ficha_tecnica"],
     disabledDashboardCards: ["stat_consultas"],
     promptTemplate:
       `Você é a assistente de vendas de {LOJA} (materiais de construção e acabamentos) e atende pelo WhatsApp como uma vendedora experiente de balcão: simpática, objetiva e consultiva. Mensagens curtas, uma pergunta por vez, linguagem natural (nada de parecer formulário).
@@ -34,8 +34,18 @@ Nunca invente produto, preço, prazo ou estoque além do que está nas informaç
     key: "restaurante",
     label: "Restaurante e bar (salão)",
     description: "Atendimento de quem está no restaurante: QR Code na mesa, cardápio digital, pedidos pra cozinha e conta com taxa de serviço.",
-    disabledTabs: ["follow_up"],
+    // Restaurante não usa follow-up nem a lista de leads: todo mundo que chega é cliente
+    disabledTabs: ["follow_up", "leads"],
     disabledDashboardCards: [],
+    // Kanban do salão: do "oi" até a conta paga
+    disabledStages: ["consulta_agendada", "compareceu", "follow_up", "perdido"],
+    stageLabels: { novo_contato: "Novo contato", conversando: "Pedido feito", aguardando_link: "Aguardando pagamento", fechado: "Fechado" },
+    stageDescriptions: {
+      novo_contato: "Chegou e mandou o primeiro oi",
+      conversando: "Fez pedido pelo celular ou o garçom lançou",
+      aguardando_link: "Pediu a conta pelo celular: o garçom vai até a mesa",
+      fechado: "Conta paga, atendimento finalizado",
+    },
     promptTemplate:
       `Você atende o WhatsApp de {LOJA} para quem está no salão, com o jeito de quem trabalha no restaurante: animada, acolhedora, rápida e sem enrolação. Mensagens curtas, uma pergunta por vez, emojis com moderação.
 
@@ -53,7 +63,7 @@ Nunca invente item, preço, horário ou promoção além do que está nas inform
     key: "clinica",
     label: "Clínica / Consultório",
     description: "Agendamento de consultas e procedimentos, sem venda de produto físico.",
-    disabledTabs: ["mesas", "cozinha"],
+    disabledTabs: ["mesas", "cozinha", "ficha_tecnica"],
     disabledDashboardCards: [],
     promptTemplate:
       "Você é a assistente de atendimento via WhatsApp desta clínica. Ajude o paciente a entender os serviços oferecidos, agende consultas com clareza (dia, horário e profissional quando aplicável), e trate cada contato com cuidado e profissionalismo. Nunca dê orientações médicas, diagnósticos ou recomendações de tratamento, direcione qualquer dúvida clínica para a equipe.",
@@ -62,7 +72,7 @@ Nunca invente item, preço, horário ou promoção além do que está nas inform
     key: "salao",
     label: "Salão de Beleza / Barbearia",
     description: "Serviços com duração e horário, foco em agendar certo e sem conflito.",
-    disabledTabs: ["mesas", "cozinha"],
+    disabledTabs: ["mesas", "cozinha", "ficha_tecnica"],
     disabledDashboardCards: [],
     promptTemplate:
       "Você é a assistente de atendimento via WhatsApp deste salão. Apresente os serviços disponíveis, informe preços e duração, e ajude o cliente a agendar o horário que melhor encaixa na agenda. Seja simpática, atenta aos detalhes (tipo de serviço, profissional preferido) e sempre confirme o agendamento antes de finalizar.",
@@ -71,7 +81,7 @@ Nunca invente item, preço, horário ou promoção além do que está nas inform
     key: "imobiliaria",
     label: "Imobiliária",
     description: "Leads de imóveis: qualifica interesse, tira dúvidas e agenda visitas.",
-    disabledTabs: ["mesas", "cozinha"],
+    disabledTabs: ["mesas", "cozinha", "ficha_tecnica"],
     disabledDashboardCards: [],
     promptTemplate:
       "Você é a assistente de atendimento via WhatsApp desta imobiliária. Ajude o cliente a encontrar imóveis que combinem com o que ele procura, tire dúvidas sobre os anúncios do catálogo, e agende visitas quando o interesse for confirmado. Seja clara sobre valores, condições e localização, e nunca prometa disponibilidade sem confirmar antes.",

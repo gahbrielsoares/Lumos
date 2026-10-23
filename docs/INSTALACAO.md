@@ -1891,6 +1891,58 @@ no emissor com o certificado e o CSC. Sem ele, só funciona a opção "A loja j�
 - **Caixa**: abertura com fundo de troco, sangria, suprimento e fechamento conferindo cada forma de pagamento,
   com relatório para imprimir. Caixa fechado não pode mais ser alterado.
 
+## 46. Kanban automático do restaurante, Ajuda e Simulação nas páginas
+
+No **SQL Editor**:
+
+```sql
+-- Kanban do restaurante: o card anda sozinho conforme o que acontece de verdade
+-- 1) Pedido criado (pelo celular do cliente, pelo cardápio ou lançado pelo garçom) -> "Pedido feito" (etapa conversando)
+create or replace function public.kanban_pedido_feito() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.lead_id is not null then
+    update public.leads set stage = 'conversando'
+     where id = new.lead_id and stage in ('novo_contato', 'follow_up');
+  end if;
+  return null;
+exception when others then return null;   -- nunca trava o pedido
+end $$;
+drop trigger if exists trg_kanban_pedido_feito on public.orders;
+create trigger trg_kanban_pedido_feito after insert on public.orders
+  for each row execute function public.kanban_pedido_feito();
+
+-- 2) Cliente pediu a conta pelo celular -> "Aguardando pagamento" (etapa aguardando_link)
+create or replace function public.kanban_pediu_conta() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  begin
+    if new.visit_status = 'aguardando_pagamento' and old.visit_status is distinct from 'aguardando_pagamento'
+       and coalesce(new.stage, '') not in ('fechado', 'perdido') then
+      new.stage := 'aguardando_link';
+    end if;
+  exception when others then null;
+  end;
+  return new;
+end $$;
+drop trigger if exists trg_kanban_pediu_conta on public.leads;
+create trigger trg_kanban_pediu_conta before update of visit_status on public.leads
+  for each row execute function public.kanban_pediu_conta();
+```
+
+Depois, atualize a Edge Function **`whatsapp-webhook`** (no restaurante, informar a mesa não move mais o card;
+só um pedido de verdade move para "Pedido feito").
+
+### Como funciona
+- Em **Configurações → Tipo de negócio**, escolher **Restaurante e bar** e salvar esconde Follow-up e Leads e deixa o
+  Kanban com as colunas do salão: Novo contato, Pedido feito, Aguardando pagamento e Fechado.
+- O card anda sozinho: pedido criado (celular, cardápio ou garçom) vai para **Pedido feito**; cliente pede a conta
+  pelo celular vai para **Aguardando pagamento**; conta paga vai para **Fechado**.
+- **Ajuda** (canto inferior direito) nas páginas de conexão: lista do que a loja precisa passar, com "Copiar lista"
+  e "Enviar no WhatsApp".
+- **Simular** (só administrador e suporte): apresentação guiada com dados fictícios montados só na tela. Nada é
+  gravado no banco. Primeira página com simulação: Kanban.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

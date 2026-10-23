@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ficha técnica | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=73" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=73" />
-  <script src="js/dialogs.js?v=73"></script>
+  <script src="js/logo.js?v=74" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=74" />
+  <script src="js/dialogs.js?v=74"></script>
   <style>
     .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -113,12 +113,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=73";
-    import { initThemeToggle } from "./js/theme.js?v=73";
-    import { initMobileNav } from "./js/mobileNav.js?v=73";
-    import { renderSidebar } from "./js/sidebar.js?v=73";
-    import { supabase } from "./js/supabaseClient.js?v=73";
-    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=73";
+    import { requireSession, signOut } from "./js/auth.js?v=74";
+    import { initThemeToggle } from "./js/theme.js?v=74";
+    import { initMobileNav } from "./js/mobileNav.js?v=74";
+    import { renderSidebar } from "./js/sidebar.js?v=74";
+    import { supabase } from "./js/supabaseClient.js?v=74";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=74";
 
     await requireSession();
     initThemeToggle();
@@ -128,7 +128,7 @@
     const owner_id = await ownerId();
 
     // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
-    const { getMyAccess } = await import("./js/workspace.js?v=73");
+    const { getMyAccess } = await import("./js/workspace.js?v=74");
     const acesso = await getMyAccess().catch(() => ({}));
     const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }

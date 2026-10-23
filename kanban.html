@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=73" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=73" />
+  <script src="js/logo.js?v=74" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=74" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -14,7 +14,7 @@
     .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
     .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
   </style>
-  <script src="js/dialogs.js?v=73"></script>
+  <script src="js/dialogs.js?v=74"></script>
 </head>
 <body>
 
@@ -101,16 +101,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=73";
-    import { initThemeToggle } from "./js/theme.js?v=73";
-    import { initMobileNav } from "./js/mobileNav.js?v=73";
-    import { renderSidebar } from "./js/sidebar.js?v=73";
-    import { supabase } from "./js/supabaseClient.js?v=73";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=73";
-    import { listAgents } from "./js/agents.js?v=73";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=73";
-    import { openLeadPanel } from "./js/leadPanel.js?v=73";
-    import { getRange } from "./js/dateRange.js?v=73";
+    import { requireSession, signOut } from "./js/auth.js?v=74";
+    import { initThemeToggle } from "./js/theme.js?v=74";
+    import { initMobileNav } from "./js/mobileNav.js?v=74";
+    import { renderSidebar } from "./js/sidebar.js?v=74";
+    import { supabase } from "./js/supabaseClient.js?v=74";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=74";
+    import { listAgents } from "./js/agents.js?v=74";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=74";
+    import { openLeadPanel } from "./js/leadPanel.js?v=74";
+    import { getRange } from "./js/dateRange.js?v=74";
 
     await requireSession();
     initThemeToggle();
@@ -281,6 +281,47 @@
       document.getElementById("config-modal").style.display = "none";
       loadBoard();
     });
+
+    // ================= Simulação para apresentação (só administração) =================
+    // O card do Adalberto existe só na tela: nada é gravado no banco.
+    const { botaoSimular, destacar } = await import("./js/simulacao.js?v=74");
+    const L = (st) => STAGE_LABELS[st] || st;
+    function cardSim(stage, tags) {
+      board.querySelector(".sim-card")?.remove();
+      const col = board.querySelector(`.kanban-col-body[data-stage="${stage}"]`);
+      if (!col) { lumosAlert(`A coluna "${L(stage)}" está oculta nas configurações do Kanban. Mostre a coluna para ver este passo.`); return; }
+      const c = document.createElement("div");
+      c.className = "kanban-card sim-card";
+      c.draggable = false;
+      c.innerHTML = `<span class="sim-mark">Simulação</span>
+        <div class="name">Adalberto Souza</div>
+        <div class="reason">Mesa 7 · 2 pessoas</div>
+        ${tags ? `<div class="kc-tags">${tags}</div>` : ""}
+        <div class="date">Última mensagem agora</div>`;
+      col.prepend(c);
+      destacar(c);
+      const cont = col.closest(".kanban-col")?.querySelector(".kanban-count");
+      if (cont) cont.dataset.sim = "1";
+    }
+    botaoSimular(() => ({
+      titulo: "Kanban: o caminho do cliente, do oi até a conta paga",
+      antes: "O cliente escaneia o QR Code da mesa ou manda mensagem no WhatsApp do restaurante. A IA responde na hora e o contato é criado sozinho.",
+      faz: "Mostra em colunas em que ponto cada cliente está: chegou, fez o pedido, pediu a conta e pagou. O card anda sozinho, sem ninguém precisar arrastar.",
+      depois: "Os pedidos vão para a Cozinha, a conta para Mesas e Caixa, e o pagamento entra no Financeiro, na Contabilidade e na nota fiscal.",
+      // Mostra todos os períodos e espera o quadro terminar de carregar antes do primeiro card
+      preparar: async () => { if (currentRange !== "todos") { currentRange = "todos"; paintRange(); } await loadBoard(); },
+      passos: [
+        { titulo: L("novo_contato"), acao: () => cardSim("novo_contato"),
+          texto: `Observe que na coluna ${L("novo_contato")} aparece o Adalberto, que acabou de chegar ao restaurante e mandou o primeiro oi. Quando isso acontece, ele já entra no início do fluxo.` },
+        { titulo: L("conversando"), acao: () => cardSim("conversando", `<div class="kc-tag kc-quote">Pedido #1043 · R$ 86,00</div>`),
+          texto: `Observe que o Adalberto fez o pedido e o fluxo atualizou sozinho. Para estar na coluna ${L("conversando")}, ele precisa ter feito um pedido pelo próprio celular ou o garçom ter lançado. Ele fica aqui até pedir a conta.` },
+        { titulo: L("aguardando_link"), acao: () => cardSim("aguardando_link", `<div class="kc-tag kc-quote">🧾 Pediu a conta · R$ 94,60</div>`),
+          texto: `Agora o card do Adalberto foi para ${L("aguardando_link")}. Isso acontece quando ele pede a conta pelo celular: na mesma hora os garçons veem na tela deles que tem cliente querendo fechar e vão até a mesa. Se ele pedir a conta direto ao garçom, o garçom fecha ali mesmo e o card pula direto para ${L("fechado")}.` },
+        { titulo: L("fechado"), acao: () => cardSim("fechado", `<div class="kc-tag kc-ok">Pago · R$ 94,60</div>`),
+          texto: `Chegamos ao fim do fluxo: o card está em ${L("fechado")}. O Adalberto pagou a conta e o atendimento foi finalizado. A venda já entrou no Caixa, no Financeiro e na Contabilidade.` },
+      ],
+      limpar: () => board.querySelector(".sim-card")?.remove(),
+    }));
   </script>
 
 </body>

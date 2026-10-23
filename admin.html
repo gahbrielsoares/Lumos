@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=73" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=73" />
-  <script src="js/dialogs.js?v=73"></script>
+  <script src="js/logo.js?v=74" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=74" />
+  <script src="js/dialogs.js?v=74"></script>
 </head>
 <body>
 
@@ -75,12 +75,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=73";
-    import { initThemeToggle } from "./js/theme.js?v=73";
-    import { initMobileNav } from "./js/mobileNav.js?v=73";
-    import { renderSidebar } from "./js/sidebar.js?v=73";
-    import { supabase } from "./js/supabaseClient.js?v=73";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=73";
+    import { requireSession, signOut } from "./js/auth.js?v=74";
+    import { initThemeToggle } from "./js/theme.js?v=74";
+    import { initMobileNav } from "./js/mobileNav.js?v=74";
+    import { renderSidebar } from "./js/sidebar.js?v=74";
+    import { supabase } from "./js/supabaseClient.js?v=74";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=74";
 
     await requireSession();
     initThemeToggle();
@@ -89,7 +89,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=73");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=74");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -105,7 +105,7 @@
     ];
     const PACOTES = {
       "Lojas (materiais)": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "estoque", "compras", "caixa", "financeiro", "relatorios", "contabilidade", "fiscal", "settings", "equipe"],
-      "Restaurante": ["dashboard", "clientes", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque", "compras", "caixa", "financeiro", "relatorios", "contabilidade", "fiscal", "settings", "equipe"],
+      "Restaurante": ["dashboard", "kanban", "clientes", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque", "compras", "caixa", "financeiro", "relatorios", "contabilidade", "fiscal", "settings", "equipe"],
       "Só CRM": ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "settings", "equipe"],
       "CRM + ERP": ["dashboard", ...TABS.filter((t) => t.group).map((t) => t.key), "settings", "equipe"],
     };
