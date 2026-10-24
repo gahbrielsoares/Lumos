@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Financeiro | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=80" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=80" />
-  <script src="js/dialogs.js?v=80"></script>
+  <script src="js/logo.js?v=81" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=81" />
+  <script src="js/dialogs.js?v=81"></script>
 </head>
 <body>
 
@@ -89,12 +89,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=80";
-    import { initThemeToggle } from "./js/theme.js?v=80";
-    import { initMobileNav } from "./js/mobileNav.js?v=80";
-    import { renderSidebar } from "./js/sidebar.js?v=80";
-    import { supabase } from "./js/supabaseClient.js?v=80";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
+    import { requireSession, signOut } from "./js/auth.js?v=81";
+    import { initThemeToggle } from "./js/theme.js?v=81";
+    import { initMobileNav } from "./js/mobileNav.js?v=81";
+    import { renderSidebar } from "./js/sidebar.js?v=81";
+    import { supabase } from "./js/supabaseClient.js?v=81";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=81";
 
     await requireSession();
     initThemeToggle();
@@ -222,7 +222,7 @@
     // ================= Simulação para apresentação (só administração) =================
     // Os lançamentos são fictícios e existem só na tela: nada é gravado no banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=80");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=81");
       const hoje = todayISO();
       const L = (id, tipo, descricao, categoria, valor, venc, pago, forma, origem) => ({ id: `sim-${id}`, tipo, descricao, categoria, valor, vencimento: venc, pago_em: pago, forma, origem, sim: true });
       let reais = null, fakes = [];

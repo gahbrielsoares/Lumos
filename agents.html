@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=80" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=80" />
-  <script src="js/dialogs.js?v=80"></script>
+  <script src="js/logo.js?v=81" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=81" />
+  <script src="js/dialogs.js?v=81"></script>
 </head>
 <body>
 
@@ -249,20 +249,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=80";
-    import { initThemeToggle } from "./js/theme.js?v=80";
-    import { initMobileNav } from "./js/mobileNav.js?v=80";
-    import { renderSidebar } from "./js/sidebar.js?v=80";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=80";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=80";
+    import { requireSession, signOut } from "./js/auth.js?v=81";
+    import { initThemeToggle } from "./js/theme.js?v=81";
+    import { initMobileNav } from "./js/mobileNav.js?v=81";
+    import { renderSidebar } from "./js/sidebar.js?v=81";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=81";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=81";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=80";
+    } from "./js/agents.js?v=81";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=80";
+    } from "./js/simulator.js?v=81";
 
     await requireSession();
     initThemeToggle();
@@ -574,10 +574,10 @@
     document.getElementById("copy-webhook").addEventListener("click", () => {
       navigator.clipboard.writeText(document.getElementById("webhook-url").value);
     });
-    import("./js/ajuda.js?v=80").then(({ botaoAjuda }) => botaoAjuda("agents"));
+    import("./js/ajuda.js?v=81").then(({ botaoAjuda }) => botaoAjuda("agents"));
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=81").then(({ botaoSimular, destacar, ficticio }) => botaoSimular(() => ({
       titulo: "Agentes: a IA que atende no WhatsApp da casa",
       antes: "O número de WhatsApp da loja é conectado ao Lumos (leva 1 minuto, lendo um QR Code). O cardápio e os horários vêm das outras abas.",
       faz: "Cada número tem o seu agente de IA, que atende 24 horas: responde dúvidas, mostra o cardápio, anota pedidos e reservas e fecha a conta, sempre no jeito da casa.",

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ficha técnica | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=80" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=80" />
-  <script src="js/dialogs.js?v=80"></script>
+  <script src="js/logo.js?v=81" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=81" />
+  <script src="js/dialogs.js?v=81"></script>
   <style>
     .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -113,12 +113,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=80";
-    import { initThemeToggle } from "./js/theme.js?v=80";
-    import { initMobileNav } from "./js/mobileNav.js?v=80";
-    import { renderSidebar } from "./js/sidebar.js?v=80";
-    import { supabase } from "./js/supabaseClient.js?v=80";
-    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
+    import { requireSession, signOut } from "./js/auth.js?v=81";
+    import { initThemeToggle } from "./js/theme.js?v=81";
+    import { initMobileNav } from "./js/mobileNav.js?v=81";
+    import { renderSidebar } from "./js/sidebar.js?v=81";
+    import { supabase } from "./js/supabaseClient.js?v=81";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=81";
 
     await requireSession();
     initThemeToggle();
@@ -128,7 +128,7 @@
     const owner_id = await ownerId();
 
     // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
-    const { getMyAccess } = await import("./js/workspace.js?v=80");
+    const { getMyAccess } = await import("./js/workspace.js?v=81");
     const acesso = await getMyAccess().catch(() => ({}));
     const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }
@@ -371,7 +371,7 @@
     // O X-Burguer e os insumos são fictícios e existem só na tela: nada é gravado no banco.
     // Os números vêm do próprio cálculo da página (custo, CMV e preço sugerido).
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=80");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=81");
       const S = {
         carne: { id: "sim-carne", name: "Carne moída", unit: "kg", custo: 40, estoque: 5, estoque_minimo: 2, is_insumo: true, active: true, sim: true },
         pao: { id: "sim-pao", name: "Pão de hambúrguer", unit: "unidade", custo: 1.2, estoque: 100, estoque_minimo: 20, is_insumo: true, active: true, sim: true },

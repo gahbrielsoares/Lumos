@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Clientes | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=80" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=80" />
-  <script src="js/dialogs.js?v=80"></script>
+  <script src="js/logo.js?v=81" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=81" />
+  <script src="js/dialogs.js?v=81"></script>
 </head>
 <body>
 
@@ -113,17 +113,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=80";
-    import { initThemeToggle } from "./js/theme.js?v=80";
-    import { initMobileNav } from "./js/mobileNav.js?v=80";
-    import { renderSidebar } from "./js/sidebar.js?v=80";
-    import { getRange } from "./js/dateRange.js?v=80";
-    import { listAgents } from "./js/agents.js?v=80";
+    import { requireSession, signOut } from "./js/auth.js?v=81";
+    import { initThemeToggle } from "./js/theme.js?v=81";
+    import { initMobileNav } from "./js/mobileNav.js?v=81";
+    import { renderSidebar } from "./js/sidebar.js?v=81";
+    import { getRange } from "./js/dateRange.js?v=81";
+    import { listAgents } from "./js/agents.js?v=81";
     import {
       listLeadsInRange, getLeadById, getLatestMessage,
       updateLeadStage, updateLeadFields, STAGES, STAGE_LABELS,
-    } from "./js/leads.js?v=80";
-    import { openLeadPanel } from "./js/leadPanel.js?v=80";
+    } from "./js/leads.js?v=81";
+    import { openLeadPanel } from "./js/leadPanel.js?v=81";
 
     await requireSession();
     initThemeToggle();
@@ -138,12 +138,12 @@
     const leadId = params.get("id");
 
     // Restaurante tem a sua própria visão de Clientes (visitas, gasto, sumidos, promoções)
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=80");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=81");
     const tipoNegocio = (await getBusinessConfig().catch(() => null))?.business_type;
     const modoRest = tipoNegocio === "restaurante" && !leadId;
     if (modoRest) {
       document.getElementById("view-list").style.display = "none";
-      const [{ iniciarClientesRestaurante }, { getWorkspaceOwnerId }] = await Promise.all([import("./js/clientesRestaurante.js?v=80"), import("./js/workspace.js?v=80")]);
+      const [{ iniciarClientesRestaurante }, { getWorkspaceOwnerId }] = await Promise.all([import("./js/clientesRestaurante.js?v=81"), import("./js/workspace.js?v=81")]);
       await iniciarClientesRestaurante({ ownerId: await getWorkspaceOwnerId(), openLeadPanel });
     }
 

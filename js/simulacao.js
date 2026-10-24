@@ -4,8 +4,8 @@
 // 2) "Simular": passo a passo com uma historinha e dados FICTÍCIOS, montados só na tela.
 //    Nada é gravado no banco: relatórios, financeiro e notas nunca recebem dados de simulação.
 // =====================================================================
-import { getAccess } from "./sidebar.js?v=80";
-import { barraFerramentas } from "./ajuda.js?v=80";
+import { getAccess } from "./sidebar.js?v=81";
+import { barraFerramentas } from "./ajuda.js?v=81";
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -24,6 +24,40 @@ export function destacar(el) {
 }
 
 let ativa = null;
+
+// ---------- Ferramentas para montar tutoriais (tudo é desfeito ao sair) ----------
+const trocas = [];
+// Insere HTML fictício (linhas, cartões) marcado para ser removido no fim
+export function ficticio(alvo, html, pos = "afterbegin") {
+  const el = typeof alvo === "string" ? document.querySelector(alvo) : alvo;
+  if (!el) return null;
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  const nos = [...t.content.children];
+  nos.forEach((n) => (n.dataset.simTmp = "1"));
+  if (pos === "afterbegin") el.prepend(...nos); else el.append(...nos);
+  return nos[0] || null;
+}
+// Troca o texto de um elemento (ex.: um número de um quadro) e guarda o original
+export function trocar(alvo, texto) {
+  const el = typeof alvo === "string" ? document.querySelector(alvo) : alvo;
+  if (!el) return null;
+  if (!trocas.some((t) => t.el === el)) trocas.push({ el, html: el.innerHTML, display: null });
+  el.textContent = texto;
+  return el;
+}
+// Esconde um elemento (ex.: aviso de "nenhum item") durante o tutorial
+export function esconder(alvo) {
+  const el = typeof alvo === "string" ? document.querySelector(alvo) : alvo;
+  if (!el) return;
+  if (!trocas.some((t) => t.el === el && t.display !== null)) trocas.push({ el, html: null, display: el.style.display });
+  el.style.display = "none";
+}
+function desfazerTudo() {
+  document.querySelectorAll("[data-sim-tmp]").forEach((n) => n.remove());
+  while (trocas.length) { const t = trocas.pop(); if (t.html !== null) t.el.innerHTML = t.html; if (t.display !== null) t.el.style.display = t.display; }
+  const main = document.querySelector(".dash-main"); if (main) main.style.pointerEvents = "";
+}
 
 // ---------- Ferramentas para montar tutoriais (tudo é desfeito ao sair) ----------
 const trocas = [];
@@ -151,7 +185,6 @@ export function iniciarSimulacao(cfg) {
   const fundo = document.createElement("div");
   fundo.className = "lumos-help-overlay";
   fundo.innerHTML = `<div class="lumos-help-box sim-intro" role="dialog" aria-modal="true">
-    ${(() => { const r = lerRoteiro(); const i = r ? r.ordem.indexOf(paginaAtual()) : -1; return i >= 0 ? `<span class="sim-selo">Roteiro: ${i + 1} de ${r.ordem.length}</span>` : ""; })()}
     <div class="lumos-help-head"><h3>${esc(cfg.titulo)}</h3><button class="lumos-help-x" aria-label="Fechar">✕</button></div>
     <div class="sim-blocos">
       <div class="sim-bloco"><b>De onde vem</b><p>${esc(cfg.antes)}</p></div>
@@ -161,10 +194,9 @@ export function iniciarSimulacao(cfg) {
     <div class="lumos-help-acoes"><button class="btn btn-ghost" data-s="x">Fechar</button><button class="btn btn-primary" data-s="go">▶ Simular</button></div>
   </div>`;
   const fechar = () => fundo.remove();
-  const desistir = () => { fechar(); if (lerRoteiro()) painelProximo(); };
-  fundo.querySelector(".lumos-help-x").addEventListener("click", desistir);
-  fundo.querySelector('[data-s="x"]').addEventListener("click", desistir);
-  fundo.addEventListener("click", (e) => { if (e.target === fundo) desistir(); });
+  fundo.querySelector(".lumos-help-x").addEventListener("click", fechar);
+  fundo.querySelector('[data-s="x"]').addEventListener("click", fechar);
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fechar(); });
   fundo.querySelector('[data-s="go"]').addEventListener("click", async () => {
     fechar();
     ativa = { i: 0 };
@@ -177,7 +209,6 @@ export function iniciarSimulacao(cfg) {
       ativa = null;
       try { await cfg.limpar?.(); } catch (e) { console.error(e); }
       desfazerTudo();
-      if (lerRoteiro()) painelProximo();
     };
     const mostrar = async () => {
       const passo = cfg.passos[ativa.i];
@@ -206,23 +237,4 @@ export async function botaoSimular(cfg) {
   b.title = "Apresentação guiada desta página (só administração)";
   b.addEventListener("click", () => iniciarSimulacao(typeof cfg === "function" ? cfg() : cfg));
   barra.prepend(b);
-  const r = lerRoteiro();
-  if (r && r.ordem[r.i] === paginaAtual() && !r.feitas.includes(paginaAtual())) setTimeout(() => iniciarSimulacao(typeof cfg === "function" ? cfg() : cfg), 700);
-}
-
-// Botão "Roteiro" na barra do canto (só administração), em todas as páginas
-export async function botaoRoteiro() {
-  if (!(await podeSimular())) return;
-  const barra = barraFerramentas();
-  if (barra.querySelector('[data-tool="roteiro"]')) return;
-  const b = document.createElement("button");
-  b.className = "lumos-tool-btn sim";
-  b.dataset.tool = "roteiro";
-  b.innerHTML = `<span aria-hidden="true">☰</span> Roteiro`;
-  b.title = "Apresentar o sistema inteiro, aba por aba";
-  b.addEventListener("click", abrirRoteiro);
-  barra.prepend(b);
-  // Página do roteiro sem tutorial: não trava, oferece a próxima
-  const r = lerRoteiro();
-  if (r && r.ordem[r.i] === paginaAtual()) setTimeout(() => { if (!barra.querySelector('[data-tool="simular"]') && !document.getElementById("sim-painel")) painelProximo(); }, 4000);
 }

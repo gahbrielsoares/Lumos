@@ -2481,13 +2481,6 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 .cb-gl-h b { font-size: 14.5px; }
 .cb-gl-h span { font-size: 13.5px; font-weight: 700; color: var(--panel-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cb-gl p { margin-top: 4px; font-size: 13.5px; line-height: 1.5; color: var(--panel-text-muted); }
-.sim-roteiro { margin: 10px 0 0 22px; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 16px; }
-.sim-roteiro li { font-size: 14px; }
-.sim-roteiro li button { border: 0; background: none; color: var(--panel-text); font-family: var(--panel-font-body); font-size: 14px; cursor: pointer; padding: 3px 0; text-align: left; }
-.sim-roteiro li button:hover { text-decoration: underline; }
-.sim-roteiro li.ok button { color: #4A7C59; }
-.sim-roteiro li.aqui button { font-weight: 700; }
-.sim-intro > .sim-selo { display: inline-block; margin-bottom: 8px; }
 .sim-chat { display: flex; flex-direction: column; gap: 8px; max-width: 520px; padding: 14px; border-radius: 16px; border: 1px solid var(--panel-border); background: var(--panel-bg); }
 .sim-chat .b { max-width: 80%; padding: 8px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; }
 .sim-chat .c { align-self: flex-end; background: #DCF8C6; color: #1C2B3A; border-bottom-right-radius: 4px; }

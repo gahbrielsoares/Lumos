@@ -1946,9 +1946,6 @@ só um pedido de verdade move para "Pedido feito").
   e "Enviar no WhatsApp".
 - **Simular** (só administrador e suporte): apresentação guiada com dados fictícios montados só na tela. Nada é
   gravado no banco. Todas as abas têm simulação.
-- **Roteiro** (só administrador e suporte): apresenta o sistema inteiro, aba por aba, na ordem da história do cliente.
-  Mostra só as abas que existem no menu da conta (o nicho esconde as outras). Cada aba abre o tutorial sozinha e, no
-  fim, oferece seguir para a próxima.
 - **Contabilidade → "O que é cada imposto?"**: explicação simples de cada tributo do regime da empresa, com o valor do
   mês e o porte (ME, EPP) calculado pelo faturamento. O porte é só classificação; o que muda o cálculo é o regime.
 - No nicho restaurante, Agendamentos aparece como **Reservas** e o Dashboard fala de contatos, clientes e reservas.
