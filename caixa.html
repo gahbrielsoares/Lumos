@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Caixa | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=76" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=76" />
-  <script src="js/dialogs.js?v=76"></script>
+  <script src="js/logo.js?v=77" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=77" />
+  <script src="js/dialogs.js?v=77"></script>
   <style>
     .cx-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .cx-card h3 { font-size:16px; }
@@ -69,13 +69,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=76";
-    import { initThemeToggle } from "./js/theme.js?v=76";
-    import { initMobileNav } from "./js/mobileNav.js?v=76";
-    import { renderSidebar } from "./js/sidebar.js?v=76";
-    import { supabase } from "./js/supabaseClient.js?v=76";
-    import { brl, esc, ownerId, modal } from "./js/erp.js?v=76";
-    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=76";
+    import { requireSession, signOut } from "./js/auth.js?v=77";
+    import { initThemeToggle } from "./js/theme.js?v=77";
+    import { initMobileNav } from "./js/mobileNav.js?v=77";
+    import { renderSidebar } from "./js/sidebar.js?v=77";
+    import { supabase } from "./js/supabaseClient.js?v=77";
+    import { brl, esc, ownerId, modal } from "./js/erp.js?v=77";
+    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=77";
 
     await requireSession();
     initThemeToggle();
@@ -83,7 +83,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=76");
+    const { getMyAccess } = await import("./js/workspace.js?v=77");
     const acesso = await getMyAccess().catch(() => ({}));
     const { data: u } = await supabase.auth.getUser();
     const eu = { id: u?.user?.id || null, nome: acesso?.member?.nome || u?.user?.email || "Responsável" };
@@ -261,7 +261,66 @@
     }
     $("hist").addEventListener("click", (e) => { const b = e.target.closest("[data-rel]"); if (b) relatorio(window.__hist.find((c) => c.id === b.dataset.rel)); });
 
-    load();
+    await load();
+
+    // ================= Simulação para apresentação (só administração) =================
+    // O caixa do turno é fictício e existe só na tela: nada é gravado no banco.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=77");
+      const agora = Date.now();
+      const VENDAS = [["pix", 94.6], ["dinheiro", 80], ["credito", 120], ["dinheiro", 45], ["debito", 62.5]].map(([metodo, v]) => ({ pagamento: { metodo, valor_cobrado: v } }));
+      const SANGRIA = { tipo: "sangria", valor: 100, motivo: "cofre", por_nome: "Carla (caixa)", created_at: new Date(agora - 3600e3).toISOString() };
+      function estado(aberto, comMovs) {
+        caixa = aberto ? { id: "sim", numero: 12, status: "aberto", aberto_em: new Date(agora - 4 * 3600e3).toISOString(), aberto_por_nome: "Carla (caixa)", valor_inicial: 150 } : null;
+        movs = comMovs ? [SANGRIA] : [];
+        vendas = aberto ? VENDAS : [];
+        resumo = aberto ? resumoCaixa({ valorInicial: 150, vendas, movs }) : null;
+        renderAtual();
+        const box = $("atual");
+        box.style.pointerEvents = "none";
+        box.querySelector(".cx-card")?.insertAdjacentHTML("afterbegin", `<span class="sim-mark">Simulação</span>`);
+        if (!aberto) { const i = box.querySelector("#a-ini"); if (i) i.value = "150"; }
+        return box.querySelector(".cx-card");
+      }
+      function fechamentoFicticio() {
+        document.getElementById("sim-fecha")?.remove();
+        const r = resumoCaixa({ valorInicial: 150, vendas: VENDAS, movs: [SANGRIA] });
+        const linhas = [["Dinheiro na gaveta", r.dinheiroGaveta, r.dinheiroGaveta - 2], ["Pix", r.formas.pix.valor, r.formas.pix.valor], ["Cartão de crédito", r.formas.credito.valor, r.formas.credito.valor], ["Cartão de débito", r.formas.debito.valor, r.formas.debito.valor]];
+        const el = document.createElement("div");
+        el.id = "sim-fecha"; el.className = "modal-backdrop";
+        el.style.cssText = "display:flex; z-index:940; align-items:flex-start; padding-top:5vh;";
+        el.innerHTML = `<div class="modal-box" style="max-width:600px; width:100%; pointer-events:none;">
+          <span class="sim-mark">Simulação</span>
+          <h3 style="font-size:18px; margin-top:6px;">Fechar caixa #12</h3>
+          <p class="cx-hint" style="margin:4px 0 12px;">Confira cada forma: conte o dinheiro da gaveta e compare cartão e Pix com o relatório da maquininha e o extrato.</p>
+          <div class="cx-fecha" style="margin-bottom:6px;"><span class="h">Forma</span><span class="h d" style="text-align:right;">Esperado</span><span class="h" style="text-align:right;">Conferido</span><span class="h" style="text-align:right;">Diferença</span></div>
+          ${linhas.map(([n, e, c]) => { const d = Math.round((c - e) * 100) / 100; return `<div class="cx-fecha" style="margin-bottom:8px;"><span>${n}</span><span class="cx-num d">${brl(e)}</span><input value="${c.toFixed(2)}" /><span class="cx-num ${d < 0 ? "cx-neg" : ""}">${d === 0 ? "ok" : brl(d)}</span></div>`; }).join("")}
+          <div class="field" style="margin-top:10px;"><label>Observação</label><input value="Troco errado em uma mesa" /></div>
+          <div class="modal-actions"><button class="btn btn-ghost">Voltar</button><button class="btn btn-primary">Fechar caixa</button></div></div>`;
+        document.body.appendChild(el);
+      }
+      const tirarFechamento = () => document.getElementById("sim-fecha")?.remove();
+      botaoSimular(() => ({
+        titulo: "Caixa: do troco da abertura até a conferência do fechamento",
+        antes: "Toda conta paga no Lumos (mesa, delivery, retirada ou WhatsApp) entra no caixa aberto, já separada pela forma de pagamento.",
+        faz: "Abre o turno com o fundo de troco, registra sangrias e suprimentos, mostra quanto deveria ter na gaveta e confere cada forma no fechamento.",
+        depois: "O fechamento vira um registro que ninguém altera, com relatório para imprimir e assinar. As vendas seguem para o Financeiro e a Contabilidade.",
+        passos: [
+          { titulo: "Abrindo o caixa", acao: () => destacar(estado(false)),
+            texto: "Começo do turno: a Carla, do caixa, abre o caixa informando os R$ 150,00 de troco que ficam na gaveta. Só existe um caixa aberto por vez." },
+          { titulo: "As vendas entram sozinhas", acao: () => destacar(estado(true, false)),
+            texto: "Cada conta paga entra no caixa sozinha, separada por forma de pagamento. A conta do Adalberto, R$ 94,60 no Pix, já está aqui. Ninguém digita valor nenhum." },
+          { titulo: "Sangria", acao: () => destacar(estado(true, true)),
+            texto: "No meio do turno, a Carla tirou R$ 100,00 da gaveta e levou para o cofre. Ela registra a sangria e o sistema já recalcula quanto deveria ter na gaveta: R$ 175,00." },
+          { titulo: "Fechamento conferido", acao: () => fechamentoFicticio(),
+            texto: "No fechamento, ela conta o dinheiro e confere cartão e Pix com a maquininha e o extrato. Faltaram R$ 2,00 na gaveta: a diferença aparece na hora, com a observação de onde veio." },
+          { titulo: "Registro que não muda", acao: () => { tirarFechamento(); const c = estado(false); destacar(c);
+              $("hist").insertAdjacentHTML("afterbegin", `<tr class="cr-simrow" data-sim-hist><td>#12 <span class="sim-mark">Simulação</span></td><td>hoje, 18:00</td><td>hoje, 23:40</td><td>Carla (caixa)</td><td class="cx-num">${brl(402.1)}</td><td class="cx-num cx-neg">${brl(-2)}</td><td></td></tr>`); },
+            texto: "Caixa fechado vira registro: nem o dono consegue alterar depois. O histórico mostra cada turno com a diferença, e o relatório sai pronto para imprimir e assinar. Assim o dono sabe exatamente o que aconteceu em cada turno." },
+        ],
+        limpar: () => { tirarFechamento(); $("hist").querySelector("[data-sim-hist]")?.remove(); $("atual").style.pointerEvents = ""; load(); },
+      }));
+    }
   </script>
 </body>
 </html>

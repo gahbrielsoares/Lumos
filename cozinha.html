@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=76" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=76" />
+  <script src="js/logo.js?v=77" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=77" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
   </style>
-  <script src="js/dialogs.js?v=76"></script>
+  <script src="js/dialogs.js?v=77"></script>
 </head>
 <body>
 
@@ -114,14 +114,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=76";
-    import { initThemeToggle } from "./js/theme.js?v=76";
-    import { initMobileNav } from "./js/mobileNav.js?v=76";
-    import { renderSidebar } from "./js/sidebar.js?v=76";
-    import { supabase } from "./js/supabaseClient.js?v=76";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=76";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=76";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=76";
+    import { requireSession, signOut } from "./js/auth.js?v=77";
+    import { initThemeToggle } from "./js/theme.js?v=77";
+    import { initMobileNav } from "./js/mobileNav.js?v=77";
+    import { renderSidebar } from "./js/sidebar.js?v=77";
+    import { supabase } from "./js/supabaseClient.js?v=77";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=77";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=77";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=77";
 
     await requireSession();
     initThemeToggle();
@@ -144,7 +144,7 @@
     const hiddenCols = () => disabledAll.filter((d) => d.startsWith("cozinha:")).map((d) => d.slice(8));
     let STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
     // "+ Novo pedido" para funcionários só se o dono liberar (marca "cozinha:equipe_pedidos")
-    const { isTeamMember } = await import("./js/workspace.js?v=76");
+    const { isTeamMember } = await import("./js/workspace.js?v=77");
     const souEquipe = await isTeamMember();
     const equipeLanca = () => disabledAll.includes("cozinha:equipe_pedidos");
     const aplicarBotaoPedido = () => {
@@ -250,7 +250,7 @@
     });
 
     // Atualiza sozinho a cada 20s (pedidos novos chegando pelo WhatsApp)
-    setInterval(() => { if (!document.querySelector(".dragging")) loadBoard(); }, 20000);
+    setInterval(() => { if (!document.querySelector(".dragging") && !document.body.classList.contains("sim-on")) loadBoard(); }, 20000);
 
     // ---------- Novo pedido manual (feito com o garçom) ----------
     let productsAll = [];
@@ -395,6 +395,59 @@
     });
 
     loadBoard();
+
+    // ================= Simulação para apresentação (só administração) =================
+    // Os pedidos do Adalberto e da Juliana existem só na tela: nada é gravado no banco.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=77");
+      const PED = {
+        mesa: { titulo: "🍽️ Mesa · <strong>Mesa 7</strong>", num: "#1043", nome: "Adalberto Souza", itens: `<strong>1x</strong> Picanha na chapa<br><span style="color:#D4834A;">↳ ao ponto, sem cebola</span><br><strong>2x</strong> Cerveja long neck`, total: 86 },
+        deliv: { titulo: "🛵 Delivery · <strong>Centro</strong>", num: "#1044", nome: "Juliana Prado", itens: `<strong>1x</strong> Parmegiana para dois<br><strong>1x</strong> Refrigerante 2 L`, total: 112, pagar: true },
+      };
+      const L = (st) => ORDER_STATUS_LABELS[st] || st;
+      function cartao(chave, status, minutos = 2) {
+        board.querySelector(`[data-sim-ped="${chave}"]`)?.remove();
+        const body = board.querySelector(`.kanban-col-body[data-status="${columnFor(status)}"]`);
+        if (!body) return null;
+        const p = PED[chave];
+        const c = document.createElement("div");
+        c.className = "kanban-card sim-card"; c.dataset.simPed = chave; c.draggable = false;
+        c.innerHTML = `<span class="sim-mark">Simulação</span>
+          <div style="display:flex; justify-content:space-between; gap:8px; font-size:12px; margin:4px 0;"><span>${p.titulo}</span><span>${p.num}</span></div>
+          <div class="name">${p.nome}</div>
+          <div class="reason" style="line-height:1.55;">${p.itens}</div>
+          ${p.pagar ? `<div class="kc-tag kc-off" style="display:inline-block; margin-top:6px;">💵 Cobrar na entrega</div>` : ""}
+          <div class="date" style="${minutos >= 30 ? "color:#B94040; font-weight:600;" : ""}">há ${minutos} min · R$ ${p.total.toFixed(2)}</div>`;
+        body.prepend(c);
+        destacar(c);
+        return c;
+      }
+      const limparCartoes = () => board.querySelectorAll("[data-sim-ped]").forEach((c) => c.remove());
+      botaoSimular(() => ({
+        titulo: "Cozinha: o pedido chega sozinho e anda até a entrega",
+        antes: "O pedido nasce no celular do cliente (cardápio do QR Code ou conversa no WhatsApp) ou é lançado pelo garçom. Pedidos de delivery e retirada chegam depois de confirmados.",
+        faz: "Mostra para a cozinha cada pedido com a mesa, os itens, as observações e há quanto tempo foi feito. A equipe arrasta o cartão entre as etapas.",
+        depois: "No delivery e na retirada, cada etapa avisa o cliente no WhatsApp. No salão, o garçom vê o que está pronto. O consumo fica na conta da mesa até o pagamento.",
+        preparar: async () => { await loadBoard(); },
+        passos: [
+          { titulo: L("novo_pedido"), acao: () => cartao("mesa", "novo_pedido", 0),
+            texto: `O pedido do Adalberto chegou sozinho na coluna ${L("novo_pedido")}, segundos depois que ele pediu pelo celular. A cozinha vê a mesa, os itens e a observação "ao ponto, sem cebola", sem papel e sem garçom correndo.` },
+          { titulo: L("em_preparo"), acao: () => cartao("mesa", "em_preparo", 6),
+            texto: `O cozinheiro arrasta o cartão para ${L("em_preparo")}. Todo mundo, do salão ao caixa, sabe que o prato já está sendo feito.` },
+          { titulo: "Nenhum prato esquecido", acao: () => cartao("mesa", "em_preparo", 32),
+            texto: "Se um pedido passa de 30 minutos, o tempo fica vermelho no cartão. Fica fácil ver o que está atrasado antes que o cliente reclame." },
+          { titulo: L("pronto"), acao: () => cartao("mesa", "pronto", 33),
+            texto: `Prato pronto: o cartão vai para ${L("pronto")} e o garçom leva até a Mesa 7.` },
+          { titulo: "Delivery com aviso automático", acao: () => { cartao("deliv", "novo_pedido", 1); },
+            texto: "Agora chegou um delivery da Juliana, já confirmado e com a forma de pagamento: ela vai pagar na entrega, e o cartão avisa o motoboy para cobrar." },
+          { titulo: `${L("saiu_entrega")}`, acao: () => cartao("deliv", "saiu_entrega", 25),
+            texto: `Quando o pedido vai para ${L(columnFor("saiu_entrega"))}, a Juliana recebe no WhatsApp, sozinha, a mensagem de que o pedido saiu. Ninguém precisa parar para avisar.` },
+          { titulo: L("entregue"), acao: () => { cartao("mesa", "entregue", 40); cartao("deliv", "entregue", 48); },
+            texto: `Tudo em ${L("entregue")}. A coluna mostra o que saiu no turno de hoje, e no dia seguinte ela começa limpa.` },
+        ],
+        limpar: () => { limparCartoes(); loadBoard(); },
+      }));
+    }
   </script>
 
 </body>

@@ -2,6 +2,10 @@
 
 Frontend estático (HTML/CSS/JS puro) pronto para GitHub Pages, com autenticação via Supabase.
 
+> **Conferir o que falta aplicar:** rode `docs/verificar-instalacao.sql` no SQL Editor. Ele só lê o banco e lista,
+> por seção, tudo o que ainda não foi aplicado (ou responde "Tudo aplicado"). Ao criar uma seção nova, gere a
+> consulta de novo com `python3 docs/gerar-verificacao.py`.
+
 ## 1. Criar o projeto no Supabase (gratuito)
 
 1. Acesse [supabase.com](https://supabase.com) e crie um projeto novo (plano Free).
@@ -1941,7 +1945,7 @@ só um pedido de verdade move para "Pedido feito").
 - **Ajuda** (canto inferior direito) nas páginas de conexão: lista do que a loja precisa passar, com "Copiar lista"
   e "Enviar no WhatsApp".
 - **Simular** (só administrador e suporte): apresentação guiada com dados fictícios montados só na tela. Nada é
-  gravado no banco. Páginas com simulação: Kanban, Clientes (restaurante) e Mesas.
+  gravado no banco. Páginas com simulação: Kanban, Clientes (restaurante), Mesas, Cozinha, Caixa e Ficha técnica.
 
 ## 47. Clientes do restaurante (visitas, sumidos e autorização para promoções)
 

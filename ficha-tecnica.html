@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ficha técnica | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=76" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=76" />
-  <script src="js/dialogs.js?v=76"></script>
+  <script src="js/logo.js?v=77" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=77" />
+  <script src="js/dialogs.js?v=77"></script>
   <style>
     .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -113,12 +113,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=76";
-    import { initThemeToggle } from "./js/theme.js?v=76";
-    import { initMobileNav } from "./js/mobileNav.js?v=76";
-    import { renderSidebar } from "./js/sidebar.js?v=76";
-    import { supabase } from "./js/supabaseClient.js?v=76";
-    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=76";
+    import { requireSession, signOut } from "./js/auth.js?v=77";
+    import { initThemeToggle } from "./js/theme.js?v=77";
+    import { initMobileNav } from "./js/mobileNav.js?v=77";
+    import { renderSidebar } from "./js/sidebar.js?v=77";
+    import { supabase } from "./js/supabaseClient.js?v=77";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=77";
 
     await requireSession();
     initThemeToggle();
@@ -128,7 +128,7 @@
     const owner_id = await ownerId();
 
     // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
-    const { getMyAccess } = await import("./js/workspace.js?v=76");
+    const { getMyAccess } = await import("./js/workspace.js?v=77");
     const acesso = await getMyAccess().catch(() => ({}));
     const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }
@@ -365,7 +365,60 @@
       abrirFicha(produtos.find((p) => p.id === tr.dataset.id));
     });
 
-    load();
+    await load();
+
+    // ================= Simulação para apresentação (só administração) =================
+    // O X-Burguer e os insumos são fictícios e existem só na tela: nada é gravado no banco.
+    // Os números vêm do próprio cálculo da página (custo, CMV e preço sugerido).
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=77");
+      const S = {
+        carne: { id: "sim-carne", name: "Carne moída", unit: "kg", custo: 40, estoque: 5, estoque_minimo: 2, is_insumo: true, active: true, sim: true },
+        pao: { id: "sim-pao", name: "Pão de hambúrguer", unit: "unidade", custo: 1.2, estoque: 100, estoque_minimo: 20, is_insumo: true, active: true, sim: true },
+        queijo: { id: "sim-queijo", name: "Queijo muçarela", unit: "kg", custo: 60, estoque: 3, estoque_minimo: 1, is_insumo: true, active: true, sim: true },
+        prato: { id: "sim-prato", name: "X-Burguer da casa", price: 32, estoque: null, is_insumo: false, active: true, sim: true },
+      };
+      const FICHA = [["carne", 0.15, 20], ["pao", 1, 0], ["queijo", 0.03, 0]].map(([k, q, p], i) => ({ id: `sim-r${i}`, product_id: "sim-prato", insumo_id: S[k].id, quantidade: q, perda_pct: p, sim: true }));
+      const aba = (t) => document.querySelector(`.ft-tab[data-tab="${t}"]`).click();
+      const marcar = () => document.querySelectorAll('tr[data-id^="sim-"], tr[data-ins^="sim-"]').forEach((tr) => {
+        tr.classList.add("cr-simrow"); tr.style.pointerEvents = "none";
+        const td = tr.querySelector("td"); if (td && !td.querySelector(".sim-mark")) td.insertAdjacentHTML("beforeend", ` <span class="sim-mark">Simulação</span>`);
+      });
+      const tirar = () => { produtos = produtos.filter((p) => !p.sim); receitas = receitas.filter((r) => !r.sim); };
+      const fecharJanelas = () => document.querySelectorAll(".modal-backdrop[data-sim]").forEach((m) => m.remove());
+      const mostrar = () => { render(); marcar(); };
+      botaoSimular(() => ({
+        titulo: "Ficha técnica: o custo real de cada prato, sozinho",
+        antes: "Os insumos (carne, pão, queijo) entram pelas Compras, com o custo de cada um. Os pratos vêm do cardápio, em Produtos.",
+        faz: "Diz quanto de cada insumo vai em cada prato. Calcula o custo da porção, o CMV e o preço ideal, e baixa os insumos do estoque a cada venda.",
+        depois: "O custo de cada prato alimenta os Relatórios, a margem e o CMV da Contabilidade. O estoque dos insumos aparece no Estoque, com alerta de mínimo.",
+        preparar: () => { tirar(); produtos.push(S.carne, S.pao, S.queijo, S.prato); },
+        passos: [
+          { titulo: "Os insumos", acao: () => { aba("insumos"); mostrar(); destacar(document.querySelector('tr[data-ins="sim-carne"]')); },
+            texto: "Insumo é o que entra no preparo e não é vendido sozinho. Aqui estão a carne moída a R$ 40,00 o quilo, o pão a R$ 1,20 e o queijo a R$ 60,00 o quilo, cada um com o estoque atual e o mínimo para alerta." },
+          { titulo: "Prato sem ficha", acao: () => { aba("pratos"); mostrar(); destacar(document.querySelector('tr[data-id="sim-prato"]')); },
+            texto: "O X-Burguer da casa é vendido por R$ 32,00, mas ainda não tem ficha técnica: o restaurante não sabe quanto ele custa de verdade, nem se dá lucro." },
+          { titulo: "Montando a ficha", acao: () => {
+              receitas.push(...FICHA); mostrar();
+              abrirFicha(S.prato);
+              const m = [...document.querySelectorAll(".modal-backdrop")].pop();
+              m.dataset.sim = "1"; m.style.zIndex = "940"; m.querySelector(".modal-box").style.pointerEvents = "none";
+              m.querySelector(".modal-box").insertAdjacentHTML("afterbegin", `<span class="sim-mark">Simulação</span>`);
+            },
+            texto: "Na ficha vai quanto de cada insumo entra em uma porção: 150 g de carne (com 20% de perda na chapa), 1 pão e 30 g de queijo. Na hora aparece o custo da porção (R$ 10,50), o CMV e o preço que bate a meta." },
+          { titulo: "Lucro de cada prato", acao: () => { fecharJanelas(); mostrar(); destacar(document.querySelector('tr[data-id="sim-prato"]')); },
+            texto: "Com a ficha pronta, o X-Burguer mostra custo de R$ 10,50 e CMV de 32,8%. Como a meta da casa é 30%, ele aparece como CMV alto e o Lumos sugere o preço de R$ 35,00. É a informação que falta na maioria dos restaurantes." },
+          { titulo: "Baixa automática no estoque", acao: () => {
+              S.carne.estoque = 4.625; S.pao.estoque = 98; S.queijo.estoque = 2.94;
+              aba("insumos"); mostrar(); destacar(document.querySelector('tr[data-ins="sim-carne"]'));
+            },
+            texto: "Foram vendidos 2 X-Burguer. Sozinho, o Lumos baixou 375 g de carne (já com a perda do preparo), 2 pães e 60 g de queijo. O estoque de insumos fica certo sem ninguém anotar nada." },
+          { titulo: "O preço da carne subiu", acao: () => { S.carne.custo = 48; aba("pratos"); mostrar(); destacar(document.querySelector('tr[data-id="sim-prato"]')); },
+            texto: "Chegou uma compra com a carne a R$ 48,00 o quilo. O custo de todos os pratos que usam carne é recalculado na hora: o X-Burguer passou a custar R$ 12,00. O dono vê o impacto no lucro no mesmo dia, e não no fim do mês." },
+        ],
+        limpar: () => { fecharJanelas(); S.carne.custo = 40; S.carne.estoque = 5; S.pao.estoque = 100; S.queijo.estoque = 3; tirar(); render(); },
+      }));
+    }
   </script>
 </body>
 </html>
