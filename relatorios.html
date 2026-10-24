@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Relatórios | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -97,12 +97,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -191,6 +191,31 @@
     }
     document.getElementById("f-periodo").addEventListener("change", load);
     load();
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+      titulo: "Relatórios: quanto a casa vende e quanto sobra",
+      antes: "As vendas pagas, o custo de cada prato (da ficha técnica) e as despesas lançadas no Financeiro.",
+      faz: "Mostra o faturamento, o ticket médio, o lucro bruto, as despesas e o resultado do período, os mais vendidos e as formas de pagamento.",
+      depois: "É a visão gerencial do dono. A visão para o governo e para o contador está na aba Contabilidade.",
+      passos: [
+        { titulo: "O resultado do período", acao: () => {
+            [["#c-fat", "R$ 16.170,00"], ["#c-vendas", "180"], ["#c-ticket", "R$ 89,83"], ["#c-lucro", "R$ 10.932,00"], ["#c-desp", "R$ 7.420,00"], ["#c-res", "R$ 3.512,00"]].forEach(([s, v]) => trocar(s, v));
+            destacar(document.getElementById("c-fat")?.closest(".panel-stat-grid")); },
+          texto: "Neste mês de exemplo: R$ 16.170,00 em vendas, ticket médio de R$ 89,83, lucro bruto de R$ 10.932,00 (vendas menos o custo dos pratos), R$ 7.420,00 de despesas e R$ 3.512,00 de resultado. Sem planilha." },
+        { titulo: "Dia a dia", acao: () => destacar(document.getElementById("chart")),
+          texto: "O gráfico mostra o faturamento de cada dia. Fica fácil ver o efeito de um feriado, de um evento ou de uma promoção." },
+        { titulo: "Os mais vendidos", acao: () => {
+            ficticio("#top", `<tr class="cr-simrow"><td>Parmegiana para dois <span class="sim-mark">Simulação</span></td><td>30</td><td>R$ 2.670,00</td></tr><tr class="cr-simrow"><td>Picanha na chapa <span class="sim-mark">Simulação</span></td><td>31</td><td>R$ 1.798,00</td></tr><tr class="cr-simrow"><td>X-Burguer da casa <span class="sim-mark">Simulação</span></td><td>30</td><td>R$ 960,00</td></tr>`);
+            destacar(document.getElementById("top")?.closest(".panel-table-wrap")); },
+          texto: "Os campeões de venda, com quantidade e faturamento. Junto com a ficha técnica, o dono sabe quais pratos vendem muito e quais dão mais lucro." },
+        { titulo: "Como e por onde vende", acao: () => {
+            ficticio("#formas", `<tr class="cr-simrow"><td>Pix <span class="sim-mark">Simulação</span></td><td>60</td><td>R$ 5.390,00</td></tr><tr class="cr-simrow"><td>Cartão de crédito</td><td>60</td><td>R$ 5.390,00</td></tr><tr class="cr-simrow"><td>Cartão de débito</td><td>30</td><td>R$ 2.695,00</td></tr><tr class="cr-simrow"><td>Dinheiro</td><td>30</td><td>R$ 2.695,00</td></tr>`);
+            ficticio("#canais", `<tr class="cr-simrow"><td>Salão (mesa) <span class="sim-mark">Simulação</span></td><td>150</td><td>R$ 13.475,00</td></tr><tr class="cr-simrow"><td>Entrega</td><td>30</td><td>R$ 2.695,00</td></tr>`);
+            destacar(document.getElementById("formas")?.closest(".panel-table-wrap")); },
+          texto: "As vendas por forma de pagamento (para conferir com a maquininha e o banco) e por canal: salão, delivery e retirada." },
+      ],
+    })));
   </script>
 </body>
 </html>

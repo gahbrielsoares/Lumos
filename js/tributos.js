@@ -576,3 +576,41 @@ export const FORMAS = { pix: "Pix", credito: "Cartão de crédito", cartao: "Car
 export function formaPagamento(p) { const m = p?.metodo || p?.preferencia || ""; return FORMAS[m] || (m ? m : "Não informado"); }
 export const fmtBRL = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export const fmtData = (iso) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "-");
+
+// =====================================================================
+// Explicações simples de cada tributo (usadas na tela e nos tutoriais)
+// =====================================================================
+export const EXPLICA = {
+  das: { nome: "DAS (guia única do Simples)", o_que: "Uma guia só, paga todo mês, que junta vários impostos.", por_que: "No Simples Nacional, em vez de pagar cada imposto separado, a empresa paga um percentual sobre o faturamento. Esse percentual cresce conforme a empresa fatura mais nos últimos 12 meses." },
+  irpj: { nome: "IRPJ", o_que: "Imposto de Renda da empresa.", por_que: "É o imposto federal sobre o lucro do negócio." },
+  csll: { nome: "CSLL", o_que: "Contribuição Social sobre o Lucro.", por_que: "Também incide sobre o lucro e ajuda a pagar a seguridade social (saúde, previdência e assistência)." },
+  pis: { nome: "PIS", o_que: "Contribuição federal sobre o faturamento.", por_que: "Financia o seguro-desemprego e o abono salarial. Na bebida que já veio tributada da fábrica (monofásica), não se paga de novo." },
+  cofins: { nome: "Cofins", o_que: "Contribuição federal sobre o faturamento.", por_que: "Financia a seguridade social. Igual ao PIS: bebida monofásica não paga de novo." },
+  cpp: { nome: "CPP (INSS da empresa)", o_que: "A parte da empresa no INSS dos funcionários.", por_que: "No Simples ela já vem dentro do DAS. Por isso o restaurante no Simples não paga os 20% de INSS patronal à parte." },
+  icms: { nome: "ICMS", o_que: "Imposto estadual sobre a venda de mercadorias, incluindo refeições.", por_que: "Vai para o estado. Quando o produto já teve o ICMS pago antes (substituição tributária, como cerveja e refrigerante em SP), não se paga de novo na venda." },
+  iss: { nome: "ISS", o_que: "Imposto municipal sobre serviços.", por_que: "Restaurante vende refeição, que é mercadoria, por isso paga ICMS e não ISS. O ISS só aparece se a casa vender um serviço à parte, como um evento." },
+  taxa_servico: { nome: "Taxa de serviço (10%)", o_que: "A gorjeta cobrada do cliente.", por_que: "Pela Lei 13.419/2017, quando é repassada à equipe, ela não é faturamento do restaurante e fica fora da conta dos impostos. O contador confirma como a casa trata." },
+  monofasico: { nome: "Monofásico e ICMS-ST", o_que: "Produtos que já tiveram o imposto pago antes de chegar à loja.", por_que: "Cerveja, refrigerante e água: o PIS e o Cofins foram pagos pela fábrica, e em SP o ICMS também (substituição tributária). Separando essas vendas, o imposto do mês diminui de forma legal." },
+  cbs_ibs: { nome: "CBS e IBS (reforma tributária)", o_que: "Os novos impostos que vão substituir PIS, Cofins, ICMS e ISS.", por_que: "Em 2026 aparecem na nota só como teste, sem cobrança. A troca acontece aos poucos, a partir de 2027." },
+  mei: { nome: "DAS-MEI", o_que: "Valor fixo por mês, que não depende do faturamento.", por_que: "O MEI paga um valor fixo (INSS e um pouco de ICMS ou ISS), mas só pode faturar até R$ 81 mil por ano e ter no máximo 1 funcionário." },
+  presumido: { nome: "Lucro Presumido", o_que: "A Receita presume que uma parte do faturamento é lucro.", por_que: "Paga PIS (0,65%) e Cofins (3%) sobre as vendas, ICMS do estado, e IRPJ e CSLL sobre um lucro presumido de 8% e 12% do faturamento, a cada três meses." },
+  real: { nome: "Lucro Real", o_que: "Os impostos sobre o lucro são calculados sobre o lucro de verdade.", por_que: "PIS (1,65%) e Cofins (7,6%), com desconto do que foi pago nas compras. IRPJ e CSLL saem do lucro real apurado pelo contador. É mais usado por empresas grandes." },
+};
+
+// O que aparece para cada regime, em ordem
+export const EXPLICA_POR_REGIME = {
+  simples: ["das", "irpj", "csll", "pis", "cofins", "cpp", "icms", "monofasico", "taxa_servico", "iss", "cbs_ibs"],
+  mei: ["mei", "taxa_servico", "cbs_ibs"],
+  presumido: ["presumido", "pis", "cofins", "icms", "irpj", "csll", "monofasico", "taxa_servico", "iss", "cbs_ibs"],
+  real: ["real", "pis", "cofins", "icms", "irpj", "csll", "monofasico", "taxa_servico", "iss", "cbs_ibs"],
+};
+
+// Porte pelo faturamento (é só classificação: no Simples, ME e EPP usam a mesma tabela)
+export function porteEmpresa(regime, rbt12) {
+  const r = Number(rbt12) || 0;
+  if (regime === "mei") return { sigla: "MEI", nome: "Microempreendedor Individual", obs: "Limite de R$ 81 mil por ano." };
+  if (r <= 0) return { sigla: "-", nome: "Informe o faturamento dos últimos 12 meses para saber o porte", obs: "" };
+  if (r <= 360000) return { sigla: "ME", nome: "Microempresa", obs: "Faturamento de até R$ 360 mil por ano." };
+  if (r <= 4800000) return { sigla: "EPP", nome: "Empresa de Pequeno Porte", obs: "Faturamento de R$ 360 mil a R$ 4,8 milhões por ano." };
+  return { sigla: "Demais", nome: "Média ou grande empresa", obs: "Acima de R$ 4,8 milhões por ano: fora do Simples Nacional." };
+}

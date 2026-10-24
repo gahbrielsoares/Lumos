@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agendamentos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -104,20 +104,29 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { getRange } from "./js/dateRange.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { updateLeadStage } from "./js/leads.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { getRange } from "./js/dateRange.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { updateLeadStage } from "./js/leads.js?v=80";
     import {
       listAppointmentsInRange, createAppointment, updateAppointmentStatus, APPOINTMENT_STATUS_LABELS,
-    } from "./js/agendamentos.js?v=79";
+    } from "./js/agendamentos.js?v=80";
 
     await requireSession();
     initThemeToggle();
     await renderSidebar("agendamentos");
+    // Restaurante: agendamento é reserva de mesa
+    if (document.body.dataset.nicho === "restaurante") {
+      document.title = "Reservas | Lumos";
+      document.querySelector(".dash-main h1").textContent = "Reservas";
+      document.querySelector(".dash-main h1 + p").textContent = "Reservas de mesa feitas pelo WhatsApp ou pela equipe. Quando o cliente chega, confirme a chegada e a visita fica registrada no cadastro dele.";
+      document.getElementById("new-btn").textContent = "+ Nova reserva";
+      document.querySelector("#confirm-modal h3").textContent = "Confirmar chegada";
+      document.querySelector("#confirm-modal p").textContent = "Ao confirmar, a chegada do cliente fica registrada.";
+    }
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
@@ -234,6 +243,33 @@
     });
 
     loadList(currentRange);
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => {
+      const rest = document.body.dataset.nicho === "restaurante";
+      const amanha = new Date(Date.now() + 86400000).toLocaleDateString("pt-BR");
+      const sab = new Date(Date.now() + 3 * 86400000).toLocaleDateString("pt-BR");
+      return {
+        titulo: rest ? "Reservas: a mesa garantida pelo WhatsApp" : "Agendamentos: visitas e horários marcados",
+        antes: rest ? "O cliente pede a reserva no WhatsApp. A IA pergunta o dia, o horário e quantas pessoas, e confere se a casa está aberta nesse horário." : "O cliente pede um horário no WhatsApp e a IA confere os horários de funcionamento.",
+        faz: rest ? "Lista as reservas com nome, WhatsApp, data, ocasião e número de pessoas, e a situação de cada uma." : "Lista os horários marcados com nome, WhatsApp, data e motivo.",
+        depois: rest ? "No dia, a equipe já sabe quem vem e prepara a mesa. Quando o cliente chega, a visita fica registrada no cadastro dele, na aba Clientes." : "Quem comparece vira cliente e aparece na aba Clientes.",
+        passos: [
+          { titulo: rest ? "A reserva chegou sozinha" : "O horário chegou sozinho", acao: () => {
+              esconder("#table-empty");
+              ficticio("#table-body", `<tr class="cr-simrow"><td><strong>Adalberto Souza</strong> <span class="sim-mark">Simulação</span></td><td>(16) 99999-0000</td><td>${amanha} 20:00</td><td>${rest ? "Aniversário da Marina, 6 pessoas" : "Visita ao showroom"}</td><td><span class="pill-badge">Agendado</span></td><td></td></tr>
+                <tr class="cr-simrow"><td><strong>Beatriz Lima</strong> <span class="sim-mark">Simulação</span></td><td>(16) 99333-4444</td><td>${sab} 13:00</td><td>${rest ? "Almoço em família, 4 pessoas" : "Orçamento de revestimento"}</td><td><span class="pill-badge">Agendado</span></td><td></td></tr>`);
+              destacar(document.querySelector("#table-body tr")); },
+            texto: rest ? "O Adalberto pediu no WhatsApp uma mesa para 6 pessoas, amanhã às 20h, para o aniversário da Marina. A IA conferiu o horário de funcionamento, confirmou com ele e registrou aqui sozinha, com a ocasião." : "O cliente pediu um horário no WhatsApp e a IA registrou aqui sozinha, depois de conferir o horário de funcionamento." },
+          { titulo: "Escolha o período", acao: () => destacar(document.getElementById("filter-bar")),
+            texto: rest ? "O filtro mostra as reservas de hoje, de amanhã ou da semana. Assim a equipe organiza o salão antes de o cliente chegar." : "O filtro mostra os horários de hoje, da semana ou do mês." },
+          { titulo: rest ? "Reserva por telefone ou no balcão" : "Horário marcado pela equipe", acao: () => destacar(document.getElementById("new-btn")),
+            texto: rest ? "Se o cliente ligou ou pediu no balcão, a equipe lança a reserva aqui em segundos. Fica tudo num lugar só, junto com as do WhatsApp." : "A equipe também lança horários aqui, junto com os que chegam pelo WhatsApp." },
+          { titulo: rest ? "Quando o cliente chega" : "Quando o cliente vem", acao: () => destacar(document.querySelector("#table-body tr")),
+            texto: rest ? "Na chegada, a equipe confirma com um clique e a visita fica registrada no cadastro do cliente. Se a reserva for desmarcada, o horário fica livre para outra pessoa." : "Ao confirmar o comparecimento, o contato vira cliente sozinho." },
+        ],
+      };
+    }));
   </script>
 
 </body>

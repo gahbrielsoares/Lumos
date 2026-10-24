@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -142,19 +142,24 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=79";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=79";
-    import { listAgents } from "./js/agents.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { getRange } from "./js/dateRange.js?v=79";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=80";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=80";
+    import { listAgents } from "./js/agents.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { getRange } from "./js/dateRange.js?v=80";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=80";
 
     await requireSession();
     initThemeToggle();
     await renderSidebar("dashboard");
+    // Restaurante: os quadros falam de contatos, clientes e reservas
+    if (document.body.dataset.nicho === "restaurante") {
+      const rot = { "card-stat_leads": "Contatos atendidos", "card-stat_clientes": "Clientes", "card-stat_consultas": "Reservas hoje" };
+      for (const [id, t] of Object.entries(rot)) { const l = document.querySelector(`#${id} .label`); if (l) l.textContent = t; }
+    }
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => {
       e.preventDefault();
@@ -343,6 +348,30 @@
       applyCardVisibility(disabled);
       document.getElementById("config-cards-modal").style.display = "none";
     });
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+      titulo: "Dashboard: o movimento da casa num olhar",
+      antes: "Tudo o que acontece no Lumos: conversas no WhatsApp, pedidos, reservas e contas pagas.",
+      faz: "Resume o período escolhido em números e gráficos: quantas pessoas falaram com a casa, quantas viraram clientes, as reservas, os dias e os horários de pico.",
+      depois: "Ajuda o dono a decidir: quantos garçons escalar no pico, em que dia fazer promoção. O detalhe de cada número está nas outras abas.",
+      passos: [
+        { titulo: "Escolha o período", acao: () => destacar(document.getElementById("filter-bar")),
+          texto: "Hoje, ontem, 7 dias, este mês, este ano: todos os números e gráficos da tela acompanham o período escolhido. Se a casa tem mais de um WhatsApp, dá para ver cada um separado." },
+        { titulo: "Os números do mês", acao: () => { trocar("#stat-leads", "214"); trocar("#stat-clientes", "167"); trocar("#stat-consultas", "6"); destacar(document.getElementById("card-stat_leads")?.closest(".panel-stat-grid")); },
+          texto: "Neste exemplo, 214 pessoas falaram com o restaurante no mês, 167 já são clientes e há 6 reservas para hoje. Tudo contado sozinho, a partir das conversas e das contas pagas." },
+        { titulo: "As conversas de cada dia", acao: () => destacar(document.getElementById("card-chart_volume")),
+          texto: "Este gráfico mostra quantas conversas chegaram por dia. Um pico logo depois de uma promoção mostra que ela funcionou." },
+        { titulo: "Os horários de pico", acao: () => destacar(document.getElementById("charts-row")),
+          texto: "Os dias da semana e os horários com mais movimento. É com isso que o dono decide quantos garçons escalar e quando reforçar a cozinha." },
+        { titulo: "Os últimos atendimentos", acao: () => {
+            esconder("#table-empty");
+            ficticio("#leads-table-body", `<tr class="cr-simrow"><td>agora</td><td><strong>Adalberto Souza</strong> <span class="sim-mark">Simulação</span></td><td>(16) 99999-0000</td><td>Mesa 7, 2 pessoas</td><td><span class="pill-badge stage-vendido">Fechado</span></td></tr>
+              <tr class="cr-simrow"><td>há 12 min</td><td><strong>Juliana Prado</strong> <span class="sim-mark">Simulação</span></td><td>(16) 98888-1111</td><td>Delivery no Centro</td><td><span class="pill-badge">Pedido feito</span></td></tr>`);
+            destacar(document.getElementById("card-table_leads")); },
+          texto: "E aqui os últimos atendimentos, com o motivo do contato e a etapa de cada um. O Adalberto, da Mesa 7, já aparece como Fechado: a conta dele foi paga." },
+      ],
+    })));
   </script>
 
 </body>

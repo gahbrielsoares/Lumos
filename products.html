@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -135,13 +135,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { listAgents } from "./js/agents.js?v=79";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=79";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { listAgents } from "./js/agents.js?v=80";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=80";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=80";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -167,7 +167,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=79";
+    } from "./js/products.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -392,6 +392,29 @@
     });
 
     renderCategories().then(renderProducts);
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+      titulo: "Produtos: o cardápio que alimenta tudo",
+      antes: "O dono cadastra cada prato e bebida uma vez, com preço, foto e categoria.",
+      faz: "Guarda o cardápio da casa. Insumos de cozinha (carne crua, pão) não ficam aqui: ficam na Ficha técnica e nunca aparecem para o cliente.",
+      depois: "Daqui saem o cardápio digital do QR Code, o cardápio que a IA usa no WhatsApp, o do garçom e a tela da Cozinha. O preço também vai para a conta e para a nota fiscal.",
+      passos: [
+        { titulo: "Cada prato completo", acao: () => {
+            const c = ficticio("#products-list", `<div class="hub-card cr-simrow"><div class="hub-icon">🍔</div><div class="hub-body">
+              <div class="hub-title-row"><div class="hub-title">X-Burguer da casa <span class="sim-mark">Simulação</span></div><span class="pill-badge stage-vendido">R$ 32.00 / unidade</span></div>
+              <p class="hub-sub">Pão brioche, blend de 150 g, queijo muçarela e molho da casa.</p>
+              <div class="chips-row" style="margin-top:8px;"><span class="pill-badge">Lanches</span><span class="pill-badge">🤖 Todos os agentes</span></div></div></div>`);
+            destacar(c); },
+          texto: "Cada item do cardápio tem nome, descrição, preço, categoria e foto. A descrição é a mesma que o cliente lê no celular e que a IA usa para explicar o prato." },
+        { titulo: "Categorias", acao: () => destacar(document.getElementById("categories-list")),
+          texto: "As categorias organizam o cardápio: entradas, pratos, lanches, bebidas, sobremesas. É por elas que o cliente navega no cardápio digital." },
+        { titulo: "Incluir um prato novo", acao: () => destacar(document.getElementById("add-product-btn")),
+          texto: "Prato novo no cardápio: nome, preço, categoria e foto. Assim que salva, ele já aparece no QR Code das mesas, para o garçom e para a IA oferecer no WhatsApp." },
+        { titulo: "Prato com foto vende mais", acao: () => { trocar("#stat-products", "48"); trocar("#stat-categories", "6"); trocar("#stat-with-photo", "41"); destacar(document.getElementById("stat-products")?.closest(".panel-stat-grid")); },
+          texto: "Os números de cima mostram quantos itens o cardápio tem e quantos estão com foto. Prato com foto chama mais atenção no celular e vende mais." },
+      ],
+    })));
   </script>
 
 </body>

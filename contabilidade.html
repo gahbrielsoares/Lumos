@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -105,6 +105,7 @@
           <select id="f-mes"></select>
           <button class="btn btn-primary" id="b-excel" style="padding:9px 16px;">Baixar Excel para o contador</button>
           <button class="btn btn-ghost" id="b-print" style="padding:9px 16px;">Imprimir ou salvar em PDF</button>
+          <button class="btn btn-ghost" id="b-glossario" style="padding:9px 16px;">O que é cada imposto?</button>
         </div>
         <div id="relatorio"><p class="cb-note">Carregando o fechamento...</p></div>
       </section>
@@ -144,7 +145,8 @@
           </div>
           <h3 style="font-size:16px; margin:10px 0 14px;">Tributação</h3>
           <div class="cb-form">
-            <div class="field"><label>Regime tributário</label><select id="c-regime"></select></div>
+            <div class="field"><label>Regime tributário</label><select id="c-regime"></select>
+              <p class="settings-hint" id="c-porte" style="margin-top:6px;"></p></div>
             <div class="field" data-show="simples"><label>Receita bruta dos últimos 12 meses (RBT12)</label><input id="c-rbt12" type="number" step="0.01" min="0" placeholder="Deixe vazio para o Lumos calcular" />
               <p class="settings-hint" style="margin-top:6px;">Use o valor do último PGDAS. Se ficar vazio, o Lumos calcula pelo que foi vendido aqui dentro.</p></div>
             <div class="field" data-show="mei"><label>Valor mensal do DAS-MEI (R$)</label><input id="c-meidas" type="number" step="0.01" min="0" /></div>
@@ -170,14 +172,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=79";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=79";
-    import * as T from "./js/tributos.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=80";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=80";
+    import * as T from "./js/tributos.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -334,6 +336,7 @@
         apHtml = `<div class="cb-kv">
             <div><b>RBT12 (receita 12 meses)</b><span>${brl(ap.rbt12.valor)}</span><div class="cb-note">${{ informado: "informado na configuração", historico: "calculado pelo histórico", proporcional: `proporcional (${ap.rbt12.meses} meses de histórico)`, inicio_atividade: "início de atividade (receita do mês x 12)" }[ap.rbt12.origem]}</div></div>
             <div><b>Faixa do Anexo I</b><span>${x.faixa}ª faixa</span><div class="cb-note">nominal ${pct(x.aliqNominal)}, dedução ${brl(x.deduzir)}</div></div>
+            <div><b>Porte</b><span>${T.porteEmpresa("simples", ap.rbt12.valor).sigla}</span><div class="cb-note">${esc(T.porteEmpresa("simples", ap.rbt12.valor).nome)}</div></div>
             <div><b>Alíquota efetiva</b><span>${pct(x.aliqEfetiva)}</span></div>
             <div><b>Economia com a segregação</b><span>${brl(x.economiaSegregacao)}</span><div class="cb-note">DAS sem separar: ${brl(x.dasSemSegregar)}</div></div>
           </div>` +
@@ -467,6 +470,35 @@
     });
     document.getElementById("b-print").addEventListener("click", () => window.print());
 
+    // ---------- O que é cada imposto (de acordo com o regime da empresa) ----------
+    const VALOR_DE = { irpj: "IRPJ", csll: "CSLL", pis: "PIS", cofins: "Cofins", cpp: "CPP", icms: "ICMS" };
+    function abrirGlossario({ simulacao = false } = {}) {
+      document.getElementById("cb-glossario")?.remove();
+      const regime = cfg.regime || "simples";
+      const linhasAp = R?.apuracao?.linhas || [];
+      const valor = (k) => { const l = linhasAp.find((x) => x.tributo.startsWith(VALOR_DE[k] || "@")); return l ? brl(l.valor) : null; };
+      const extra = { das: R?.apuracao?.regime === "simples" ? brl(R.apuracao.total) : null, taxa_servico: R?.resumo?.taxaServico ? brl(R.resumo.taxaServico) : null,
+        monofasico: R?.apuracao?.simples?.economiaSegregacao ? `economia de ${brl(R.apuracao.simples.economiaSegregacao)}` : null };
+      const itens = (T.EXPLICA_POR_REGIME[regime] || T.EXPLICA_POR_REGIME.simples).map((k) => ({ k, ...T.EXPLICA[k], v: extra[k] ?? valor(k) }));
+      const porte = T.porteEmpresa(regime, R?.apuracao?.rbt12?.valor || cfg.rbt12_manual);
+      const el = document.createElement("div");
+      el.id = "cb-glossario"; el.className = "lumos-help-overlay";
+      if (simulacao) el.style.zIndex = "940";
+      el.innerHTML = `<div class="lumos-help-box" style="${simulacao ? "pointer-events:none;" : ""}">
+        <div class="lumos-help-head"><h3>O que é cada imposto${R ? ` em ${nomeMes(R.competencia)}` : ""}</h3><button class="lumos-help-x" aria-label="Fechar">✕</button></div>
+        <p class="lumos-help-intro">Regime: <b>${esc(T.REGIMES[regime] || regime)}</b>${porte.sigla !== "-" ? ` · Porte: <b>${esc(porte.sigla)}</b> (${esc(porte.nome)})` : ""}. Os cálculos mudam conforme o regime, que é escolhido na Configuração fiscal.</p>
+        ${itens.map((i) => `<div class="cb-gl"><div class="cb-gl-h"><b>${esc(i.nome)}</b>${i.v ? `<span>${esc(i.v)}</span>` : ""}</div><p>${esc(i.o_que)} ${esc(i.por_que)}</p></div>`).join("")}
+        <p class="lumos-help-depois">Valores estimados pelo Lumos para conferência. A apuração oficial e as guias são feitas pelo contador.</p>
+        <div class="lumos-help-acoes"><button class="btn btn-primary" data-x>Entendi</button></div></div>`;
+      const fechar = () => el.remove();
+      el.querySelector(".lumos-help-x").addEventListener("click", fechar);
+      el.querySelector("[data-x]").addEventListener("click", fechar);
+      el.addEventListener("click", (e) => { if (e.target === el) fechar(); });
+      document.body.appendChild(el);
+      return el;
+    }
+    document.getElementById("b-glossario").addEventListener("click", () => abrirGlossario());
+
     // =================================================================
     // CADASTRO FISCAL DOS PRODUTOS
     // =================================================================
@@ -562,6 +594,8 @@
       "c-regime": "regime", "c-rbt12": "rbt12_manual", "c-meidas": "mei_das", "c-icms": "icms_interna", "c-cont-nome": "contador_nome", "c-cont-crc": "contador_crc", "c-cont-email": "contador_email", "c-cont-tel": "contador_tel" };
     function mostrarCampos() {
       const r = document.getElementById("c-regime").value, uf = document.getElementById("c-uf").value;
+      const pt = T.porteEmpresa(r, document.getElementById("c-rbt12").value || R?.apuracao?.rbt12?.valor);
+      document.getElementById("c-porte").textContent = pt.sigla === "-" ? pt.nome : `Porte: ${pt.sigla} (${pt.nome}). ${pt.obs} O porte é só classificação: o que muda o cálculo é o regime.`;
       document.querySelectorAll("#tab-config [data-show]").forEach((el) => (el.style.display = el.dataset.show.split(" ").includes(r) ? "" : "none"));
       document.getElementById("c-ret-wrap").style.display = (r === "presumido" || r === "real") && uf === "SP" ? "" : "none";
     }
@@ -576,6 +610,7 @@
       mostrarCampos();
     }
     document.getElementById("c-regime").addEventListener("change", mostrarCampos);
+    document.getElementById("c-rbt12").addEventListener("input", mostrarCampos);
     document.getElementById("c-uf").addEventListener("change", mostrarCampos);
     document.getElementById("c-salvar").addEventListener("click", async () => {
       const novo = { ...cfg };
@@ -596,13 +631,13 @@
     });
 
     carregarFechamento();
-    import("./js/ajuda.js?v=79").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+    import("./js/ajuda.js?v=80").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
 
     // ================= Simulação para apresentação (só administração) =================
     // Um mês fictício de restaurante passa pelo motor fiscal de verdade (js/tributos.js).
     // Os números são calculados, não inventados. Nada é gravado no banco nem vai para o Excel.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=79");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=80");
       const ym = addMes(todayISO().slice(0, 7), -1);
       function mesFicticio() {
         const P = [
@@ -660,6 +695,10 @@
             texto: "Antes de mandar para o contador, o Lumos aponta o que precisa de atenção: produto sem NCM ou sem custo, venda sem nota fiscal, compra sem o CNPJ do fornecedor. Nada chega incompleto ao escritório." },
           { titulo: "O imposto do mês (Simples Nacional)", acao: () => destacar(secao("Apuração")),
             texto: "O DAS é calculado pela regra oficial do Simples Nacional: a faixa, a alíquota efetiva e quanto vai para cada tributo. O dono sabe quanto vai pagar antes do contador mandar a guia." },
+          { titulo: "O que é cada imposto", acao: () => abrirGlossario({ simulacao: true }),
+            texto: "Dentro do DAS estão seis tributos: IRPJ e CSLL (sobre o lucro), PIS e Cofins (sobre o faturamento), CPP (o INSS da empresa) e ICMS (do estado). O botão O que é cada imposto explica cada um em linguagem simples, com o valor do mês." },
+          { titulo: "E se a empresa for de outro tipo?", acao: () => document.getElementById("cb-glossario")?.remove(),
+            texto: "O cálculo muda conforme o regime: MEI paga um valor fixo por mês, o Simples paga o DAS, e Lucro Presumido e Real pagam cada imposto separado. Basta escolher o regime na Configuração fiscal e o Lumos refaz todas as contas. ME ou EPP é só o porte e não muda a conta." },
           { titulo: "A economia com as bebidas", acao: () => destacar(secao("Segregação")),
             texto: "Cerveja e refrigerante já tiveram PIS, Cofins e ICMS pagos antes de chegar ao restaurante. O Lumos separa essas vendas como a Receita exige, e o DAS diminui legalmente. Sem essa separação, o restaurante acaba pagando de novo um imposto que já foi pago." },
           { titulo: "O lucro de verdade", acao: () => destacar(secao("Demonstrativo")),
@@ -668,6 +707,7 @@
             texto: "Com um clique sai o Excel com 19 abas (vendas, itens com NCM e CFOP, notas, compras, despesas, inventário) e o PDF com o cabeçalho da empresa. É o relatório mais completo que o escritório vai receber." },
         ],
         limpar: () => {
+          document.getElementById("cb-glossario")?.remove();
           document.querySelectorAll(".cb-tabs, #tab-fechamento .erp-toolbar").forEach((el) => (el.style.pointerEvents = ""));
           if (cfgAntes) cfg = cfgAntes; R = RAntes;
           carregarFechamento();

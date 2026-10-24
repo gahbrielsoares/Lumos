@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -82,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -239,6 +239,33 @@
       if (b.dataset.fdel && await lumosConfirm("Excluir este fornecedor? As compras continuam salvas.")) { await supabase.from("fornecedores").delete().eq("id", b.dataset.fdel); load(); }
     });
     load();
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+      titulo: "Compras: do pedido ao fornecedor até o estoque",
+      antes: "O Estoque mostra o que está acabando. O dono escolhe o fornecedor e faz o pedido aqui.",
+      faz: "Guarda os fornecedores e os pedidos de compra, com os itens, o custo e o vencimento.",
+      depois: "Ao receber a mercadoria: o estoque aumenta, o custo dos produtos é atualizado (e o dos pratos da ficha técnica), e a conta a pagar nasce no Financeiro.",
+      passos: [
+        { titulo: "Os fornecedores", acao: () => {
+            ficticio("#forn-rows", `<tr class="cr-simrow"><td><strong>Atacadão</strong> <span class="sim-mark">Simulação</span></td><td>João · (16) 3333-0000</td><td>75.315.333/0001-09</td></tr>
+              <tr class="cr-simrow"><td><strong>Distribuidora de Bebidas</strong> <span class="sim-mark">Simulação</span></td><td>Paula · (16) 3444-0000</td><td>12.345.678/0001-95</td></tr>`);
+            destacar(document.querySelector("#forn-rows tr")); },
+          texto: "Cada fornecedor com o contato e o CNPJ. O CNPJ é o que o contador precisa para lançar a nota de entrada." },
+        { titulo: "O pedido de compra", acao: () => {
+            esconder("#empty");
+            ficticio("#rows", `<tr class="cr-simrow"><td>#61 <span class="sim-mark">Simulação</span></td><td>Distribuidora de Bebidas</td><td>2</td><td>R$ 390,00</td><td><span class="erp-badge warn">Aberta</span></td></tr>`);
+            trocar("#c-abertas", "1"); destacar(document.querySelector("#rows tr")); },
+          texto: "O pedido de 48 cervejas e 24 refrigerantes foi lançado com o custo de cada item. Enquanto a mercadoria não chega, a compra fica aberta." },
+        { titulo: "Mercadoria recebida", acao: () => {
+            document.querySelectorAll("#rows tr[data-sim-tmp]").forEach((t) => t.remove());
+            ficticio("#rows", `<tr class="cr-simrow"><td>#61 <span class="sim-mark">Simulação</span></td><td>Distribuidora de Bebidas</td><td>2</td><td>R$ 390,00</td><td><span class="erp-badge ok">Recebida</span></td></tr>
+              <tr class="cr-simrow"><td>#58 <span class="sim-mark">Simulação</span></td><td>Atacadão</td><td>3</td><td>R$ 640,00</td><td><span class="erp-badge ok">Recebida</span></td></tr>`);
+            trocar("#c-abertas", "0"); trocar("#c-recebidas", "R$ 1.030,00"); trocar("#c-forn", "2");
+            destacar(document.querySelector("#rows tr")); },
+          texto: "Chegou! Um clique em Receber e, sozinho: o estoque das bebidas aumenta, o custo é atualizado (e o custo dos pratos na ficha técnica), e a conta a pagar aparece no Financeiro com o vencimento combinado." },
+      ],
+    })));
   </script>
 </body>
 </html>

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estoque | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -84,12 +84,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -100,7 +100,7 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl", pacote: "pct", fardo: "fd", duzia: "dz" };
     let products = [];
-    const { getMyAccess } = await import("./js/workspace.js?v=79");
+    const { getMyAccess } = await import("./js/workspace.js?v=80");
     const acesso = await getMyAccess();
     const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) {
@@ -201,6 +201,32 @@
     document.getElementById("f-busca").addEventListener("input", render);
     document.getElementById("f-filtro").addEventListener("change", render);
     load();
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+      titulo: "Estoque: nada falta na hora do pedido",
+      antes: "As compras recebidas dão entrada sozinhas. As vendas baixam sozinhas, inclusive os insumos de cada prato, pela ficha técnica.",
+      faz: "Mostra o saldo de cada produto e insumo, avisa o que está abaixo do mínimo ou acabou, e registra cada movimento com o motivo.",
+      depois: "O valor do estoque vai para o inventário da Contabilidade, e o que está acabando vira pedido na aba Compras.",
+      passos: [
+        { titulo: "O saldo de cada item", acao: () => {
+            esconder("#empty");
+            ficticio("#rows", `<tr class="cr-simrow"><td><strong>Cerveja long neck</strong> <span class="sim-mark">Simulação</span></td><td>18 un</td><td>24</td><td>R$ 5,20</td><td><span class="erp-badge warn">Abaixo do mínimo</span></td></tr>
+              <tr class="cr-simrow"><td><strong>Refrigerante lata</strong> <span class="sim-mark">Simulação</span></td><td>0 un</td><td>24</td><td>R$ 2,60</td><td><span class="erp-badge bad">Zerado</span></td></tr>
+              <tr class="cr-simrow"><td><strong>Carne moída</strong> <span class="sim-mark">Simulação</span> <span class="erp-badge muted">insumo</span></td><td>4,625 kg</td><td>2</td><td>R$ 40,00</td><td><span class="erp-badge ok">OK</span></td></tr>`);
+            trocar("#c-ctrl", "3"); trocar("#c-baixo", "1"); trocar("#c-zero", "1"); trocar("#c-valor", "R$ 278,60");
+            destacar(document.querySelector("#rows tr")); },
+          texto: "Bebidas, insumos da cozinha e embalagens, cada um com o saldo e o mínimo. A cerveja está abaixo do mínimo e o refrigerante acabou: o dono fica sabendo antes de faltar na mesa." },
+        { titulo: "Cada movimento registrado", acao: () => {
+            ficticio("#movs", `<tr class="cr-simrow"><td>hoje 21:14</td><td>Cerveja long neck <span class="sim-mark">Simulação</span></td><td>Saída 2</td><td>18</td><td>Venda #1043</td></tr>
+              <tr class="cr-simrow"><td>hoje 21:14</td><td>Carne moída <span class="sim-mark">Simulação</span></td><td>Saída 0,375</td><td>4,625</td><td>Venda #1043: X-Burguer</td></tr>
+              <tr class="cr-simrow"><td>ontem 10:02</td><td>Cerveja long neck <span class="sim-mark">Simulação</span></td><td>Entrada 48</td><td>20</td><td>Compra #58</td></tr>`);
+            destacar(document.querySelector("#movs tr")); },
+          texto: "Cada movimento fica registrado com o motivo: as vendas baixam sozinhas (a carne saiu pela ficha técnica do X-Burguer), as compras dão entrada, e perda ou contagem entram como ajuste." },
+        { titulo: "O dinheiro na prateleira", acao: () => destacar(document.getElementById("c-valor")?.closest(".panel-stat-grid")),
+          texto: "O valor do estoque, pelo custo, é dinheiro parado. Com o mínimo de cada item, a casa compra só o necessário e não deixa faltar." },
+      ],
+    })));
   </script>
 </body>
 </html>

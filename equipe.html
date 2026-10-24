@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Equipe | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=79" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=79" />
-  <script src="js/dialogs.js?v=79"></script>
+  <script src="js/logo.js?v=80" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=80" />
+  <script src="js/dialogs.js?v=80"></script>
 </head>
 <body>
 
@@ -60,12 +60,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=79";
-    import { initThemeToggle } from "./js/theme.js?v=79";
-    import { initMobileNav } from "./js/mobileNav.js?v=79";
-    import { renderSidebar } from "./js/sidebar.js?v=79";
-    import { supabase } from "./js/supabaseClient.js?v=79";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=79";
+    import { requireSession, signOut } from "./js/auth.js?v=80";
+    import { initThemeToggle } from "./js/theme.js?v=80";
+    import { initMobileNav } from "./js/mobileNav.js?v=80";
+    import { renderSidebar } from "./js/sidebar.js?v=80";
+    import { supabase } from "./js/supabaseClient.js?v=80";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=80";
 
     await requireSession();
     initThemeToggle();
@@ -74,8 +74,8 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=79");
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=79");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=80");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=80");
     const FUNCOES = {
       garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta. Marque Caixa se ele também opera o caixa." },
       cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },
@@ -236,6 +236,31 @@
       form(members.find((m) => m.user_id === b.dataset.edit));
     });
     load();
+  
+    // ================= Simulação para apresentação (só administração) =================
+    import("./js/simulacao.js?v=80").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => ({
+      titulo: "Equipe: cada um vê só o que precisa",
+      antes: "O dono cadastra os funcionários: garçons, cozinha, caixa, gerente e até o contador.",
+      faz: "Cada pessoa ganha um login próprio, com usuário simples, e vê só as abas da sua função. O dono decide quem vê os custos.",
+      depois: "Tudo o que cada um faz fica registrado com o nome dele no histórico. Se alguém sair da empresa, o acesso é desligado na hora.",
+      passos: [
+        { titulo: "Cada um com o seu acesso", acao: () => {
+            esconder("#empty");
+            document.querySelectorAll("#rows tr:not([data-sim-tmp])").forEach((t) => { if (/Carregando|Nenhum/.test(t.textContent)) esconder(t); });
+            ficticio("#rows", `<tr class="cr-simrow"><td><strong>Rafael</strong> <span class="sim-mark">Simulação</span></td><td>rafael</td><td>Garçom</td><td>Mesas, Cozinha</td><td><span class="erp-badge ok">Ativo</span></td><td>hoje 19:02</td><td></td></tr>
+              <tr class="cr-simrow"><td><strong>Dona Célia</strong> <span class="sim-mark">Simulação</span></td><td>celia</td><td>Cozinha</td><td>Cozinha</td><td><span class="erp-badge ok">Ativo</span></td><td>hoje 18:40</td><td></td></tr>
+              <tr class="cr-simrow"><td><strong>Carla</strong> <span class="sim-mark">Simulação</span></td><td>carla</td><td>Personalizado</td><td>Caixa, Mesas</td><td><span class="erp-badge ok">Ativo</span></td><td>hoje 18:05</td><td></td></tr>
+              <tr class="cr-simrow"><td><strong>Maria Contadora</strong> <span class="sim-mark">Simulação</span></td><td>maria.contab</td><td>Contador</td><td>Contabilidade, Relatórios, Notas fiscais</td><td><span class="erp-badge ok">Ativo</span></td><td>ontem</td><td></td></tr>`);
+            destacar(document.querySelector("#rows tr")); },
+          texto: "O garçom Rafael entra com o usuário rafael e só vê Mesas e Cozinha. A Dona Célia só vê a Cozinha. A contadora tem acesso próprio à Contabilidade, sem ver a operação." },
+        { titulo: "Funções prontas", acao: () => destacar(document.querySelector("#rows tr:nth-child(4)")),
+          texto: "Garçom, cozinha, atendente, gerente e contador já vêm prontos, com as abas certas. Se precisar, a função personalizada deixa escolher aba por aba, como a Carla, que cuida do caixa." },
+        { titulo: "Quem vê os custos", acao: () => destacar(document.querySelector("#rows tr")),
+          texto: "O dono decide quem pode ver o custo dos produtos e o lucro. O garçom vê o preço de venda, mas não quanto a casa ganha em cada prato." },
+        { titulo: "Novo funcionário", acao: () => destacar(document.getElementById("new-member")),
+          texto: "Para incluir alguém: nome, usuário, senha e função. Em um minuto a pessoa já está trabalhando no sistema, pelo celular ou pelo computador." },
+      ],
+    })));
   </script>
 </body>
 </html>

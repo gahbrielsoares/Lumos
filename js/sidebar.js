@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=79";
+import { supabase } from "./supabaseClient.js?v=80";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -118,7 +118,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=79");
+    const { getMyAccess } = await import("./workspace.js?v=80");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -138,15 +138,21 @@ export async function getAccess() {
   return accessCache;
 }
 
+// Nome das abas no menu conforme o nicho (ex.: restaurante chama Agendamentos de Reservas)
+let NICHO = null;
+const ROTULOS_NICHO = { restaurante: { agendamentos: "Reservas" } };
+
 export async function getDisabledTabs() {
   const { data: userData } = await supabase.auth.getUser();
   const owner_id = userData?.user?.id;
   if (!owner_id) return [];
   const { data } = await supabase
     .from("business_config")
-    .select("disabled_tabs")
+    .select("disabled_tabs, business_type")
     .eq("owner_id", owner_id)
     .maybeSingle();
+  NICHO = data?.business_type || null;
+  if (NICHO) document.body.dataset.nicho = NICHO;
   return data?.disabled_tabs || [];
 }
 
@@ -197,7 +203,7 @@ export async function renderSidebar(activeKey) {
   const link = (item) => `
     <a href="${item.href}" class="${item.key === activeKey ? "active" : ""}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${item.icon}</svg>
-      ${item.label}
+      ${(ROTULOS_NICHO[NICHO] || {})[item.key] || item.label}
     </a>`;
   const top = items.filter((i) => i.key === "dashboard");
   const crm = items.filter((i) => i.group === "crm");
@@ -230,4 +236,6 @@ export async function renderSidebar(activeKey) {
       }
     }
   }
+  // Roteiro de apresentação (só administração e suporte), em todas as páginas
+  import("./simulacao.js?v=80").then((m) => m.botaoRoteiro()).catch(() => {});
 }
