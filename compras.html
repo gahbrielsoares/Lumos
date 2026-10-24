@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=81" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=81" />
-  <script src="js/dialogs.js?v=81"></script>
+  <script src="js/logo.js?v=82" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=82" />
+  <script src="js/dialogs.js?v=82"></script>
 </head>
 <body>
 
@@ -82,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=81";
-    import { initThemeToggle } from "./js/theme.js?v=81";
-    import { initMobileNav } from "./js/mobileNav.js?v=81";
-    import { renderSidebar } from "./js/sidebar.js?v=81";
-    import { supabase } from "./js/supabaseClient.js?v=81";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=81";
+    import { requireSession, signOut } from "./js/auth.js?v=82";
+    import { initThemeToggle } from "./js/theme.js?v=82";
+    import { initMobileNav } from "./js/mobileNav.js?v=82";
+    import { renderSidebar } from "./js/sidebar.js?v=82";
+    import { supabase } from "./js/supabaseClient.js?v=82";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=82";
 
     await requireSession();
     initThemeToggle();
@@ -96,16 +96,26 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    let compras = [], fornecedores = [], products = [];
+    let compras = [], fornecedores = [], products = [], comFicha = new Set(), fiscalTipo = {};
+    // Produtos de outro nicho (ex.: exemplos do simulador de materiais) não aparecem na compra do restaurante
+    const nicho = document.body.dataset.nicho || null;
+    const doOutroNicho = (p) => !!p.segmento && !!nicho && ((nicho === "restaurante" && p.segmento !== "restaurante") || (nicho !== "restaurante" && p.segmento === "restaurante"));
+    // O que se compra: insumo da cozinha ou produto de revenda (vendido como chega). Prato preparado não se compra.
+    const preparado = (p) => comFicha.has(p.id) || fiscalTipo[p.id] === "producao";
+    const tipoCompra = (p) => p.is_insumo ? "insumo" : preparado(p) ? "preparado" : (p.estoque != null || fiscalTipo[p.id] === "revenda") ? "revenda" : "cardapio";
+    const UN_CURTA = { kg: "kg", litro: "litro", unidade: "un", pacote: "pacote", caixa: "caixa", fardo: "fardo", duzia: "dúzia", saco: "saco", m2: "m²", metro: "metro", rolo: "rolo" };
     const STATUS = { aberta: '<span class="erp-badge warn">Em aberto</span>', recebida: '<span class="erp-badge ok">Recebida</span>', cancelada: '<span class="erp-badge muted">Cancelada</span>' };
 
     async function load() {
       const [c, f, p] = await Promise.all([
         supabase.from("compras").select("*").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(200),
         supabase.from("fornecedores").select("*").eq("owner_id", owner_id).order("nome"),
-        supabase.from("products").select("id, name, unit, custo, estoque").eq("owner_id", owner_id).order("name"),
+        supabase.from("products").select("*").eq("owner_id", owner_id).order("name"),
       ]);
-      compras = c.data || []; fornecedores = f.data || []; products = p.data || [];
+      compras = c.data || []; fornecedores = f.data || []; products = (p.data || []).filter((x) => !doOutroNicho(x));
+      // Quem tem ficha técnica é preparado na cozinha (as tabelas podem não existir ainda: segue sem elas)
+      try { const { data: r } = await supabase.from("product_recipes").select("product_id").eq("owner_id", owner_id); comFicha = new Set((r || []).map((x) => x.product_id)); } catch (_) { comFicha = new Set(); }
+      try { const { data: fz } = await supabase.from("product_fiscal").select("product_id, tipo").eq("owner_id", owner_id); fiscalTipo = Object.fromEntries((fz || []).map((x) => [x.product_id, x.tipo])); } catch (_) { fiscalTipo = {}; }
       const fname = (id) => fornecedores.find((x) => x.id === id)?.nome || "-";
       const [ini, fim] = monthRange(0);
       document.getElementById("c-abertas").textContent = `${compras.filter((x) => x.status === "aberta").length} · ${brl(compras.filter((x) => x.status === "aberta").reduce((t, x) => t + Number(x.total), 0))}`;
@@ -154,13 +164,34 @@
 
     function compraForm() {
       if (!fornecedores.length) { lumosAlert("Cadastre um fornecedor primeiro."); return fornForm(); }
-      const opts = products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+      let mostrarCardapio = false;
+      const grupo = (rot, lista) => lista.length ? `<optgroup label="${rot}">${lista.map((p) => `<option value="${p.id}">${esc(p.name)}${p.unit ? ` (${UN_CURTA[p.unit] || p.unit})` : ""}</option>`).join("")}</optgroup>` : "";
+      const opcoes = () => {
+        const ativos = products.filter((p) => p.active !== false);
+        const por = (t) => ativos.filter((p) => tipoCompra(p) === t);
+        const html = grupo("Insumos da cozinha", por("insumo")) + grupo("Revenda (bebidas e itens vendidos como chegam)", por("revenda"))
+          + (mostrarCardapio ? grupo("Outros itens do cardápio", por("cardapio")) : "");
+        return html || `<option value="">Cadastre um insumo em "+ Novo insumo"</option>`;
+      };
       const m = modal(`
         <h3 style="font-size:18px; margin-bottom:12px;">Nova compra</h3>
         <div class="field"><label>Fornecedor</label><select id="m-forn">${fornecedores.map((f) => `<option value="${f.id}">${esc(f.nome)}</option>`).join("")}</select></div>
-        <label style="font-size:12.5px; color:var(--panel-text-muted);">Itens (produto · quantidade · custo unitário)</label>
-        <div class="erp-items" id="m-items" style="margin-top:6px;"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="m-add" style="margin:8px 0 12px;">+ Item</button>
+        <label style="font-size:12.5px; color:var(--panel-text-muted);">Itens (o que você compra · quantidade · custo por unidade)</label>
+        <p class="settings-hint" style="margin:4px 0 0;">Aparecem os <b>insumos</b> (costela, farinha, óleo) e os produtos de <b>revenda</b> (água, cerveja). Pratos preparados na cozinha não entram: o custo deles vem da ficha técnica.</p>
+        <div class="erp-items" id="m-items" style="margin-top:8px;"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px;">
+          <button type="button" class="btn btn-ghost btn-sm" id="m-add">+ Item</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="m-novo-ins">+ Novo insumo</button>
+          <label style="display:flex; gap:6px; align-items:center; font-size:12.5px; color:var(--panel-text-muted); margin-left:auto;"><input type="checkbox" id="m-todos" /> Mostrar outros itens do cardápio</label>
+        </div>
+        <div id="m-ins-box" style="display:none; border:1px solid var(--panel-border); border-radius:12px; padding:12px; margin-bottom:12px;">
+          <div class="erp-row2">
+            <div class="field"><label>Nome do insumo</label><input id="m-ins-nome" placeholder="Ex.: Costela bovina" /></div>
+            <div class="field"><label>Unidade de compra</label><select id="m-ins-un">${[["kg", "kg"], ["litro", "litro"], ["unidade", "unidade"], ["pacote", "pacote"], ["caixa", "caixa"], ["fardo", "fardo"], ["duzia", "dúzia"], ["saco", "saco"]].map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></div>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;"><button type="button" class="btn btn-ghost btn-sm" id="m-ins-cancel">Cancelar</button><button type="button" class="btn btn-primary btn-sm" id="m-ins-save">Cadastrar e usar</button></div>
+          <div id="m-ins-msg" class="form-msg"></div>
+        </div>
         <div class="erp-row2">
           <div class="field"><label>Previsão de entrega</label><input id="m-prev" type="date" /></div>
           <div class="field"><label>Vencimento do pagamento</label><input id="m-venc" type="date" value="${addDaysISO(todayISO(), 30)}" /></div>
@@ -178,14 +209,42 @@
       const add = () => {
         const r = document.createElement("div");
         r.className = "erp-item";
-        r.innerHTML = `<select class="p">${opts}</select><input class="q" type="number" step="0.001" min="0" placeholder="Qtd" /><input class="c" type="number" step="0.01" min="0" placeholder="Custo R$" /><button type="button" title="Remover">✕</button>`;
-        const setCusto = () => { const p = products.find((x) => x.id === r.querySelector(".p").value); if (p?.custo != null && !r.querySelector(".c").value) r.querySelector(".c").value = p.custo; total(); };
+        r.innerHTML = `<select class="p">${opcoes()}</select><input class="q" type="number" step="0.001" min="0" placeholder="Qtd" /><input class="c" type="number" step="0.01" min="0" placeholder="Custo R$" /><button type="button" title="Remover">✕</button>`;
+        const setCusto = () => {
+          const p = products.find((x) => x.id === r.querySelector(".p").value);
+          const un = UN_CURTA[p?.unit] || "un";
+          r.querySelector(".q").placeholder = `Qtd (${un})`; r.querySelector(".c").placeholder = `R$ por ${un}`;
+          if (p?.custo != null && !r.querySelector(".c").value) r.querySelector(".c").value = p.custo;
+          total();
+        };
         r.querySelector(".p").addEventListener("change", () => { r.querySelector(".c").value = ""; setCusto(); });
         r.querySelectorAll("input").forEach((i) => i.addEventListener("input", total));
         r.querySelector("button").addEventListener("click", () => { r.remove(); total(); });
         items.appendChild(r); setCusto();
       };
       m.el.querySelector("#m-add").addEventListener("click", add);
+      // Atualiza as listas de todas as linhas mantendo o que já foi escolhido
+      const refazerListas = (selecionar) => items.querySelectorAll(".erp-item .p").forEach((sel, i, all) => {
+        const v = sel.value; sel.innerHTML = opcoes(); sel.value = (selecionar && i === all.length - 1) ? selecionar : v;
+        if (!sel.value && sel.options.length) sel.selectedIndex = 0;
+        sel.dispatchEvent(new Event("change"));
+      });
+      m.el.querySelector("#m-todos").addEventListener("change", (e) => { mostrarCardapio = e.target.checked; refazerListas(); });
+      const boxIns = m.el.querySelector("#m-ins-box");
+      m.el.querySelector("#m-novo-ins").addEventListener("click", () => { boxIns.style.display = ""; m.el.querySelector("#m-ins-nome").focus(); });
+      m.el.querySelector("#m-ins-cancel").addEventListener("click", () => (boxIns.style.display = "none"));
+      m.el.querySelector("#m-ins-save").addEventListener("click", async () => {
+        const nome = m.el.querySelector("#m-ins-nome").value.trim(), msg = m.el.querySelector("#m-ins-msg");
+        if (!nome) { msg.textContent = "Informe o nome do insumo."; msg.className = "form-msg error"; return; }
+        const { data: novo, error } = await supabase.from("products").insert({ owner_id, name: nome, unit: m.el.querySelector("#m-ins-un").value, is_insumo: true, active: true, estoque: 0, price: null, ...(nicho === "restaurante" ? { segmento: "restaurante" } : {}) }).select().single();
+        if (error) { msg.textContent = /is_insumo|segmento/.test(error.message) ? "Falta aplicar no banco a seção 44 do guia de instalação." : `Não foi possível cadastrar: ${error.message}`; msg.className = "form-msg error"; return; }
+        products.push(novo);
+        m.el.querySelector("#m-ins-nome").value = ""; boxIns.style.display = "none";
+        // Usa o insumo novo na última linha (ou cria uma linha para ele)
+        const ultima = [...items.querySelectorAll(".erp-item")].pop();
+        if (!ultima || ultima.querySelector(".q").value) add();
+        refazerListas(novo.id);
+      });
       add();
       m.el.querySelector("#m-save").addEventListener("click", async () => {
         const itens = [...items.querySelectorAll(".erp-item")].map((r) => {
@@ -241,7 +300,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=81").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=82").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Compras: do pedido ao fornecedor até o estoque",
       antes: "O Estoque mostra o que está acabando. O dono escolhe o fornecedor e faz o pedido aqui.",
       faz: "Guarda os fornecedores e os pedidos de compra, com os itens, o custo e o vencimento.",

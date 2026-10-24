@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=81" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=81" />
+  <script src="js/logo.js?v=82" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=82" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=81"></script>
+  <script src="js/dialogs.js?v=82"></script>
 </head>
 <body>
 
@@ -142,15 +142,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=81";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=81";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=81";
-    import { listAgents } from "./js/agents.js?v=81";
-    import { initThemeToggle } from "./js/theme.js?v=81";
-    import { initMobileNav } from "./js/mobileNav.js?v=81";
-    import { renderSidebar } from "./js/sidebar.js?v=81";
-    import { getRange } from "./js/dateRange.js?v=81";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=81";
+    import { requireSession, signOut } from "./js/auth.js?v=82";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=82";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=82";
+    import { listAgents } from "./js/agents.js?v=82";
+    import { initThemeToggle } from "./js/theme.js?v=82";
+    import { initMobileNav } from "./js/mobileNav.js?v=82";
+    import { renderSidebar } from "./js/sidebar.js?v=82";
+    import { getRange } from "./js/dateRange.js?v=82";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=82";
 
     await requireSession();
     initThemeToggle();
@@ -350,7 +350,7 @@
     });
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=81").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=82").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Dashboard: o movimento da casa num olhar",
       antes: "Tudo o que acontece no Lumos: conversas no WhatsApp, pedidos, reservas e contas pagas.",
       faz: "Resume o período escolhido em números e gráficos: quantas pessoas falaram com a casa, quantas viraram clientes, as reservas, os dias e os horários de pico.",

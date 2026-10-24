@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=81";
+import { supabase } from "./supabaseClient.js?v=82";
 
 export const STAGES = [
   "novo_contato",
@@ -35,7 +35,7 @@ export const STAGE_DESCRIPTIONS = {
 
 // Cada nicho pode dar outro nome às etapas (ex.: restaurante: "Pedido feito", "Aguardando pagamento")
 try {
-  const [{ getBusinessConfig }, { getBusinessTypeInfo }] = await Promise.all([import("./businessConfig.js?v=81"), import("./businessTypes.js?v=81")]);
+  const [{ getBusinessConfig }, { getBusinessTypeInfo }] = await Promise.all([import("./businessConfig.js?v=82"), import("./businessTypes.js?v=82")]);
   const info = getBusinessTypeInfo((await getBusinessConfig())?.business_type);
   Object.assign(STAGE_LABELS, info.stageLabels || {});
   Object.assign(STAGE_DESCRIPTIONS, info.stageDescriptions || {});

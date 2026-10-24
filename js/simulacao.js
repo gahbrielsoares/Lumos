@@ -4,8 +4,8 @@
 // 2) "Simular": passo a passo com uma historinha e dados FICTÍCIOS, montados só na tela.
 //    Nada é gravado no banco: relatórios, financeiro e notas nunca recebem dados de simulação.
 // =====================================================================
-import { getAccess } from "./sidebar.js?v=81";
-import { barraFerramentas } from "./ajuda.js?v=81";
+import { getAccess } from "./sidebar.js?v=82";
+import { barraFerramentas } from "./ajuda.js?v=82";
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 

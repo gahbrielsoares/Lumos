@@ -1989,6 +1989,25 @@ Nenhuma Edge Function muda.
 - "Baixar lista (Excel)" e "Copiar números". Para campanhas, só entra quem aceitou receber promoções (LGPD e regras
   do WhatsApp). Quem pediu para não receber mensagens nunca aparece como autorizado.
 
+## 48. Compras: só insumos e revenda, com cadastro de insumo na hora
+
+No **SQL Editor**:
+
+```sql
+-- Quem tem a aba Compras também pode cadastrar insumo novo direto na compra (ex.: costela, farinha)
+drop policy if exists "Equipe: cria insumos" on public.products;
+create policy "Equipe: cria insumos" on public.products for insert
+  with check (is_insumo and (public.team_has_tab(owner_id, 'ficha_tecnica') or public.team_has_tab(owner_id, 'compras')));
+```
+
+Nenhuma Edge Function muda.
+
+### Como funciona
+- Na **Nova compra**, a lista mostra só o que se compra: **Insumos da cozinha** (costela, farinha) e **Revenda**
+  (água, cerveja, vendidos como chegam). Pratos com ficha técnica ou marcados como produção própria não aparecem.
+- Produtos de outro nicho (como os exemplos do simulador de materiais) não aparecem na compra nem na ficha técnica.
+- "+ Novo insumo" cadastra o insumo sem sair da compra. A quantidade e o custo mostram a unidade (kg, litro, un).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
