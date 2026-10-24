@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ficha técnica | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=82" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=82" />
-  <script src="js/dialogs.js?v=82"></script>
+  <script src="js/logo.js?v=83" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=83" />
+  <script src="js/dialogs.js?v=83"></script>
   <style>
     .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -113,12 +113,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=82";
-    import { initThemeToggle } from "./js/theme.js?v=82";
-    import { initMobileNav } from "./js/mobileNav.js?v=82";
-    import { renderSidebar } from "./js/sidebar.js?v=82";
-    import { supabase } from "./js/supabaseClient.js?v=82";
-    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=82";
+    import { requireSession, signOut } from "./js/auth.js?v=83";
+    import { initThemeToggle } from "./js/theme.js?v=83";
+    import { initMobileNav } from "./js/mobileNav.js?v=83";
+    import { renderSidebar } from "./js/sidebar.js?v=83";
+    import { supabase } from "./js/supabaseClient.js?v=83";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=83";
 
     await requireSession();
     initThemeToggle();
@@ -128,7 +128,7 @@
     const owner_id = await ownerId();
 
     // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
-    const { getMyAccess } = await import("./js/workspace.js?v=82");
+    const { getMyAccess } = await import("./js/workspace.js?v=83");
     const acesso = await getMyAccess().catch(() => ({}));
     const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }
@@ -143,9 +143,10 @@
     document.getElementById("f-meta").value = meta;
 
     let produtos = [], receitas = [];
-    const insumos = () => produtos.filter((p) => p.is_insumo === true);
+    const insumos = () => produtos.filter((p) => p.is_insumo === true && !doOutroNicho(p));
     // Produtos de outro nicho (ex.: exemplos do simulador de materiais) não entram na ficha técnica do restaurante
-    const doOutroNicho = (p) => !!p.segmento && document.body.dataset.nicho === "restaurante" && p.segmento !== "restaurante";
+    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=83");
+    await nichoAtual();
     const pratos = () => produtos.filter((p) => p.is_insumo !== true && p.active !== false && !doOutroNicho(p));
     const fichaDe = (id) => receitas.filter((r) => r.product_id === id);
     const custoFicha = (id) => fichaDe(id).reduce((t, r) => {
@@ -251,7 +252,7 @@
         const campos = { name: nome, unit: m.el.querySelector("#m-un").value, estoque_minimo: v("#m-min") };
         if (verCustos) campos.custo = v("#m-custo");
         let salvo, error;
-        if (novo) ({ data: salvo, error } = await supabase.from("products").insert({ owner_id, ...campos, is_insumo: true, active: true, estoque: 0, price: null }).select().single());
+        if (novo) ({ data: salvo, error } = await supabase.from("products").insert({ owner_id, ...campos, is_insumo: true, active: true, estoque: 0, price: null, ...segmentoNovo() }).select().single());
         else ({ data: salvo, error } = await supabase.from("products").update(campos).eq("id", ins.id).select().single());
         if (error) { msg.textContent = error.message; msg.className = "form-msg error"; return; }
         if (novo && v("#m-ini")) await moverEstoque({ product: { ...salvo, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini"), motivo: "Saldo inicial" });
@@ -376,7 +377,7 @@
     // O X-Burguer e os insumos são fictícios e existem só na tela: nada é gravado no banco.
     // Os números vêm do próprio cálculo da página (custo, CMV e preço sugerido).
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=82");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=83");
       const S = {
         carne: { id: "sim-carne", name: "Carne moída", unit: "kg", custo: 40, estoque: 5, estoque_minimo: 2, is_insumo: true, active: true, sim: true },
         pao: { id: "sim-pao", name: "Pão de hambúrguer", unit: "unidade", custo: 1.2, estoque: 100, estoque_minimo: 20, is_insumo: true, active: true, sim: true },

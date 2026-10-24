@@ -2485,3 +2485,5 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 .sim-chat .b { max-width: 80%; padding: 8px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; }
 .sim-chat .c { align-self: flex-end; background: #DCF8C6; color: #1C2B3A; border-bottom-right-radius: 4px; }
 .sim-chat .ia { align-self: flex-start; background: var(--panel-card); color: var(--panel-text); border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; }
+.erp-item-hint { grid-column: 1 / -1; font-size: 12px; color: var(--panel-text-muted); margin-top: -2px; }
+.erp-item-hint:empty { display: none; }

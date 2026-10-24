@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=82" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=82" />
-  <script src="js/dialogs.js?v=82"></script>
+  <script src="js/logo.js?v=83" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=83" />
+  <script src="js/dialogs.js?v=83"></script>
 </head>
 <body>
 
@@ -39,7 +39,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
         <div>
           <h1 style="font-size: 28px;">Compras</h1>
-          <p style="margin-top: 6px;">Pedidos aos fornecedores. Ao <strong>receber</strong> uma compra, o estoque entra, o custo dos produtos é atualizado e a conta a pagar vai pro Financeiro.</p>
+          <p style="margin-top: 6px;">Compras de insumos e produtos de revenda. Ao <strong>receber</strong>, o estoque entra, o custo médio é atualizado (e o custo dos pratos que usam esses itens) e a conta a pagar vai pro Financeiro.</p>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn btn-ghost" id="new-forn">+ Fornecedor</button>
@@ -82,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=82";
-    import { initThemeToggle } from "./js/theme.js?v=82";
-    import { initMobileNav } from "./js/mobileNav.js?v=82";
-    import { renderSidebar } from "./js/sidebar.js?v=82";
-    import { supabase } from "./js/supabaseClient.js?v=82";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=82";
+    import { requireSession, signOut } from "./js/auth.js?v=83";
+    import { initThemeToggle } from "./js/theme.js?v=83";
+    import { initMobileNav } from "./js/mobileNav.js?v=83";
+    import { renderSidebar } from "./js/sidebar.js?v=83";
+    import { supabase } from "./js/supabaseClient.js?v=83";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=83";
 
     await requireSession();
     initThemeToggle();
@@ -96,10 +96,10 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    let compras = [], fornecedores = [], products = [], comFicha = new Set(), fiscalTipo = {};
+    let compras = [], fornecedores = [], products = [], comFicha = new Set(), fiscalTipo = {}, usos = {};
     // Produtos de outro nicho (ex.: exemplos do simulador de materiais) não aparecem na compra do restaurante
-    const nicho = document.body.dataset.nicho || null;
-    const doOutroNicho = (p) => !!p.segmento && !!nicho && ((nicho === "restaurante" && p.segmento !== "restaurante") || (nicho !== "restaurante" && p.segmento === "restaurante"));
+    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=83");
+    const nicho = await nichoAtual();
     // O que se compra: insumo da cozinha ou produto de revenda (vendido como chega). Prato preparado não se compra.
     const preparado = (p) => comFicha.has(p.id) || fiscalTipo[p.id] === "producao";
     const tipoCompra = (p) => p.is_insumo ? "insumo" : preparado(p) ? "preparado" : (p.estoque != null || fiscalTipo[p.id] === "revenda") ? "revenda" : "cardapio";
@@ -114,7 +114,13 @@
       ]);
       compras = c.data || []; fornecedores = f.data || []; products = (p.data || []).filter((x) => !doOutroNicho(x));
       // Quem tem ficha técnica é preparado na cozinha (as tabelas podem não existir ainda: segue sem elas)
-      try { const { data: r } = await supabase.from("product_recipes").select("product_id").eq("owner_id", owner_id); comFicha = new Set((r || []).map((x) => x.product_id)); } catch (_) { comFicha = new Set(); }
+      try {
+        const { data: r } = await supabase.from("product_recipes").select("product_id, insumo_id").eq("owner_id", owner_id);
+        comFicha = new Set((r || []).map((x) => x.product_id));
+        // Em quais pratos cada insumo é usado (para mostrar a conexão na compra e no resumo)
+        usos = {};
+        for (const x of r || []) { const prato = products.find((p) => p.id === x.product_id); if (prato) (usos[x.insumo_id] ||= []).push(prato.name); }
+      } catch (_) { comFicha = new Set(); usos = {}; }
       try { const { data: fz } = await supabase.from("product_fiscal").select("product_id, tipo").eq("owner_id", owner_id); fiscalTipo = Object.fromEntries((fz || []).map((x) => [x.product_id, x.tipo])); } catch (_) { fiscalTipo = {}; }
       const fname = (id) => fornecedores.find((x) => x.id === id)?.nome || "-";
       const [ini, fim] = monthRange(0);
@@ -197,6 +203,7 @@
           <div class="field"><label>Vencimento do pagamento</label><input id="m-venc" type="date" value="${addDaysISO(todayISO(), 30)}" /></div>
         </div>
         <div class="field"><label>Observação</label><input id="m-obs" /></div>
+        <div class="field toggle-row" style="justify-content:space-between;"><span>Já recebi a mercadoria <small style="opacity:.75;">(dar entrada no estoque agora)</small></span><input type="checkbox" class="toggle-input" id="m-recebida" checked /></div>
         <div style="display:flex; justify-content:space-between; padding-top:10px; border-top:1px solid var(--panel-border);"><span>Total</span><strong id="m-total">R$ 0,00</strong></div>
         <div id="m-msg" class="form-msg"></div>
         <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-save">Criar compra</button></div>`, { width: 600 });
@@ -209,11 +216,16 @@
       const add = () => {
         const r = document.createElement("div");
         r.className = "erp-item";
-        r.innerHTML = `<select class="p">${opcoes()}</select><input class="q" type="number" step="0.001" min="0" placeholder="Qtd" /><input class="c" type="number" step="0.01" min="0" placeholder="Custo R$" /><button type="button" title="Remover">✕</button>`;
+        r.innerHTML = `<select class="p">${opcoes()}</select><input class="q" type="number" step="0.001" min="0" placeholder="Qtd" /><input class="c" type="number" step="0.01" min="0" placeholder="Custo R$" /><button type="button" title="Remover">✕</button><div class="erp-item-hint"></div>`;
         const setCusto = () => {
           const p = products.find((x) => x.id === r.querySelector(".p").value);
           const un = UN_CURTA[p?.unit] || "un";
           r.querySelector(".q").placeholder = `Qtd (${un})`; r.querySelector(".c").placeholder = `R$ por ${un}`;
+          r.querySelector(".erp-item-hint").innerHTML = p ? [
+            `Estoque atual: <b>${p.estoque == null ? "sem controle" : `${num(p.estoque, 3)} ${un}`}</b>`,
+            p.custo != null ? `custo atual: ${brl(p.custo)}/${un}` : "",
+            usos[p.id]?.length ? `usado em: ${esc(usos[p.id].slice(0, 4).join(", "))}${usos[p.id].length > 4 ? "..." : ""}` : (p.is_insumo ? "ainda não está em nenhuma ficha técnica" : ""),
+          ].filter(Boolean).join(" · ") : "";
           if (p?.custo != null && !r.querySelector(".c").value) r.querySelector(".c").value = p.custo;
           total();
         };
@@ -236,7 +248,7 @@
       m.el.querySelector("#m-ins-save").addEventListener("click", async () => {
         const nome = m.el.querySelector("#m-ins-nome").value.trim(), msg = m.el.querySelector("#m-ins-msg");
         if (!nome) { msg.textContent = "Informe o nome do insumo."; msg.className = "form-msg error"; return; }
-        const { data: novo, error } = await supabase.from("products").insert({ owner_id, name: nome, unit: m.el.querySelector("#m-ins-un").value, is_insumo: true, active: true, estoque: 0, price: null, ...(nicho === "restaurante" ? { segmento: "restaurante" } : {}) }).select().single();
+        const { data: novo, error } = await supabase.from("products").insert({ owner_id, name: nome, unit: m.el.querySelector("#m-ins-un").value, is_insumo: true, active: true, estoque: 0, price: null, ...segmentoNovo() }).select().single();
         if (error) { msg.textContent = /is_insumo|segmento/.test(error.message) ? "Falta aplicar no banco a seção 44 do guia de instalação." : `Não foi possível cadastrar: ${error.message}`; msg.className = "form-msg error"; return; }
         products.push(novo);
         m.el.querySelector("#m-ins-nome").value = ""; boxIns.style.display = "none";
@@ -253,26 +265,39 @@
         }).filter((i) => i.product_id && i.quantidade > 0);
         const msg = m.el.querySelector("#m-msg");
         if (!itens.length) { msg.textContent = "Adicione ao menos um item com quantidade."; msg.className = "form-msg error"; return; }
-        const { error } = await supabase.from("compras").insert({
+        const recebidaJa = m.el.querySelector("#m-recebida").checked;
+        const { data: nova, error } = await supabase.from("compras").insert({
           owner_id, status: "aberta", fornecedor_id: m.el.querySelector("#m-forn").value, itens,
           total: Math.round(itens.reduce((t, i) => t + i.quantidade * (i.custo_unitario || 0), 0) * 100) / 100,
           previsao: m.el.querySelector("#m-prev").value || null, vencimento_pagamento: m.el.querySelector("#m-venc").value || null,
           observacao: m.el.querySelector("#m-obs").value.trim() || null,
-        });
+        }).select().single();
         if (error) { msg.textContent = `Erro: ${error.message}`; msg.className = "form-msg error"; return; }
-        m.close(); load();
+        m.close();
+        if (recebidaJa && nova) await receber(nova, { direto: true }); else load();
       });
     }
 
     // Receber: entrada no estoque + custo atualizado + conta a pagar
-    async function receber(c) {
+    // Custo médio ponderado: mistura o custo do que já havia no estoque com o da mercadoria que chegou
+    const custoMedio = (estoque, custoAtual, qtd, custoNovo) => {
+      const e = Math.max(0, Number(estoque || 0)), q = Number(qtd || 0), cA = Number(custoAtual || 0), cN = Number(custoNovo || 0);
+      if (!(cN > 0)) return null;
+      if (!(e > 0) || !(cA > 0)) return Math.round(cN * 100) / 100;
+      return Math.round(((e * cA + q * cN) / (e + q)) * 100) / 100;
+    };
+    async function receber(c, { direto = false } = {}) {
       const fname = fornecedores.find((x) => x.id === c.fornecedor_id)?.nome || "fornecedor";
-      if (!(await lumosConfirm(`Receber a compra #${c.numero} de ${fname}?\n\nO estoque dos itens vai entrar, o custo será atualizado e a conta a pagar (${brl(c.total)}) vai pro Financeiro.`))) return;
+      if (!direto && !(await lumosConfirm(`Receber a compra #${c.numero} de ${fname}?\n\nO estoque dos itens vai entrar, o custo médio será atualizado (e o dos pratos que usam esses itens) e a conta a pagar (${brl(c.total)}) vai pro Financeiro.`))) return;
+      const resumo = [];
       for (const it of c.itens || []) {
-        const { data: p } = await supabase.from("products").select("id, estoque").eq("id", it.product_id).maybeSingle();
+        const { data: p } = await supabase.from("products").select("id, name, unit, estoque, custo").eq("id", it.product_id).maybeSingle();
         if (!p) continue;
-        await moverEstoque({ product: { ...p, estoque: p.estoque ?? 0 }, tipo: "entrada", quantidade: it.quantidade, motivo: `Compra #${c.numero}, ${fname}`, origem: "compra", ref_id: c.id });
-        if (it.custo_unitario > 0) await supabase.from("products").update({ custo: it.custo_unitario }).eq("id", p.id);
+        const antes = Number(p.estoque || 0), custoAntes = p.custo;
+        const r = await moverEstoque({ product: { ...p, estoque: p.estoque ?? 0 }, tipo: "entrada", quantidade: it.quantidade, motivo: `Compra #${c.numero}, ${fname}`, origem: "compra", ref_id: c.id });
+        const novo = custoMedio(antes, p.custo, it.quantidade, it.custo_unitario);
+        if (novo !== null) await supabase.from("products").update({ custo: novo }).eq("id", p.id);
+        resumo.push({ nome: p.name, un: UN_CURTA[p.unit] || "un", antes, depois: r?.saldo ?? antes + Number(it.quantidade), custoAntes, custoNovo: novo ?? custoAntes, pratos: usos[p.id] || [] });
       }
       if (Number(c.total) > 0) {
         await supabase.from("fin_lancamentos").insert({
@@ -281,7 +306,16 @@
         });
       }
       await supabase.from("compras").update({ status: "recebida", recebida_em: new Date().toISOString() }).eq("id", c.id);
-      load();
+      await load();
+      // Resumo: o que mudou no estoque, no custo e nos pratos
+      const pratos = [...new Set(resumo.flatMap((x) => x.pratos))];
+      modal(`<h3 style="font-size:18px;">Compra #${c.numero} recebida</h3>
+        <p class="settings-hint" style="margin:4px 0 12px;">Tudo atualizado: estoque, custo médio dos itens, custo dos pratos que usam esses itens e a conta a pagar de ${brl(c.total)} no Financeiro.</p>
+        <div class="panel-table-wrap"><table class="panel-table"><thead><tr><th>Item</th><th>Estoque</th><th>Custo médio</th></tr></thead><tbody>
+        ${resumo.map((x) => `<tr><td><strong>${esc(x.nome)}</strong></td><td>${num(x.antes, 3)} → <b>${num(x.depois, 3)}</b> ${x.un}</td><td>${x.custoAntes != null && Number(x.custoAntes) !== Number(x.custoNovo) ? `${brl(x.custoAntes)} → ` : ""}<b>${x.custoNovo != null ? brl(x.custoNovo) : "-"}</b>/${x.un}</td></tr>`).join("")}
+        </tbody></table></div>
+        ${pratos.length ? `<p style="margin-top:12px; font-size:14px;">Custo recalculado sozinho em: <b>${esc(pratos.join(", "))}</b>. Veja na Ficha técnica.</p>` : ""}
+        <div class="modal-actions"><button class="btn btn-primary" data-close>Entendi</button></div>`, { width: 560 });
     }
 
     document.getElementById("new-forn").addEventListener("click", () => fornForm());
@@ -300,7 +334,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=82").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=83").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Compras: do pedido ao fornecedor até o estoque",
       antes: "O Estoque mostra o que está acabando. O dono escolhe o fornecedor e faz o pedido aqui.",
       faz: "Guarda os fornecedores e os pedidos de compra, com os itens, o custo e o vencimento.",
@@ -322,7 +356,7 @@
               <tr class="cr-simrow"><td>#58 <span class="sim-mark">Simulação</span></td><td>Atacadão</td><td>3</td><td>R$ 640,00</td><td><span class="erp-badge ok">Recebida</span></td></tr>`);
             trocar("#c-abertas", "0"); trocar("#c-recebidas", "R$ 1.030,00"); trocar("#c-forn", "2");
             destacar(document.querySelector("#rows tr")); },
-          texto: "Chegou! Um clique em Receber e, sozinho: o estoque das bebidas aumenta, o custo é atualizado (e o custo dos pratos na ficha técnica), e a conta a pagar aparece no Financeiro com o vencimento combinado." },
+          texto: "Chegou! Um clique em Receber (ou já marcar Já recebi na hora da compra) e, sozinho: o estoque aumenta, o custo médio é atualizado, o custo dos pratos na ficha técnica é recalculado e a conta a pagar aparece no Financeiro com o vencimento combinado." },
       ],
     })));
   </script>

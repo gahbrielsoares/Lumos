@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estoque | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=82" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=82" />
-  <script src="js/dialogs.js?v=82"></script>
+  <script src="js/logo.js?v=83" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=83" />
+  <script src="js/dialogs.js?v=83"></script>
 </head>
 <body>
 
@@ -84,12 +84,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=82";
-    import { initThemeToggle } from "./js/theme.js?v=82";
-    import { initMobileNav } from "./js/mobileNav.js?v=82";
-    import { renderSidebar } from "./js/sidebar.js?v=82";
-    import { supabase } from "./js/supabaseClient.js?v=82";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=82";
+    import { requireSession, signOut } from "./js/auth.js?v=83";
+    import { initThemeToggle } from "./js/theme.js?v=83";
+    import { initMobileNav } from "./js/mobileNav.js?v=83";
+    import { renderSidebar } from "./js/sidebar.js?v=83";
+    import { supabase } from "./js/supabaseClient.js?v=83";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=83";
 
     await requireSession();
     initThemeToggle();
@@ -100,7 +100,7 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl", pacote: "pct", fardo: "fd", duzia: "dz" };
     let products = [];
-    const { getMyAccess } = await import("./js/workspace.js?v=82");
+    const { getMyAccess } = await import("./js/workspace.js?v=83");
     const acesso = await getMyAccess();
     const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) {
@@ -111,11 +111,13 @@
     }
 
     async function load() {
-      const [{ data: p }, { data: m }] = await Promise.all([
+      let [{ data: p }, { data: m }] = await Promise.all([
         supabase.from("products").select("*").eq("owner_id", owner_id).order("name"),
-        supabase.from("estoque_mov").select("*, products(name, unit)").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(50),
+        supabase.from("estoque_mov").select("*, products(name, unit, segmento)").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(80),
       ]);
-      products = p || [];
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=83"); await nichoAtual();
+      products = (p || []).filter((x) => !doOutroNicho(x));
+      m = (m || []).filter((x) => !doOutroNicho(x.products)).slice(0, 50);
       render();
       document.getElementById("movs").innerHTML = (m || []).map((x) => `<tr>
         <td>${new Date(x.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
@@ -203,7 +205,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=82").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=83").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Estoque: nada falta na hora do pedido",
       antes: "As compras recebidas dão entrada sozinhas. As vendas baixam sozinhas, inclusive os insumos de cada prato, pela ficha técnica.",
       faz: "Mostra o saldo de cada produto e insumo, avisa o que está abaixo do mínimo ou acabou, e registra cada movimento com o motivo.",

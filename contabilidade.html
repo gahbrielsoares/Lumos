@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=82" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=82" />
-  <script src="js/dialogs.js?v=82"></script>
+  <script src="js/logo.js?v=83" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=83" />
+  <script src="js/dialogs.js?v=83"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -172,14 +172,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=82";
-    import { initThemeToggle } from "./js/theme.js?v=82";
-    import { initMobileNav } from "./js/mobileNav.js?v=82";
-    import { renderSidebar } from "./js/sidebar.js?v=82";
-    import { supabase } from "./js/supabaseClient.js?v=82";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=82";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=82";
-    import * as T from "./js/tributos.js?v=82";
+    import { requireSession, signOut } from "./js/auth.js?v=83";
+    import { initThemeToggle } from "./js/theme.js?v=83";
+    import { initMobileNav } from "./js/mobileNav.js?v=83";
+    import { renderSidebar } from "./js/sidebar.js?v=83";
+    import { supabase } from "./js/supabaseClient.js?v=83";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=83";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=83";
+    import * as T from "./js/tributos.js?v=83";
 
     await requireSession();
     initThemeToggle();
@@ -255,7 +255,8 @@
         todos(() => supabase.from("products").select("*").eq("owner_id", owner_id).order("name")),
         todos(() => supabase.from("product_fiscal").select("*").eq("owner_id", owner_id)),
       ]);
-      produtos = prods;
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=83"); await nichoAtual();
+      produtos = prods.filter((x) => !doOutroNicho(x));
       fiscalMap = Object.fromEntries(fis.map((f) => [f.product_id, f]));
     }
 
@@ -631,13 +632,13 @@
     });
 
     carregarFechamento();
-    import("./js/ajuda.js?v=82").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+    import("./js/ajuda.js?v=83").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
 
     // ================= Simulação para apresentação (só administração) =================
     // Um mês fictício de restaurante passa pelo motor fiscal de verdade (js/tributos.js).
     // Os números são calculados, não inventados. Nada é gravado no banco nem vai para o Excel.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=82");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=83");
       const ym = addMes(todayISO().slice(0, 7), -1);
       function mesFicticio() {
         const P = [

@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=82";
-import { getWorkspaceOwnerId } from "./workspace.js?v=82";
+import { supabase } from "./supabaseClient.js?v=83";
+import { getWorkspaceOwnerId } from "./workspace.js?v=83";
 
 // Dono dos dados: o próprio usuário ou, se for da equipe, o dono do estabelecimento
 async function getUserId() {

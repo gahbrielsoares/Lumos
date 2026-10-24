@@ -2007,6 +2007,14 @@ Nenhuma Edge Function muda.
   (água, cerveja, vendidos como chegam). Pratos com ficha técnica ou marcados como produção própria não aparecem.
 - Produtos de outro nicho (como os exemplos do simulador de materiais) não aparecem na compra nem na ficha técnica.
 - "+ Novo insumo" cadastra o insumo sem sair da compra. A quantidade e o custo mostram a unidade (kg, litro, un).
+- Cada linha mostra o estoque atual do item, o custo atual e em quais pratos ele é usado.
+- "Já recebi a mercadoria" (marcado por padrão) dá entrada no estoque na hora. Ao receber, o custo do item vira o
+  **custo médio ponderado** (estoque antigo + compra nova), o banco recalcula o custo dos pratos da ficha técnica e
+  aparece um resumo do que mudou.
+- **Separação por nicho** (`js/nicho.js`): Produtos, Estoque, Compras, Ficha técnica e Contabilidade mostram só os
+  produtos do nicho da conta e os sem nicho. Nada é apagado: ao trocar o nicho, os do outro nicho voltam. Produto e
+  insumo novos já nascem com o nicho da conta.
+- Ficha técnica aceita itens de revenda como ingrediente, para combos (ex.: balde com 6 long necks).
 
 ## Status atual
 
