@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=77" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=77" />
-  <script src="js/dialogs.js?v=77"></script>
+  <script src="js/logo.js?v=79" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/dialogs.js?v=79"></script>
   <style>
     .nf-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .nf-card h3 { font-size:16px; margin-bottom:4px; }
@@ -170,13 +170,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=77";
-    import { initThemeToggle } from "./js/theme.js?v=77";
-    import { initMobileNav } from "./js/mobileNav.js?v=77";
-    import { renderSidebar } from "./js/sidebar.js?v=77";
-    import { supabase } from "./js/supabaseClient.js?v=77";
-    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=77";
-    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=77";
+    import { requireSession, signOut } from "./js/auth.js?v=79";
+    import { initThemeToggle } from "./js/theme.js?v=79";
+    import { initMobileNav } from "./js/mobileNav.js?v=79";
+    import { renderSidebar } from "./js/sidebar.js?v=79";
+    import { supabase } from "./js/supabaseClient.js?v=79";
+    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=79";
+    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=79";
 
     await requireSession();
     initThemeToggle();
@@ -184,7 +184,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=77");
+    const { getMyAccess } = await import("./js/workspace.js?v=79");
     const acesso = await getMyAccess().catch(() => ({}));
     const souDono = !acesso?.member;
 
@@ -472,7 +472,50 @@
 
     await carregarStatus();
     carregarNotas();
-    import("./js/ajuda.js?v=77").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
+    import("./js/ajuda.js?v=79").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
+
+    // ================= Simulação para apresentação (só administração) =================
+    // A conexão e as notas são fictícias e existem só na tela: nada vai para o emissor nem para o banco.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=79");
+      const agora = Date.now();
+      const venda = (id, numero, nome, valor, min) => ({ id, numero, paid_at: new Date(agora - min * 60000).toISOString(), cliente: { nome }, total: valor, pagamento: { valor_cobrado: valor } });
+      const nota = (sid, status, extra = {}) => ({ id: `doc-${sid}`, sales_order_id: sid, status, ambiente: "producao", created_at: new Date().toISOString(), ...extra });
+      const bloquear = (on) => ["conexao", "rows", "f-periodo", "f-sit"].forEach((id) => (document.getElementById(id).style.pointerEvents = on ? "none" : ""));
+      const linha = (sid) => document.querySelector(`#rows [data-emit="${sid}"], #rows [data-cancel="doc-${sid}"]`)?.closest("tr");
+      const marcar = () => document.querySelectorAll("#rows tr").forEach((tr) => { const td = tr.children[2]; if (td && !td.querySelector(".sim-mark")) td.insertAdjacentHTML("beforeend", ` <span class="sim-mark">Simulação</span>`); });
+      const mostrar = () => { renderNotas(); marcar(); };
+      botaoSimular(() => ({
+        titulo: "Notas fiscais: a NFC-e sai sozinha em cada venda paga",
+        antes: "A conta é paga no Lumos (na mesa, no delivery, na retirada ou pelo WhatsApp). O cadastro fiscal de cada produto vem da aba Contabilidade.",
+        faz: "Manda a NFC-e para o emissor da loja, que autoriza na Sefaz em segundos. Mostra o número, o cupom e o XML de cada nota, e avisa quando alguma é recusada e por quê.",
+        depois: "O cliente recebe o cupom no WhatsApp. As notas, com a chave de acesso e o link do XML, vão para o Excel do contador na Contabilidade.",
+        preparar: () => {
+          st = { conectado: true, tem_token_homologacao: true, cadastro_pela_lumos: false,
+            config: { cnpj: "11222333000181", ambiente: "producao", serie: "1", emitir_quando: "apos_pagamento", enviar_cliente: true, modo: "token",
+              certificado: { validade: new Date(agora + 300 * 86400000).toISOString() }, conectado_em: new Date(agora - 20 * 86400000).toISOString() } };
+          renderConexao();
+          vendas = [venda("sv2", 1044, "Juliana Prado", 112, 3), venda("sv1", 1043, "Adalberto Souza", 94.6, 5)];
+          docs = {};
+          bloquear(true);
+        },
+        passos: [
+          { titulo: "Conectado ao emissor da loja", acao: () => { mostrar(); destacar(document.querySelector("#conexao .nf-card")); },
+            texto: "A loja já está conectada ao seu emissor de notas, em produção: as notas têm valor fiscal. Aqui aparecem o CNPJ, a série e até quando o certificado digital vale, com aviso 30 dias antes de vencer." },
+          { titulo: "A nota sai sozinha", acao: () => { docs.sv1 = nota("sv1", "autorizado", { numero: "1532", danfe_url: "#", xml_url: "#" }); mostrar(); destacar(linha("sv1")); },
+            texto: "O Adalberto pagou a conta e, segundos depois, a NFC-e nº 1532 foi autorizada pela Sefaz. Ele recebeu o cupom fiscal no WhatsApp. Ninguém precisou abrir outro sistema nem digitar a venda de novo." },
+          { titulo: "Quando a Sefaz recusa", acao: () => { docs.sv2 = nota("sv2", "erro", { mensagem: "Rejeição 778: NCM inexistente no item 1" }); mostrar(); destacar(linha("sv2")); },
+            texto: "A nota da Juliana foi recusada, e o motivo aparece em português: o NCM de um produto estava errado. A venda não trava. O dono corrige o NCM no cadastro fiscal e clica em Tentar de novo." },
+          { titulo: "Corrigido e autorizado", acao: () => { docs.sv2 = nota("sv2", "autorizado", { numero: "1533", danfe_url: "#", xml_url: "#" }); mostrar(); destacar(linha("sv2")); },
+            texto: "Depois da correção, a nota da Juliana foi autorizada com o nº 1533. A lista mostra, de cada venda, se já tem nota, se deu erro ou se foi cancelada." },
+          { titulo: "Cancelamento com motivo", acao: () => destacar(document.querySelector('#rows [data-cancel="doc-sv1"]')),
+            texto: "Se uma venda foi lançada errado, a nota pode ser cancelada aqui mesmo, informando o motivo. O cancelamento vai para a Sefaz e fica registrado. Em São Paulo, a NFC-e pode ser cancelada até 30 minutos depois da emissão." },
+          { titulo: "Tudo pronto para o contador", acao: () => destacar(document.querySelector('#rows tr a[href]')?.parentElement),
+            texto: "Cada nota tem o cupom e o XML a um clique. No fechamento do mês, todas elas entram no Excel do contador com a chave de acesso e o link do XML. Acabou a correria para juntar notas no fim do mês." },
+        ],
+        limpar: async () => { bloquear(false); vendas = []; docs = {}; await carregarStatus(); carregarNotas(); },
+      }));
+    }
   </script>
 </body>
 </html>

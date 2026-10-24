@@ -2472,3 +2472,7 @@ body.sim-on .lumos-tools { display: none; }
 #sim-conta .pill-tab { background: var(--panel-card); border-color: var(--panel-border); color: var(--panel-text-muted); }
 #sim-conta .pill-tab.active { background: var(--panel-accent); border-color: var(--panel-accent); color: #1C2B3A; }
 #sim-conta .pill-tabs .pill-tab.active { background: var(--panel-accent) !important; border-color: var(--panel-accent) !important; color: #1C2B3A !important; font-weight: 700; }
+/* Linha de tabela destacada na simulação (tabelas não desenham contorno em linhas) */
+tr.sim-destaque { outline: none; animation: none; }
+tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: simLinha 1.2s ease-in-out 2; }
+@keyframes simLinha { 0%, 100% { background: rgba(201,168,76,.28); } 50% { background: rgba(201,168,76,.08); } }

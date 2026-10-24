@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Financeiro | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=77" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=77" />
-  <script src="js/dialogs.js?v=77"></script>
+  <script src="js/logo.js?v=79" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/dialogs.js?v=79"></script>
 </head>
 <body>
 
@@ -89,12 +89,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=77";
-    import { initThemeToggle } from "./js/theme.js?v=77";
-    import { initMobileNav } from "./js/mobileNav.js?v=77";
-    import { renderSidebar } from "./js/sidebar.js?v=77";
-    import { supabase } from "./js/supabaseClient.js?v=77";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=77";
+    import { requireSession, signOut } from "./js/auth.js?v=79";
+    import { initThemeToggle } from "./js/theme.js?v=79";
+    import { initMobileNav } from "./js/mobileNav.js?v=79";
+    import { renderSidebar } from "./js/sidebar.js?v=79";
+    import { supabase } from "./js/supabaseClient.js?v=79";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=79";
 
     await requireSession();
     initThemeToggle();
@@ -217,7 +217,64 @@
       else if (b.dataset.del) { if (!(await lumosConfirm("Excluir este lançamento?"))) return; await supabase.from("fin_lancamentos").delete().eq("id", b.dataset.del); }
       load();
     });
-    load();
+    await load();
+
+    // ================= Simulação para apresentação (só administração) =================
+    // Os lançamentos são fictícios e existem só na tela: nada é gravado no banco.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=79");
+      const hoje = todayISO();
+      const L = (id, tipo, descricao, categoria, valor, venc, pago, forma, origem) => ({ id: `sim-${id}`, tipo, descricao, categoria, valor, vencimento: venc, pago_em: pago, forma, origem, sim: true });
+      let reais = null, fakes = [];
+      const sel = { "f-periodo": "tudo", "f-tipo": "", "f-status": "" };
+      let selAntes = {};
+      const mostrar = () => {
+        all = [...fakes];
+        render();
+        document.querySelectorAll('#rows button[data-edit^="sim-"]').forEach((b) => {
+          const tr = b.closest("tr"); tr.classList.add("cr-simrow"); tr.style.pointerEvents = "none"; tr.dataset.sim = b.dataset.edit;
+          const s = tr.querySelector("strong"); if (s && !s.nextElementSibling?.classList?.contains("sim-mark")) s.insertAdjacentHTML("afterend", ` <span class="sim-mark">Simulação</span>`);
+        });
+      };
+      const linha = (id) => document.querySelector(`#rows tr[data-sim="sim-${id}"]`);
+      botaoSimular(() => ({
+        titulo: "Financeiro: tudo o que entra e sai, sem planilha",
+        antes: "As vendas pagas (mesa, delivery, retirada e WhatsApp) e as compras recebidas dos fornecedores entram aqui sozinhas. O dono só lança as despesas da casa.",
+        faz: "Mostra as contas a receber e a pagar, o que já foi recebido e pago, o que está atrasado e o saldo do período.",
+        depois: "Os mesmos números formam o resultado do mês nos Relatórios e o DRE da Contabilidade que vai para o contador.",
+        preparar: () => {
+          reais = all; fakes = [];
+          for (const [id, v] of Object.entries(sel)) { selAntes[id] = document.getElementById(id).value; document.getElementById(id).value = v; }
+          document.querySelectorAll(".erp-toolbar, #new-receita, #new-despesa").forEach((el) => (el.style.pointerEvents = "none"));
+        },
+        passos: [
+          { titulo: "As vendas entram sozinhas", acao: () => {
+              fakes.push(L("v0", "receita", "Vendas de ontem (41 contas)", "Vendas", 4385.4, addDaysISO(hoje, -1), addDaysISO(hoje, -1), "Vários", "venda"),
+                L("v1", "receita", "Venda #1043, Mesa 7 (Adalberto)", "Vendas", 94.6, hoje, hoje, "Pix", "venda"), L("v2", "receita", "Venda #1044, delivery (Juliana)", "Vendas", 112, hoje, hoje, "Dinheiro", "venda"));
+              mostrar(); destacar(linha("v1")); },
+            texto: "A conta do Adalberto, paga no Pix, e o delivery da Juliana, pago em dinheiro, já estão aqui como receitas recebidas, com a forma de pagamento, junto com as vendas de ontem. Ninguém digitou nada: a venda paga entra sozinha." },
+          { titulo: "Compras viram contas a pagar", acao: () => {
+              fakes.push(L("c1", "despesa", "Compra #58, Atacadão (carne, pão e queijo)", "Fornecedores", 640, addDaysISO(hoje, 10), null, "Boleto", "compra"));
+              mostrar(); destacar(linha("c1")); },
+            texto: "Quando a compra do fornecedor é recebida na aba Compras, a conta a pagar nasce aqui sozinha, com o vencimento combinado. O boleto do Atacadão vence em 10 dias." },
+          { titulo: "Despesas da casa", acao: () => {
+              fakes.push(L("d1", "despesa", "Aluguel do salão (1/12)", "Aluguel", 3500, addDaysISO(hoje, 5), null, "Transferência", null), L("d2", "despesa", "Conta de energia", "Energia", 680, addDaysISO(hoje, -3), null, "Boleto", null));
+              mostrar(); destacar(linha("d2")); },
+            texto: "O dono lança as despesas fixas uma vez só: o aluguel, por exemplo, já fica repetido para os próximos 12 meses. A conta de energia venceu há 3 dias e aparece como Atrasada, para não passar despercebida." },
+          { titulo: "Conta paga", acao: () => {
+              const e = fakes.find((l) => l.id === "sim-d2"); e.pago_em = hoje; e.descricao = "Conta de energia";
+              mostrar(); destacar(linha("d2")); },
+            texto: "Pagou a energia? Um clique em Pago e ela sai das contas a pagar. Se marcar errado, dá para desfazer." },
+          { titulo: "O resultado do período", acao: () => destacar(document.querySelector(".panel-stat-grid")),
+            texto: "Nos quadros de cima: quanto ainda vai entrar (a receber), quanto ainda vai sair (a pagar), o que já foi recebido e o saldo real do período. É o retrato do dinheiro da casa, sempre atualizado." },
+        ],
+        limpar: () => {
+          for (const [id, v] of Object.entries(selAntes)) document.getElementById(id).value = v;
+          document.querySelectorAll(".erp-toolbar, #new-receita, #new-despesa").forEach((el) => (el.style.pointerEvents = ""));
+          fakes = []; if (reais) all = reais; render();
+        },
+      }));
+    }
   </script>
 </body>
 </html>

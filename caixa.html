@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Caixa | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=77" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=77" />
-  <script src="js/dialogs.js?v=77"></script>
+  <script src="js/logo.js?v=79" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/dialogs.js?v=79"></script>
   <style>
     .cx-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .cx-card h3 { font-size:16px; }
@@ -69,13 +69,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=77";
-    import { initThemeToggle } from "./js/theme.js?v=77";
-    import { initMobileNav } from "./js/mobileNav.js?v=77";
-    import { renderSidebar } from "./js/sidebar.js?v=77";
-    import { supabase } from "./js/supabaseClient.js?v=77";
-    import { brl, esc, ownerId, modal } from "./js/erp.js?v=77";
-    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=77";
+    import { requireSession, signOut } from "./js/auth.js?v=79";
+    import { initThemeToggle } from "./js/theme.js?v=79";
+    import { initMobileNav } from "./js/mobileNav.js?v=79";
+    import { renderSidebar } from "./js/sidebar.js?v=79";
+    import { supabase } from "./js/supabaseClient.js?v=79";
+    import { brl, esc, ownerId, modal } from "./js/erp.js?v=79";
+    import { resumoCaixa, FORMAS_CAIXA } from "./js/caixa.js?v=79";
 
     await requireSession();
     initThemeToggle();
@@ -83,7 +83,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=77");
+    const { getMyAccess } = await import("./js/workspace.js?v=79");
     const acesso = await getMyAccess().catch(() => ({}));
     const { data: u } = await supabase.auth.getUser();
     const eu = { id: u?.user?.id || null, nome: acesso?.member?.nome || u?.user?.email || "Responsável" };
@@ -266,7 +266,7 @@
     // ================= Simulação para apresentação (só administração) =================
     // O caixa do turno é fictício e existe só na tela: nada é gravado no banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=77");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=79");
       const agora = Date.now();
       const VENDAS = [["pix", 94.6], ["dinheiro", 80], ["credito", 120], ["dinheiro", 45], ["debito", 62.5]].map(([metodo, v]) => ({ pagamento: { metodo, valor_cobrado: v } }));
       const SANGRIA = { tipo: "sangria", valor: 100, motivo: "cofre", por_nome: "Carla (caixa)", created_at: new Date(agora - 3600e3).toISOString() };

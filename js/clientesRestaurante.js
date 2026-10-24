@@ -3,8 +3,8 @@
 // quem sumiu e quem aceita receber promoções. Base para campanhas.
 // Visita = dia com conta paga ligada ao cliente (vendas do simulador não contam).
 // =====================================================================
-import { supabase } from "./supabaseClient.js?v=77";
-import { getRange } from "./dateRange.js?v=77";
+import { supabase } from "./supabaseClient.js?v=79";
+import { getRange } from "./dateRange.js?v=79";
 
 const TZ = "America/Sao_Paulo";
 const diaBR = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
@@ -253,7 +253,7 @@ export async function iniciarClientesRestaurante({ ownerId, openLeadPanel }) {
   await carregar();
 
   // ---------- Simulação (só administração; dados só na tela) ----------
-  const { botaoSimular, destacar } = await import("./simulacao.js?v=77");
+  const { botaoSimular, destacar } = await import("./simulacao.js?v=79");
   const hoje = diaBR(new Date());
   const menos = (n) => diaBR(new Date(Date.now() - n * 86400000));
   const fake = (id, nome, dias, valor, optin, extra = {}) => ({ id, nome, phone: "5516999990000", fone: "(16) 99999-0000", primeiroContato: dias[0] || menos(1), ultimoContato: dias[dias.length - 1] || menos(1),

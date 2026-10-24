@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=77" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=77" />
-  <script src="js/dialogs.js?v=77"></script>
+  <script src="js/logo.js?v=79" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=79" />
+  <script src="js/dialogs.js?v=79"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -170,14 +170,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=77";
-    import { initThemeToggle } from "./js/theme.js?v=77";
-    import { initMobileNav } from "./js/mobileNav.js?v=77";
-    import { renderSidebar } from "./js/sidebar.js?v=77";
-    import { supabase } from "./js/supabaseClient.js?v=77";
-    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=77";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=77";
-    import * as T from "./js/tributos.js?v=77";
+    import { requireSession, signOut } from "./js/auth.js?v=79";
+    import { initThemeToggle } from "./js/theme.js?v=79";
+    import { initMobileNav } from "./js/mobileNav.js?v=79";
+    import { renderSidebar } from "./js/sidebar.js?v=79";
+    import { supabase } from "./js/supabaseClient.js?v=79";
+    import { brl, esc, num, todayISO, fmtDate, ownerId } from "./js/erp.js?v=79";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=79";
+    import * as T from "./js/tributos.js?v=79";
 
     await requireSession();
     initThemeToggle();
@@ -259,7 +259,7 @@
 
     async function carregarFechamento() {
       const box = document.getElementById("relatorio");
-      box.innerHTML = `<p class="cb-note">Calculando o fechamento de ${nomeMes(sel.value)}...</p>`;
+      if (!document.body.classList.contains("sim-on")) box.innerHTML = `<p class="cb-note">Calculando o fechamento de ${nomeMes(sel.value)}...</p>`;
       try {
         const ym = sel.value, ini = inicioMes(ym), fim = inicioMes(addMes(ym, 1)), ini12 = inicioMes(addMes(ym, -12));
         await carregarBase();
@@ -291,9 +291,11 @@
         });
         R.notas = notas || [];
         R.despesasCompras = despesas.filter((d) => d.origem === "compra").reduce((t, d) => t + Number(d.valor || 0), 0);
+        if (document.body.classList.contains("sim-on")) return;   // não apaga uma simulação em andamento
         renderRelatorio(R);
       } catch (e) {
         console.error(e);
+        if (document.body.classList.contains("sim-on")) return;
         box.innerHTML = `<div class="cb-pend alta"><span class="dot"></span><span>Não foi possível montar o fechamento: ${esc(e.message || e)}. Se for a primeira vez, confira se a seção 43 do guia de instalação foi aplicada no banco.</span></div>`;
       }
     }
@@ -594,7 +596,84 @@
     });
 
     carregarFechamento();
-    import("./js/ajuda.js?v=77").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+    import("./js/ajuda.js?v=79").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+
+    // ================= Simulação para apresentação (só administração) =================
+    // Um mês fictício de restaurante passa pelo motor fiscal de verdade (js/tributos.js).
+    // Os números são calculados, não inventados. Nada é gravado no banco nem vai para o Excel.
+    {
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=79");
+      const ym = addMes(todayISO().slice(0, 7), -1);
+      function mesFicticio() {
+        const P = [
+          { id: "s-pic", name: "Picanha na chapa", custo: 24, estoque: 18, unit: "unidade", preco: 58 },
+          { id: "s-xb", name: "X-Burguer da casa", custo: 10.5, estoque: null, unit: "unidade", preco: 32 },
+          { id: "s-par", name: "Parmegiana para dois", custo: 31, estoque: null, unit: "unidade", preco: 89 },
+          { id: "s-cer", name: "Cerveja long neck", custo: 5.2, estoque: 140, unit: "unidade", preco: 14 },
+          { id: "s-ref", name: "Refrigerante lata", custo: 2.6, estoque: 96, unit: "unidade", preco: 7 },
+          { id: "s-suco", name: "Suco natural", custo: 3.1, estoque: null, unit: "unidade", preco: 12 },
+        ];
+        const fiscal = { "s-pic": { ncm: "21069090", cfop: "5101" }, "s-xb": { ncm: "19059090", cfop: "5101" }, "s-par": { ncm: "21069090", cfop: "5101" }, "s-cer": { ncm: "22030000", cfop: "5405", monofasico: true, icms_st: true }, "s-ref": { ncm: "22021000", cfop: "5405", monofasico: true, icms_st: true } };
+        const vendas = []; let n = 1000; const metodos = ["pix", "credito", "debito", "dinheiro", "pix", "credito"];
+        const [y, m] = ym.split("-").map(Number); const dias = new Date(y, m, 0).getDate();
+        for (let d = 1; d <= dias; d++) for (let k = 0; k < 6; k++) {
+          const i = (d * 7 + k * 3) % 6;
+          const itens = [P[i % 3], P[3 + (k % 3)]].map((p, j) => ({ product_id: p.id, nome: p.name, quantidade: j ? 2 : 1, preco_unitario: p.preco, subtotal: p.preco * (j ? 2 : 1) }));
+          const consumo = itens.reduce((t, x) => t + x.subtotal, 0), taxa = Math.round(consumo * 10) / 100;
+          itens.push({ product_id: null, taxa: true, nome: "Taxa de serviço (10%)", quantidade: 1, preco_unitario: taxa, subtotal: taxa });
+          const total = Math.round((consumo + taxa) * 100) / 100;
+          vendas.push({ numero: ++n, paid_at: new Date(`${ym}-${String(d).padStart(2, "0")}T${12 + k * 2}:00:00-03:00`).toISOString(), total, frete: 0, entrega: { tipo: k === 5 ? "entrega" : "mesa" },
+            pagamento: { metodo: metodos[k], valor_cobrado: total }, cliente: { nome: k === 0 && d === 12 ? "Adalberto Souza" : `Cliente ${n}` }, nf_numero: d % 9 === 0 ? null : String(n - 900), itens });
+        }
+        return {
+          cfg: { regime: "simples", uf: "SP", nicho: "restaurante", razao_social: "Restaurante Exemplo LTDA", nome_fantasia: "Restaurante Exemplo", cnpj: "11.222.333/0001-81", inscricao_estadual: "110042490114", municipio: "São Carlos", rbt12_manual: 780000, contador_nome: "Maria Contadora", contador_crc: "SP-123456" },
+          vendas, produtos: P, fiscal,
+          compras: [{ numero: 58, total: 6400, recebida_em: `${ym}-05T10:00:00-03:00`, fornecedor_id: "f1", itens: [1, 2, 3] }, { numero: 61, total: 3900, recebida_em: `${ym}-19T10:00:00-03:00`, fornecedor_id: "f2", itens: [1, 2] }],
+          fornecedores: [{ id: "f1", nome: "Atacadão", cnpj: "75.315.333/0001-09" }, { id: "f2", nome: "Distribuidora de Bebidas", cnpj: "" }],
+          despesas: [["Aluguel", 3500], ["Salários", 9800], ["Energia", 1450], ["Água", 380], ["Marketing", 600], ["Taxas e tarifas", 920]].map(([categoria, valor]) => ({ categoria, valor })),
+        };
+      }
+      let cfgAntes = null, RAntes = null;
+      const secao = (inicio) => [...document.querySelectorAll("#relatorio .cb-sec")].find((s) => s.querySelector("h3")?.textContent.startsWith(inicio));
+      botaoSimular(() => ({
+        titulo: "Contabilidade: o fechamento do mês pronto para o contador",
+        antes: "Cada venda paga, cada compra recebida e cada despesa lançada no Lumos chegam aqui sozinhas, com o cadastro fiscal de cada produto.",
+        faz: "Calcula os impostos do mês pelo regime da empresa, separa as receitas como a Receita exige, monta o DRE, o CMV e o inventário, e aponta o que falta conferir.",
+        depois: "Sai um Excel completo (19 abas) e um PDF para o escritório de contabilidade. O contador também pode ter acesso próprio a esta aba.",
+        preparar: () => {
+          cfgAntes = cfg; RAntes = R;
+          const f = mesFicticio();
+          cfg = f.cfg;
+          R = T.apurarMes({ competencia: ym, cfg, vendas: f.vendas, vendas12: [], receitaAnoAntes: 600000, produtos: f.produtos, fiscalPorProduto: f.fiscal, compras: f.compras, fornecedores: f.fornecedores, despesas: f.despesas, movsDepois: [] });
+          R.notas = []; R.despesasCompras = 10300;
+          // Mostra a aba do fechamento sem disparar o carregamento real
+          document.querySelectorAll(".cb-tab").forEach((x) => x.classList.toggle("active", x.dataset.tab === "fechamento"));
+          Object.entries(tabs).forEach(([k, el]) => (el.style.display = k === "fechamento" ? "" : "none"));
+          renderRelatorio(R);
+          document.querySelectorAll(".cb-tabs, #tab-fechamento .erp-toolbar").forEach((el) => (el.style.pointerEvents = "none"));
+          document.getElementById("relatorio").insertAdjacentHTML("afterbegin", `<span class="sim-mark">Simulação: Restaurante Exemplo, ${nomeMes(ym)}</span>`);
+        },
+        passos: [
+          { titulo: "O mês inteiro, calculado sozinho", acao: () => destacar(document.querySelector("#relatorio .panel-stat-grid")),
+            texto: `Este é o fechamento de ${nomeMes(ym)} de um restaurante de exemplo: ${new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0).getDate() * 6} vendas. Receita bruta, receita tributável, imposto, CMV e ticket médio saem sozinhos das vendas registradas no Lumos.` },
+          { titulo: "O que falta antes de enviar", acao: () => destacar(secao("Pendências")),
+            texto: "Antes de mandar para o contador, o Lumos aponta o que precisa de atenção: produto sem NCM ou sem custo, venda sem nota fiscal, compra sem o CNPJ do fornecedor. Nada chega incompleto ao escritório." },
+          { titulo: "O imposto do mês (Simples Nacional)", acao: () => destacar(secao("Apuração")),
+            texto: "O DAS é calculado pela regra oficial do Simples Nacional: a faixa, a alíquota efetiva e quanto vai para cada tributo. O dono sabe quanto vai pagar antes do contador mandar a guia." },
+          { titulo: "A economia com as bebidas", acao: () => destacar(secao("Segregação")),
+            texto: "Cerveja e refrigerante já tiveram PIS, Cofins e ICMS pagos antes de chegar ao restaurante. O Lumos separa essas vendas como a Receita exige, e o DAS diminui legalmente. Sem essa separação, o restaurante acaba pagando de novo um imposto que já foi pago." },
+          { titulo: "O lucro de verdade", acao: () => destacar(secao("Demonstrativo")),
+            texto: "No DRE aparece o resultado real do mês: receita, impostos, custo dos pratos (CMV, que vem da ficha técnica), despesas e o lucro. A taxa de serviço, que é da equipe, fica de fora da receita da casa." },
+          { titulo: "Pronto para o contador", acao: () => destacar(document.getElementById("b-excel")),
+            texto: "Com um clique sai o Excel com 19 abas (vendas, itens com NCM e CFOP, notas, compras, despesas, inventário) e o PDF com o cabeçalho da empresa. É o relatório mais completo que o escritório vai receber." },
+        ],
+        limpar: () => {
+          document.querySelectorAll(".cb-tabs, #tab-fechamento .erp-toolbar").forEach((el) => (el.style.pointerEvents = ""));
+          if (cfgAntes) cfg = cfgAntes; R = RAntes;
+          carregarFechamento();
+        },
+      }));
+    }
   </script>
 </body>
 </html>

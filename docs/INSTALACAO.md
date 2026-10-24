@@ -1945,7 +1945,7 @@ só um pedido de verdade move para "Pedido feito").
 - **Ajuda** (canto inferior direito) nas páginas de conexão: lista do que a loja precisa passar, com "Copiar lista"
   e "Enviar no WhatsApp".
 - **Simular** (só administrador e suporte): apresentação guiada com dados fictícios montados só na tela. Nada é
-  gravado no banco. Páginas com simulação: Kanban, Clientes (restaurante), Mesas, Cozinha, Caixa e Ficha técnica.
+  gravado no banco. Páginas com simulação: Kanban, Clientes (restaurante), Mesas, Cozinha, Caixa, Ficha técnica, Financeiro, Contabilidade e Notas fiscais.
 
 ## 47. Clientes do restaurante (visitas, sumidos e autorização para promoções)
 
