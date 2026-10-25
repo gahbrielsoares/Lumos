@@ -2040,6 +2040,108 @@ Nenhuma Edge Function muda.
 - **Cadastro com nicho**: quem cria a conta escolhe o tipo de negócio, e o sistema já abre configurado no primeiro acesso.
 - **Tutoriais guiados**: liga e desliga em Configurações. Padrão: ligados para a equipe Lumos, desligados para o cliente.
 
+## 50. Pronto para muitos clientes: índices e numeração própria de cada estabelecimento
+
+No **SQL Editor**:
+
+```sql
+-- ===== Índices: o banco vai direto aos dados de cada estabelecimento (rápido mesmo com muitos clientes) =====
+create index if not exists leads_owner_ultima on public.leads (owner_id, last_message_at desc);
+create index if not exists leads_owner_telefone on public.leads (owner_id, phone);
+create index if not exists leads_sessao on public.leads (table_session_id);
+create index if not exists messages_lead_data on public.messages (lead_id, created_at);
+create index if not exists sales_orders_owner_pago on public.sales_orders (owner_id, status, paid_at);
+create index if not exists sales_orders_lead on public.sales_orders (lead_id);
+create index if not exists sales_orders_sessao on public.sales_orders (table_session_id);
+create index if not exists orders_owner_status on public.orders (owner_id, status, created_at);
+create index if not exists orders_sessao on public.orders (table_session_id);
+create index if not exists orders_lead on public.orders (lead_id);
+create index if not exists order_items_pedido on public.order_items (order_id);
+create index if not exists estoque_mov_owner_data on public.estoque_mov (owner_id, created_at desc);
+create index if not exists estoque_mov_produto on public.estoque_mov (product_id);
+create index if not exists fin_owner_vencimento on public.fin_lancamentos (owner_id, vencimento);
+create index if not exists fin_owner_pago on public.fin_lancamentos (owner_id, pago_em);
+create index if not exists table_sessions_mesa on public.table_sessions (table_id, status);
+create index if not exists table_sessions_owner on public.table_sessions (owner_id);
+create index if not exists compras_owner on public.compras (owner_id, status);
+create index if not exists agents_owner on public.agents (owner_id);
+create index if not exists follow_up_log_lead on public.follow_up_log (lead_id, created_at);
+create index if not exists team_members_owner on public.team_members (owner_id);
+create index if not exists restaurant_tables_owner on public.restaurant_tables (owner_id);
+create index if not exists categories_owner on public.categories (owner_id);
+create index if not exists products_owner on public.products (owner_id);
+create index if not exists product_recipes_prato on public.product_recipes (product_id);
+create index if not exists product_recipes_insumo on public.product_recipes (insumo_id);
+create index if not exists product_categories_categoria on public.product_categories (category_id);
+create index if not exists agendamentos_owner_data on public.agendamentos (owner_id, data_hora_inicio);
+create index if not exists caixa_movs_caixa on public.caixa_movs (caixa_id);
+
+-- ===== Numeração própria de cada estabelecimento (vendas, pedidos da cozinha, compras e caixas) =====
+-- Antes era uma sequência só para todos os clientes. Cada um continua do maior número que já tem.
+create table if not exists public.numeracao (
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  serie text not null,
+  ultimo bigint not null default 0,
+  primary key (owner_id, serie)
+);
+alter table public.numeracao enable row level security;   -- só o gatilho (abaixo) mexe aqui
+
+insert into public.numeracao(owner_id, serie, ultimo)
+  select owner_id, 'sales_orders', max(numero) from public.sales_orders where owner_id is not null group by owner_id
+  on conflict (owner_id, serie) do update set ultimo = greatest(public.numeracao.ultimo, excluded.ultimo);
+insert into public.numeracao(owner_id, serie, ultimo)
+  select owner_id, 'orders', max(numero) from public.orders where owner_id is not null and numero is not null group by owner_id
+  on conflict (owner_id, serie) do update set ultimo = greatest(public.numeracao.ultimo, excluded.ultimo);
+insert into public.numeracao(owner_id, serie, ultimo)
+  select owner_id, 'compras', max(numero) from public.compras where owner_id is not null group by owner_id
+  on conflict (owner_id, serie) do update set ultimo = greatest(public.numeracao.ultimo, excluded.ultimo);
+insert into public.numeracao(owner_id, serie, ultimo)
+  select owner_id, 'caixas', max(numero) from public.caixas where owner_id is not null group by owner_id
+  on conflict (owner_id, serie) do update set ultimo = greatest(public.numeracao.ultimo, excluded.ultimo);
+
+create or replace function public.proximo_numero() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v bigint;
+begin
+  if new.owner_id is null then return new; end if;
+  insert into public.numeracao(owner_id, serie, ultimo)
+    values (new.owner_id, tg_table_name, case when tg_table_name = 'sales_orders' then 1000 else 0 end)
+    on conflict do nothing;
+  update public.numeracao set ultimo = ultimo + 1
+   where owner_id = new.owner_id and serie = tg_table_name
+   returning ultimo into v;
+  new.numero := v;
+  return new;
+end $$;
+
+alter table public.sales_orders alter column numero drop identity if exists;
+alter table public.orders alter column numero drop identity if exists;
+alter table public.compras alter column numero drop identity if exists;
+alter table public.caixas alter column numero drop identity if exists;
+alter table public.sales_orders drop constraint if exists sales_orders_numero_key;
+create unique index if not exists sales_orders_owner_numero on public.sales_orders (owner_id, numero);
+
+drop trigger if exists trg_numero on public.sales_orders;
+create trigger trg_numero before insert on public.sales_orders for each row execute function public.proximo_numero();
+drop trigger if exists trg_numero on public.orders;
+create trigger trg_numero before insert on public.orders for each row execute function public.proximo_numero();
+drop trigger if exists trg_numero on public.compras;
+create trigger trg_numero before insert on public.compras for each row execute function public.proximo_numero();
+drop trigger if exists trg_numero on public.caixas;
+create trigger trg_numero before insert on public.caixas for each row execute function public.proximo_numero();
+```
+
+Depois, atualize as Edge Functions **`orders`** (venda do PDV), **`fiscal`** (quem opera o PDV pode emitir a nota) e
+**`team`** (aba `pdv`).
+
+### Como funciona
+- **Índices**: o banco vai direto aos dados de cada estabelecimento nas tabelas que mais crescem (mensagens, vendas,
+  pedidos, estoque, financeiro). Sem eles, tudo fica mais lento a cada cliente novo.
+- **Numeração própria**: vendas, pedidos da cozinha, compras e caixas passam a ter a sequência de cada estabelecimento.
+  Cada um continua do maior número que já tinha; cliente novo começa em 1001 (vendas) e 1 (o resto).
+- **PDV (balcão)**: aba nova. O preço vem sempre do cadastro (nunca da tela); a venda baixa o estoque (inclusive
+  insumos pela ficha técnica), entra no caixa e no financeiro, vai para a cozinha se marcado e emite a NFC-e.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

@@ -257,7 +257,7 @@ async function quemChama(req: Request) {
   if (m) {
     if (!m.ativo) return null;
     const tabs: string[] = m.allowed_tabs || [];
-    return { interno: false, userId: me.user.id, ownerId: m.owner_id, dono: false, podeEmitir: tabs.includes("fiscal") || tabs.includes("caixa") || tabs.includes("mesas") };
+    return { interno: false, userId: me.user.id, ownerId: m.owner_id, dono: false, podeEmitir: tabs.includes("fiscal") || tabs.includes("caixa") || tabs.includes("pdv") || tabs.includes("mesas") };
   }
   return { interno: false, userId: me.user.id, ownerId: me.user.id, dono: true, podeEmitir: true };
 }

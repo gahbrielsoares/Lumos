@@ -362,7 +362,7 @@ export function apurarMes(dados) {
     const forma = formaPagamento(v.pagamento);
     porPagamento[forma] = porPagamento[forma] || { vendas: 0, valor: 0 };
     porPagamento[forma].vendas++; porPagamento[forma].valor += valorCobrado;
-    const canal = { mesa: "Salão (mesa)", entrega: "Entrega", retirada: "Retirada", delivery: "Delivery" }[v.entrega?.tipo] || "WhatsApp";
+    const canal = { mesa: "Salão (mesa)", entrega: "Entrega", retirada: "Retirada", delivery: "Delivery", balcao: "Balcão (PDV)" }[v.entrega?.tipo] || "WhatsApp";
     porCanal[canal] = porCanal[canal] || { vendas: 0, valor: 0 };
     porCanal[canal].vendas++; porCanal[canal].valor += valorCobrado;
     vendasOut.push({

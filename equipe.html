@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Equipe | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=84" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=84" />
-  <script src="js/dialogs.js?v=84"></script>
+  <script src="js/logo.js?v=85" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=85" />
+  <script src="js/dialogs.js?v=85"></script>
 </head>
 <body>
 
@@ -60,12 +60,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=84";
-    import { initThemeToggle } from "./js/theme.js?v=84";
-    import { initMobileNav } from "./js/mobileNav.js?v=84";
-    import { renderSidebar } from "./js/sidebar.js?v=84";
-    import { supabase } from "./js/supabaseClient.js?v=84";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=84";
+    import { requireSession, signOut } from "./js/auth.js?v=85";
+    import { initThemeToggle } from "./js/theme.js?v=85";
+    import { initMobileNav } from "./js/mobileNav.js?v=85";
+    import { renderSidebar } from "./js/sidebar.js?v=85";
+    import { supabase } from "./js/supabaseClient.js?v=85";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=85";
 
     await requireSession();
     initThemeToggle();
@@ -74,13 +74,13 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=84");
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=84");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=85");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=85");
     const FUNCOES = {
       garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta. Marque Caixa se ele também opera o caixa." },
       cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },
       atendente: { label: "Atendente", tabs: ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos"], dica: "Atende os contatos, acompanha o funil e a agenda." },
-      gerente: { label: "Gerente", tabs: ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque", "compras", "caixa", "fiscal"], dica: "Toda a operação, mais produtos, ficha técnica, estoque, compras, caixa e notas fiscais. Financeiro só se você marcar." },
+      gerente: { label: "Gerente", tabs: ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque", "compras", "pdv", "caixa", "fiscal"], dica: "Toda a operação, mais produtos, ficha técnica, estoque, compras, PDV, caixa e notas fiscais. Financeiro só se você marcar." },
       contador: { label: "Contador", tabs: ["contabilidade", "relatorios", "fiscal"], dica: "Para o escritório de contabilidade: vê o fechamento do mês, os impostos e o cadastro fiscal. Não vê a operação." },
       personalizado: { label: "Personalizado", tabs: null, dica: "Você escolhe aba por aba." },
     };
@@ -238,7 +238,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=84").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => ({
       titulo: "Equipe: cada um vê só o que precisa",
       antes: "O dono cadastra os funcionários: garçons, cozinha, caixa, gerente e até o contador.",
       faz: "Cada pessoa ganha um login próprio, com usuário simples, e vê só as abas da sua função. O dono decide quem vê os custos.",

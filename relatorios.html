@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Relatórios | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=84" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=84" />
+  <script src="js/logo.js?v=85" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=85" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=84"></script>
+  <script src="js/dialogs.js?v=85"></script>
 </head>
 <body>
 
@@ -97,12 +97,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=84";
-    import { initThemeToggle } from "./js/theme.js?v=84";
-    import { initMobileNav } from "./js/mobileNav.js?v=84";
-    import { renderSidebar } from "./js/sidebar.js?v=84";
-    import { supabase } from "./js/supabaseClient.js?v=84";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=84";
+    import { requireSession, signOut } from "./js/auth.js?v=85";
+    import { initThemeToggle } from "./js/theme.js?v=85";
+    import { initMobileNav } from "./js/mobileNav.js?v=85";
+    import { renderSidebar } from "./js/sidebar.js?v=85";
+    import { supabase } from "./js/supabaseClient.js?v=85";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=85";
 
     await requireSession();
     initThemeToggle();
@@ -193,7 +193,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=84").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
       titulo: "Relatórios: quanto a casa vende e quanto sobra",
       antes: "As vendas pagas, o custo de cada prato (da ficha técnica) e as despesas lançadas no Financeiro.",
       faz: "Mostra o faturamento, o ticket médio, o lucro bruto, as despesas e o resultado do período, os mais vendidos e as formas de pagamento.",

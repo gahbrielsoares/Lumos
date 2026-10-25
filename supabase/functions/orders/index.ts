@@ -485,6 +485,56 @@ async function workspaceOf(userId: string | null) {
   return m ? (m.ativo ? m.owner_id : null) : userId;
 }
 
+// ---------- PDV: venda no balcão ----------
+// O preço vem sempre do cadastro do produto (nunca da tela). A venda segue o mesmo caminho das outras:
+// financeiro, baixa no estoque (inclusive insumos pela ficha técnica), caixa, cozinha (opcional) e NFC-e automática.
+// deno-lint-ignore no-explicit-any
+async function pdvVenda(ownerId: string, userId: string, body: any) {
+  const pedidos = (Array.isArray(body.itens) ? body.itens : [])
+    .map((i: { product_id?: string; quantidade?: number; observacao?: string }) => ({ id: String(i.product_id || ""), q: Math.round(Number(i.quantidade || 0) * 1000) / 1000, obs: String(i.observacao || "").slice(0, 140) }))
+    .filter((i: { id: string; q: number }) => i.id && i.q > 0);
+  if (!pedidos.length) return json({ error: "Adicione ao menos um produto." }, 400);
+  if (pedidos.length > 200) return json({ error: "Venda grande demais para o balcão." }, 400);
+  const { data: prods } = await supabase.from("products").select("id, name, price, unit, active, is_insumo")
+    .eq("owner_id", ownerId).in("id", [...new Set(pedidos.map((p: { id: string }) => p.id))]);
+  const mapa = Object.fromEntries((prods || []).map((p) => [p.id, p]));
+  const itens = [];
+  for (const p of pedidos) {
+    const prod = mapa[p.id];
+    if (!prod || prod.is_insumo || prod.active === false || prod.price == null) return json({ error: "Um dos produtos não está disponível para venda. Atualize a tela." }, 400);
+    const unit = Number(prod.price);
+    itens.push({ product_id: prod.id, nome: prod.name, quantidade: p.q, unidade: prod.unit || "unidade", preco_unitario: unit, subtotal: Math.round(unit * p.q * 100) / 100, ...(p.obs ? { observacao: p.obs } : {}) });
+  }
+  const subtotal = Math.round(itens.reduce((t, i) => t + i.subtotal, 0) * 100) / 100;
+  const desconto = Math.max(0, Math.round(Number(body.desconto || 0) * 100) / 100);
+  if (desconto >= subtotal) return json({ error: "O desconto não pode ser igual ou maior que o valor da venda." }, 400);
+  const total = Math.round((subtotal - desconto) * 100) / 100;
+  const metodo = ["pix", "credito", "debito", "dinheiro"].includes(body.metodo) ? body.metodo : "dinheiro";
+  const recebido = metodo === "dinheiro" ? Math.max(total, Math.round(Number(body.recebido || total) * 100) / 100) : total;
+  const cpf = String(body.cpf || "").replace(/\D/g, "");
+  const agora = new Date().toISOString();
+  const { data: so, error } = await supabase.from("sales_orders").insert({
+    owner_id: ownerId, agent_id: null, lead_id: null,
+    itens, subtotal, frete: 0, total, status: "pago", approved_at: agora, paid_at: agora,
+    pagamento: { metodo, valor_cobrado: total, registrado_por: userId, pdv: true, desconto, ...(metodo === "dinheiro" ? { recebido, troco: Math.round((recebido - total) * 100) / 100 } : {}) },
+    entrega: { tipo: "balcao", local: "Balcão", valor: 0 },
+    cliente: { nome: String(body.nome || "").trim().slice(0, 80) || null, ...(cpf.length === 11 || cpf.length === 14 ? { cpf } : {}) },
+  }).select().single();
+  if (error) return json({ error: error.message }, 500);
+  await registrarVendaNoErp(so, metodo, total);
+  // Cozinha: só quando pedido (ex.: lanche para preparar). Bebida de geladeira não precisa.
+  if (body.cozinha) {
+    const { data: t } = await supabase.from("orders").insert({
+      owner_id: ownerId, lead_id: null, table_session_id: null, tipo: "balcao", sales_order_id: so.id, status: "novo_pedido", total: subtotal,
+      observacao: so.cliente?.nome ? `Balcão · ${so.cliente.nome}` : "Balcão",
+    }).select().single();
+    if (t) await supabase.from("order_items").insert(itens.map((i) => ({ order_id: t.id, product_id: i.product_id, product_name: i.nome, quantity: Math.max(1, Math.round(i.quantidade)), unit_price: i.preco_unitario, observacao: i.observacao || null })));
+  }
+  await emitirNfceAutomatica(so);
+  const { data: nota } = await supabase.from("fiscal_docs").select("status, numero, danfe_url, mensagem").eq("sales_order_id", so.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  return json({ ok: true, numero: so.numero, total, desconto, troco: so.pagamento?.troco || 0, nota: nota || null });
+}
+
 // ---------- Mesa: conta e fechamento pelo garçom (salão) ----------
 // Couvert só nos dias/horário configurados (madrugada conta como a noite anterior)
 // deno-lint-ignore no-explicit-any
@@ -676,6 +726,21 @@ Deno.serve(async (req) => {
       const { data } = trusted ? { data: null } : await supabase.auth.getUser(jwt);
       if (!trusted && !data?.user) return json({ error: "Sessão expirada." }, 401);
       return await kitchenStatus(body.ticket_id, body.status, data?.user?.id || null, trusted);
+    }
+
+    // PDV (balcão): quem tem a aba PDV ou Caixa, ou o dono
+    if (action === "pdv_venda") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const { data } = await supabase.auth.getUser(jwt);
+      if (!data?.user) return json({ error: "Sessão expirada." }, 401);
+      const ownerId = await workspaceOf(data.user.id);
+      if (!ownerId) return json({ error: "Sem permissão." }, 403);
+      if (ownerId !== data.user.id) {
+        const { data: m } = await supabase.from("team_members").select("allowed_tabs").eq("user_id", data.user.id).maybeSingle();
+        const tabs: string[] = m?.allowed_tabs || [];
+        if (!tabs.includes("pdv") && !tabs.includes("caixa")) return json({ error: "Sem permissão para vender no balcão." }, 403);
+      }
+      return await pdvVenda(ownerId, data.user.id, body);
     }
 
     // Mesa (garçom): ver a conta e fechar com o pagamento recebido no salão

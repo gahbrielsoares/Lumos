@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 49. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 50. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -246,7 +246,43 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (47, 'funcao', 'public', '', 'leads_optin_coerente'),
   (47, 'gatilho', 'public', 'leads', 'trg_leads_optin'),
   (48, 'regra', 'public', 'products', 'Equipe: cria insumos'),
-  (49, 'coluna', 'public', 'profiles', 'demo')
+  (49, 'coluna', 'public', 'profiles', 'demo'),
+  (50, 'funcao', 'public', '', 'proximo_numero'),
+  (50, 'gatilho', 'public', 'caixas', 'trg_numero'),
+  (50, 'gatilho', 'public', 'compras', 'trg_numero'),
+  (50, 'gatilho', 'public', 'orders', 'trg_numero'),
+  (50, 'gatilho', 'public', 'sales_orders', 'trg_numero'),
+  (50, 'indice', 'public', 'agendamentos', 'agendamentos_owner_data'),
+  (50, 'indice', 'public', 'agents', 'agents_owner'),
+  (50, 'indice', 'public', 'caixa_movs', 'caixa_movs_caixa'),
+  (50, 'indice', 'public', 'categories', 'categories_owner'),
+  (50, 'indice', 'public', 'compras', 'compras_owner'),
+  (50, 'indice', 'public', 'estoque_mov', 'estoque_mov_owner_data'),
+  (50, 'indice', 'public', 'estoque_mov', 'estoque_mov_produto'),
+  (50, 'indice', 'public', 'fin_lancamentos', 'fin_owner_pago'),
+  (50, 'indice', 'public', 'fin_lancamentos', 'fin_owner_vencimento'),
+  (50, 'indice', 'public', 'follow_up_log', 'follow_up_log_lead'),
+  (50, 'indice', 'public', 'leads', 'leads_owner_telefone'),
+  (50, 'indice', 'public', 'leads', 'leads_owner_ultima'),
+  (50, 'indice', 'public', 'leads', 'leads_sessao'),
+  (50, 'indice', 'public', 'messages', 'messages_lead_data'),
+  (50, 'indice', 'public', 'order_items', 'order_items_pedido'),
+  (50, 'indice', 'public', 'orders', 'orders_lead'),
+  (50, 'indice', 'public', 'orders', 'orders_owner_status'),
+  (50, 'indice', 'public', 'orders', 'orders_sessao'),
+  (50, 'indice', 'public', 'product_categories', 'product_categories_categoria'),
+  (50, 'indice', 'public', 'product_recipes', 'product_recipes_insumo'),
+  (50, 'indice', 'public', 'product_recipes', 'product_recipes_prato'),
+  (50, 'indice', 'public', 'products', 'products_owner'),
+  (50, 'indice', 'public', 'restaurant_tables', 'restaurant_tables_owner'),
+  (50, 'indice', 'public', 'sales_orders', 'sales_orders_lead'),
+  (50, 'indice', 'public', 'sales_orders', 'sales_orders_owner_numero'),
+  (50, 'indice', 'public', 'sales_orders', 'sales_orders_owner_pago'),
+  (50, 'indice', 'public', 'sales_orders', 'sales_orders_sessao'),
+  (50, 'indice', 'public', 'table_sessions', 'table_sessions_mesa'),
+  (50, 'indice', 'public', 'table_sessions', 'table_sessions_owner'),
+  (50, 'indice', 'public', 'team_members', 'team_members_owner'),
+  (50, 'tabela', 'public', 'numeracao', 'numeracao')
 ),
 falta as (
   select e.* from esperado e

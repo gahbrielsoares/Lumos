@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDV | Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=85" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=85" />
+  <script src="js/dialogs.js?v=85"></script>
+  <style>
+    .pdv { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:18px; margin-top:16px; align-items:start; }
+    .pdv-busca { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); font-size:15px; font-family:var(--panel-font-body); }
+    .pdv-cats { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; }
+    .pdv-cats button { padding:7px 12px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); cursor:pointer; font-size:13px; font-family:var(--panel-font-body); }
+    .pdv-cats button.on { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; font-weight:600; }
+    .pdv-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
+    .pdv-prod { text-align:left; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); border-radius:14px; padding:10px; cursor:pointer; font-family:var(--panel-font-body); display:flex; flex-direction:column; gap:6px; min-height:150px; }
+    .pdv-prod:hover { border-color:var(--panel-accent); }
+    .pdv-prod img { width:100%; height:78px; object-fit:cover; border-radius:10px; background:var(--panel-bg); }
+    .pdv-prod .n { font-size:13.5px; font-weight:600; line-height:1.3; }
+    .pdv-prod .p { font-size:14px; font-weight:800; margin-top:auto; }
+    .pdv-cart { position:sticky; top:16px; background:var(--panel-card); border:1px solid var(--panel-border); border-radius:16px; padding:16px; }
+    .pdv-cart h3 { font-size:16px; display:flex; justify-content:space-between; align-items:center; }
+    .pdv-itens { margin:10px 0; display:flex; flex-direction:column; gap:8px; max-height:34vh; overflow:auto; }
+    .pdv-it { display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:8px; align-items:center; font-size:13.5px; }
+    .pdv-it .q { display:flex; align-items:center; gap:4px; }
+    .pdv-it .q button { width:28px; height:28px; border-radius:8px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); cursor:pointer; font-size:15px; }
+    .pdv-it .v { font-variant-numeric:tabular-nums; font-weight:600; min-width:74px; text-align:right; }
+    .pdv-linha { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:14px; margin-top:8px; }
+    .pdv-linha input:not([type=checkbox]) { width:110px; padding:7px 9px; border-radius:9px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); text-align:right; font-size:14px; }
+    .pdv-total { display:flex; justify-content:space-between; font-size:22px; font-weight:800; margin:12px 0 8px; padding-top:10px; border-top:1px solid var(--panel-border); }
+    .pdv-formas { display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; }
+    .pdv-formas button { padding:10px 4px; border-radius:10px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); cursor:pointer; font-size:13px; font-weight:600; font-family:var(--panel-font-body); }
+    .pdv-formas button.on { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; }
+    .pdv-fim { width:100%; margin-top:12px; padding:14px; font-size:16px; }
+    .pdv-aviso { border:1px solid rgba(212,131,74,.5); color:#D4834A; border-radius:12px; padding:10px 12px; font-size:13.5px; margin-top:14px; }
+    .pdv-vazio { color:var(--panel-text-muted); font-size:13.5px; padding:14px 0; text-align:center; }
+    @media (max-width: 980px) { .pdv { grid-template-columns: 1fr; } .pdv-cart { position:static; } }
+  </style>
+</head>
+<body>
+
+  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>
+
+  <div class="dash-shell">
+    <aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">PDV</h1>
+        <p style="margin-top: 6px;">Venda no balcão: escolha os produtos, receba e pronto. Baixa o estoque, entra no caixa e no financeiro e emite a NFC-e sozinha.</p>
+      </div>
+      <div id="aviso-caixa"></div>
+      <div class="pdv">
+        <section>
+          <input class="pdv-busca" id="busca" placeholder="Buscar produto pelo nome" autocomplete="off" />
+          <div class="pdv-cats" id="cats"></div>
+          <div class="pdv-grid" id="grid"><p class="pdv-vazio">Carregando o cardápio...</p></div>
+        </section>
+        <aside class="pdv-cart" id="cart">
+          <h3><span>Venda atual</span><button class="btn btn-ghost btn-sm" id="limpar">Limpar</button></h3>
+          <div class="pdv-itens" id="itens"></div>
+          <div class="pdv-linha"><span>Subtotal</span><b id="subtotal">R$ 0,00</b></div>
+          <div class="pdv-linha"><span>Desconto (R$)</span><input id="desconto" type="number" min="0" step="0.01" placeholder="0,00" /></div>
+          <div class="pdv-total"><span>Total</span><span id="total">R$ 0,00</span></div>
+          <div class="pdv-formas" id="formas">
+            <button data-f="pix" class="on">Pix</button><button data-f="credito">Crédito</button><button data-f="debito">Débito</button><button data-f="dinheiro">Dinheiro</button>
+          </div>
+          <div id="box-dinheiro" style="display:none;">
+            <div class="pdv-linha"><span>Valor recebido</span><input id="recebido" type="number" min="0" step="0.01" placeholder="0,00" /></div>
+            <div class="pdv-linha"><span>Troco</span><b id="troco">R$ 0,00</b></div>
+          </div>
+          <div class="pdv-linha"><span>CPF na nota <small style="opacity:.7;">(opcional)</small></span><input id="cpf" inputmode="numeric" placeholder="000.000.000-00" style="width:150px;" /></div>
+          <label class="pdv-linha" style="cursor:pointer;"><span>Enviar para a cozinha</span><input type="checkbox" class="toggle-input" id="cozinha" /></label>
+          <button class="btn btn-primary pdv-fim" id="finalizar" disabled>Finalizar venda</button>
+          <div id="msg" class="form-msg"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=85";
+    import { initThemeToggle } from "./js/theme.js?v=85";
+    import { initMobileNav } from "./js/mobileNav.js?v=85";
+    import { renderSidebar } from "./js/sidebar.js?v=85";
+    import { supabase } from "./js/supabaseClient.js?v=85";
+    import { brl, esc, ownerId, modal, onlyDigits } from "./js/erp.js?v=85";
+    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=85";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("pdv");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+    await nichoAtual();
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- Cardápio (só o que se vende: sem insumos, sem outro nicho) ----------
+    let produtos = [], categoria = "todas";
+    const carrinho = new Map(); // product_id -> { prod, q }
+    let forma = "pix";
+    async function carregar() {
+      const { data } = await supabase.from("products").select("id, name, price, unit, photo_urls, active, is_insumo, segmento, product_categories(categories(name))").eq("owner_id", owner_id).order("name");
+      produtos = (data || []).filter((p) => p.is_insumo !== true && p.active !== false && p.price != null && !doOutroNicho(p))
+        .map((p) => ({ ...p, cats: (p.product_categories || []).map((pc) => pc.categories?.name).filter(Boolean) }));
+      const cats = [...new Set(produtos.flatMap((p) => p.cats))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      $("cats").innerHTML = [`<button data-c="todas" class="on">Todos</button>`, ...cats.map((c) => `<button data-c="${esc(c)}">${esc(c)}</button>`)].join("");
+      grade();
+    }
+    function grade() {
+      const q = $("busca").value.trim().toLowerCase();
+      const lista = produtos.filter((p) => (categoria === "todas" || p.cats.includes(categoria)) && (!q || p.name.toLowerCase().includes(q)));
+      $("grid").innerHTML = lista.map((p) => `<button class="pdv-prod" data-id="${p.id}">
+          ${p.photo_urls?.[0] ? `<img src="${esc(p.photo_urls[0])}" alt="" loading="lazy" />` : ""}
+          <span class="n">${esc(p.name)}</span><span class="p">${brl(p.price)}</span></button>`).join("")
+        || `<p class="pdv-vazio">${produtos.length ? "Nenhum produto com esse nome." : "Cadastre os produtos do cardápio na aba Produtos."}</p>`;
+    }
+    $("cats").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-c]"); if (!b) return;
+      categoria = b.dataset.c; $("cats").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); grade();
+    });
+    $("busca").addEventListener("input", grade);
+    $("busca").addEventListener("keydown", (e) => { if (e.key === "Enter") { const b = $("grid").querySelector(".pdv-prod"); if (b) { b.click(); $("busca").select(); } } });
+    $("grid").addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) somar(b.dataset.id, 1); });
+
+    // ---------- Carrinho ----------
+    function somar(id, d) {
+      const p = produtos.find((x) => x.id === id); if (!p) return;
+      const it = carrinho.get(id) || { prod: p, q: 0 };
+      it.q = Math.max(0, it.q + d);
+      if (it.q === 0) carrinho.delete(id); else carrinho.set(id, it);
+      contas();
+    }
+    const subtotalAtual = () => Math.round([...carrinho.values()].reduce((t, i) => t + Number(i.prod.price) * i.q, 0) * 100) / 100;
+    function contas() {
+      $("itens").innerHTML = [...carrinho.values()].map((i) => `<div class="pdv-it"><span>${esc(i.prod.name)}</span>
+          <span class="q"><button data-d="-1" data-id="${i.prod.id}">−</button><b>${i.q}</b><button data-d="1" data-id="${i.prod.id}">+</button></span>
+          <span class="v">${brl(Number(i.prod.price) * i.q)}</span></div>`).join("") || `<p class="pdv-vazio">Toque nos produtos para adicionar.</p>`;
+      const sub = subtotalAtual();
+      const desc = Math.min(sub, Math.max(0, Number($("desconto").value || 0)));
+      const total = Math.round((sub - desc) * 100) / 100;
+      $("subtotal").textContent = brl(sub); $("total").textContent = brl(total);
+      const rec = Number($("recebido").value || 0);
+      $("troco").textContent = forma === "dinheiro" && rec > total ? brl(rec - total) : "R$ 0,00";
+      $("finalizar").disabled = !carrinho.size;
+      $("finalizar").textContent = carrinho.size ? `Finalizar venda · ${brl(total)}` : "Finalizar venda";
+      return { sub, desc, total, rec };
+    }
+    $("itens").addEventListener("click", (e) => { const b = e.target.closest("[data-d]"); if (b) somar(b.dataset.id, Number(b.dataset.d)); });
+    $("desconto").addEventListener("input", contas);
+    $("recebido").addEventListener("input", contas);
+    $("formas").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-f]"); if (!b) return;
+      forma = b.dataset.f; $("formas").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      $("box-dinheiro").style.display = forma === "dinheiro" ? "" : "none"; contas();
+    });
+    const zerar = () => { carrinho.clear(); $("desconto").value = ""; $("recebido").value = ""; $("cpf").value = ""; $("cozinha").checked = false; contas(); $("busca").focus(); };
+    $("limpar").addEventListener("click", zerar);
+
+    // ---------- Caixa aberto? (a venda entra no turno de quem está no caixa) ----------
+    async function conferirCaixa() {
+      const { data } = await supabase.from("caixas").select("id").eq("owner_id", owner_id).eq("status", "aberto").limit(1);
+      $("aviso-caixa").innerHTML = data?.length ? "" : `<div class="pdv-aviso">O caixa está fechado. Abra o caixa para as vendas do balcão entrarem no turno: <a href="caixa.html">ir para o Caixa</a>.</div>`;
+    }
+
+    // ---------- Finalizar ----------
+    $("finalizar").addEventListener("click", async () => {
+      const { total, rec } = contas();
+      const msg = $("msg"); msg.textContent = ""; msg.className = "form-msg";
+      if (Number($("desconto").value || 0) >= subtotalAtual()) { msg.textContent = "O desconto não pode ser igual ou maior que o valor da venda."; msg.className = "form-msg error"; return; }
+      if (forma === "dinheiro" && rec && rec < total) { msg.textContent = "O valor recebido é menor que o total."; msg.className = "form-msg error"; return; }
+      const cpf = onlyDigits($("cpf").value);
+      if (cpf && cpf.length !== 11 && cpf.length !== 14) { msg.textContent = "CPF com 11 números (ou CNPJ com 14)."; msg.className = "form-msg error"; return; }
+      const btn = $("finalizar"); btn.disabled = true; btn.textContent = "Registrando...";
+      const { data, error } = await supabase.functions.invoke("orders", { body: {
+        action: "pdv_venda", metodo: forma, desconto: Number($("desconto").value || 0), recebido: rec || total, cpf, cozinha: $("cozinha").checked,
+        itens: [...carrinho.values()].map((i) => ({ product_id: i.prod.id, quantidade: i.q })),
+      } });
+      let erro = data?.error || null;
+      if (error && !erro) { try { erro = (await error.context.json()).error; } catch (_) { erro = "Não foi possível registrar a venda. Confira a internet e tente de novo."; } }
+      if (erro) { msg.textContent = erro; msg.className = "form-msg error"; contas(); return; }
+      const n = data.nota;
+      const notaTxt = !n ? "NFC-e: emissão não conectada (configure em Notas fiscais)." : n.status === "autorizado" ? `NFC-e nº ${n.numero} autorizada.` : `NFC-e com problema: ${n.mensagem || "veja em Notas fiscais"}.`;
+      const m = modal(`<h3 style="font-size:19px;">Venda #${data.numero} registrada ✓</h3>
+        <div style="font-size:30px; font-weight:800; margin:10px 0;">${brl(data.total)}</div>
+        ${data.troco > 0 ? `<p style="font-size:17px;">Troco: <b>${brl(data.troco)}</b></p>` : ""}
+        <p class="settings-hint" style="margin-top:8px;">${esc(notaTxt)} Estoque, caixa e financeiro já atualizados.</p>
+        <div class="modal-actions">${n?.danfe_url ? `<a class="btn btn-ghost" href="${esc(n.danfe_url)}" target="_blank" rel="noopener">Ver cupom</a>` : ""}<button class="btn btn-primary" data-close id="nova">Nova venda</button></div>`, { width: 420 });
+      m.el.querySelector("#nova").focus();
+      zerar();
+    });
+
+    await Promise.all([carregar(), conferirCaixa()]);
+    contas();
+    $("busca").focus();
+
+    // ================= Simulação para apresentação (tutoriais ligados em Configurações) =================
+    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+      titulo: "PDV: a venda do balcão em poucos toques",
+      antes: "O cardápio vem da aba Produtos, com preço e foto. O caixa do turno é aberto na aba Caixa.",
+      faz: "O operador toca nos produtos, escolhe a forma de pagamento e finaliza. O troco é calculado na hora e, se o cliente quiser, o CPF vai na nota.",
+      depois: "Sozinho: o estoque baixa (inclusive os insumos da ficha técnica), a venda entra no caixa e no financeiro, o pedido vai para a cozinha se precisar e a NFC-e é emitida.",
+      passos: [
+        { titulo: "O cardápio na tela", acao: () => {
+            esconder(document.querySelector("#grid .pdv-vazio"));
+            ficticio("#grid", `<button class="pdv-prod cr-simrow"><span class="n">Burger Lumos <span class="sim-mark">Simulação</span></span><span class="p">R$ 39,90</span></button>
+              <button class="pdv-prod cr-simrow"><span class="n">Refrigerante Lata <span class="sim-mark">Simulação</span></span><span class="p">R$ 7,90</span></button>
+              <button class="pdv-prod cr-simrow"><span class="n">Batata Frita com Cheddar e Bacon <span class="sim-mark">Simulação</span></span><span class="p">R$ 42,90</span></button>`);
+            destacar(document.getElementById("grid")); },
+          texto: "Os produtos aparecem com foto e preço, separados por categoria. Dá para buscar pelo nome e apertar Enter para adicionar o primeiro da lista. Insumos de cozinha não aparecem aqui." },
+        { titulo: "Montando a venda", acao: () => {
+            esconder(document.querySelector("#itens .pdv-vazio"));
+            ficticio("#itens", `<div class="pdv-it"><span>Burger Lumos</span><span class="q"><b>2</b></span><span class="v">R$ 79,80</span></div><div class="pdv-it"><span>Refrigerante Lata</span><span class="q"><b>2</b></span><span class="v">R$ 15,80</span></div>`);
+            trocar("#subtotal", "R$ 95,60"); trocar("#total", "R$ 95,60"); destacar(document.getElementById("cart")); },
+          texto: "Dois burgers e dois refrigerantes: R$ 95,60. O preço vem sempre do cadastro, então ninguém consegue alterar o valor de um produto na hora da venda." },
+        { titulo: "Pagamento e troco", acao: () => {
+            document.getElementById("box-dinheiro").style.display = "";
+            document.querySelectorAll("#formas button").forEach((b) => b.classList.toggle("on", b.dataset.f === "dinheiro"));
+            trocar("#troco", "R$ 4,40"); destacar(document.getElementById("box-dinheiro")); },
+          texto: "O cliente paga R$ 100,00 em dinheiro e o troco de R$ 4,40 aparece na hora. Em Pix ou cartão, é só tocar na forma de pagamento." },
+        { titulo: "CPF na nota e cozinha", acao: () => destacar(document.getElementById("cpf")),
+          texto: "Se o cliente pedir CPF na nota, é só digitar. E se tiver lanche para preparar, a opção Enviar para a cozinha manda o pedido direto para a tela da Cozinha." },
+        { titulo: "Venda finalizada", acao: () => {
+            ficticio(document.body, `<div class="modal-backdrop" style="display:flex; z-index:940;"><div class="modal-box" style="max-width:420px; pointer-events:none;"><span class="sim-mark">Simulação</span>
+              <h3 style="font-size:19px; margin-top:6px;">Venda #1045 registrada ✓</h3><div style="font-size:30px; font-weight:800; margin:10px 0;">R$ 95,60</div>
+              <p style="font-size:17px;">Troco: <b>R$ 4,40</b></p><p class="settings-hint" style="margin-top:8px;">NFC-e nº 1534 autorizada. Estoque, caixa e financeiro já atualizados.</p></div></div>`, "beforeend"); },
+          texto: "Pronto: a venda foi registrada, a NFC-e saiu e o estoque baixou o pão, a carne e o queijo dos burgers (pela ficha técnica) e as duas latas. A venda já aparece no Caixa, no Financeiro e na Contabilidade." },
+      ],
+      limpar: () => { document.getElementById("box-dinheiro").style.display = forma === "dinheiro" ? "" : "none"; document.querySelectorAll("#formas button").forEach((b) => b.classList.toggle("on", b.dataset.f === forma)); contas(); },
+    })));
+  </script>
+</body>
+</html>

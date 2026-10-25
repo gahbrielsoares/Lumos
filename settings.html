@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configurações | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=84" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=84" />
+  <script src="js/logo.js?v=85" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=85" />
   <style>
     .tabs-group { border:1px solid var(--panel-border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
     .tabs-group + .tabs-group { margin-top: 6px; }
     .tabs-group-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding-bottom:6px; border-bottom:1px solid var(--panel-border); }
   </style>
-  <script src="js/dialogs.js?v=84"></script>
+  <script src="js/dialogs.js?v=85"></script>
 </head>
 <body>
 
@@ -164,16 +164,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=84";
-    import { supabase } from "./js/supabaseClient.js?v=84";
-    import { initThemeToggle } from "./js/theme.js?v=84";
-    import { initMobileNav } from "./js/mobileNav.js?v=84";
-    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=84";
-    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=84";
-    import { listAgents, saveAgent } from "./js/agents.js?v=84";
+    import { requireSession, signOut } from "./js/auth.js?v=85";
+    import { supabase } from "./js/supabaseClient.js?v=85";
+    import { initThemeToggle } from "./js/theme.js?v=85";
+    import { initMobileNav } from "./js/mobileNav.js?v=85";
+    import { renderSidebar, NAV_ITEMS, getDisabledTabs, saveDisabledTabs, getAccess } from "./js/sidebar.js?v=85";
+    import { BUSINESS_TYPES, getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=85";
+    import { listAgents, saveAgent } from "./js/agents.js?v=85";
     import {
       getBusinessConfig, saveBusinessConfig, getBusinessHoursFull, saveBusinessHours, WEEKDAY_LABELS,
-    } from "./js/businessConfig.js?v=84";
+    } from "./js/businessConfig.js?v=85";
 
     await requireSession();
     initThemeToggle();
@@ -320,7 +320,7 @@
 
     document.getElementById("biz-type-save").addEventListener("click", async () => {
       const msg = document.getElementById("biz-type-msg");
-      const { aplicarNicho } = await import("./js/businessConfig.js?v=84");
+      const { aplicarNicho } = await import("./js/businessConfig.js?v=85");
       const { error, info } = await aplicarNicho(bizSelect.value);
 
       if (error) {
@@ -346,7 +346,7 @@
       const list = document.getElementById("prompt-update-list");
 
       // Exemplo do nicho (cardápio do restaurante com mesas, catálogo de materiais)
-      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=84");
+      const { EXEMPLO_NICHO, seedExampleCatalog } = await import("./js/simulator.js?v=85");
       const ex = EXEMPLO_NICHO[info.key];
       const { count: qtdProdutos } = await supabase.from("products").select("id", { count: "exact", head: true }).eq("owner_id", await getWorkspaceOwnerIdSafe());
       document.getElementById("exemplo-box").style.display = ex ? "" : "none";
@@ -396,7 +396,7 @@
     }
 
     async function getWorkspaceOwnerIdSafe() {
-      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=84");
+      const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=85");
       return getWorkspaceOwnerId();
     }
 
@@ -406,12 +406,12 @@
   
     // ================= Simulação para apresentação (só administração) =================
     // Tutoriais guiados: liga e desliga o botão Simular em todas as páginas (vale neste navegador)
-    import("./js/simulacao.js?v=84").then(async ({ podeSimular, definirTutoriais }) => {
+    import("./js/simulacao.js?v=85").then(async ({ podeSimular, definirTutoriais }) => {
       const chk = document.getElementById("tutoriais-check");
       chk.checked = await podeSimular();
       chk.addEventListener("change", () => { definirTutoriais(chk.checked); location.reload(); });
     });
-    import("./js/simulacao.js?v=84").then(({ botaoSimular, destacar }) => botaoSimular(() => {
+    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar }) => botaoSimular(() => {
       const bloco = (id) => document.getElementById(id)?.closest(".panel-card, section, .settings-card") || document.getElementById(id);
       return {
         titulo: "Configurações: o Lumos com a cara da casa",
