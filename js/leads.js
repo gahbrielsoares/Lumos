@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
 
 export const STAGES = [
   "novo_contato",
@@ -35,30 +35,11 @@ export const STAGE_DESCRIPTIONS = {
 
 // Cada nicho pode dar outro nome às etapas (ex.: restaurante: "Pedido feito", "Aguardando pagamento")
 try {
-  const [{ getBusinessConfig }, { getBusinessTypeInfo }] = await Promise.all([import("./businessConfig.js?v=83"), import("./businessTypes.js?v=83")]);
+  const [{ getBusinessConfig }, { getBusinessTypeInfo }] = await Promise.all([import("./businessConfig.js?v=84"), import("./businessTypes.js?v=84")]);
   const info = getBusinessTypeInfo((await getBusinessConfig())?.business_type);
   Object.assign(STAGE_LABELS, info.stageLabels || {});
   Object.assign(STAGE_DESCRIPTIONS, info.stageDescriptions || {});
 } catch (_) { /* sem sessão ou sem configuração: nomes padrão */ }
-
-export async function getLeadsStats() {
-  const { data } = await supabase.from("leads").select("stage");
-  const stats = { total: data?.length || 0 };
-  STAGES.forEach((s) => (stats[s] = 0));
-  (data || []).forEach((l) => {
-    if (stats[l.stage] !== undefined) stats[l.stage]++;
-  });
-  return stats;
-}
-
-export async function listLeads() {
-  const { data } = await supabase
-    .from("leads")
-    .select("*")
-    .order("last_message_at", { ascending: false })
-    .limit(50);
-  return data || [];
-}
 
 export async function listLeadsInRange(start, end, { isClient, agentId } = {}) {
   let query = supabase

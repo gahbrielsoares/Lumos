@@ -1,11 +1,12 @@
-import { supabase } from "./supabaseClient.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
 
 // ---------- Cadastro ----------
-export async function signUp({ name, email, password }) {
+export async function signUp({ name, email, password, nicho }) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { name } },
+    // O nicho escolhido no cadastro é aplicado no primeiro acesso (ver getDisabledTabs no menu)
+    options: { data: { name, ...(nicho ? { nicho } : {}) } },
   });
   return { data, error };
 }

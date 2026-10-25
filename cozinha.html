@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cozinha | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=83" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=83" />
+  <script src="js/logo.js?v=84" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=84" />
   <style>
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
     .kc-off { color: #D4834A; border-color: rgba(212,131,74,.4); }
   </style>
-  <script src="js/dialogs.js?v=83"></script>
+  <script src="js/dialogs.js?v=84"></script>
 </head>
 <body>
 
@@ -114,14 +114,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=83";
-    import { initThemeToggle } from "./js/theme.js?v=83";
-    import { initMobileNav } from "./js/mobileNav.js?v=83";
-    import { renderSidebar } from "./js/sidebar.js?v=83";
-    import { supabase } from "./js/supabaseClient.js?v=83";
-    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=83";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=83";
-    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=83";
+    import { requireSession, signOut } from "./js/auth.js?v=84";
+    import { initThemeToggle } from "./js/theme.js?v=84";
+    import { initMobileNav } from "./js/mobileNav.js?v=84";
+    import { renderSidebar } from "./js/sidebar.js?v=84";
+    import { supabase } from "./js/supabaseClient.js?v=84";
+    import { esc, brl } from "./js/erp.js?v=84";
+    import { listOrders, updateOrderStatus, createOrder, ORDER_STATUS_LABELS, setKitchenStatus } from "./js/orders.js?v=84";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=84";
+    import { listTables, getActiveSession, listSessionLeads } from "./js/tables.js?v=84";
 
     await requireSession();
     initThemeToggle();
@@ -144,7 +145,7 @@
     const hiddenCols = () => disabledAll.filter((d) => d.startsWith("cozinha:")).map((d) => d.slice(8));
     let STATUSES = ALL_STATUSES.filter((st) => !hiddenCols().includes(st));
     // "+ Novo pedido" para funcionários só se o dono liberar (marca "cozinha:equipe_pedidos")
-    const { isTeamMember } = await import("./js/workspace.js?v=83");
+    const { isTeamMember } = await import("./js/workspace.js?v=84");
     const souEquipe = await isTeamMember();
     const equipeLanca = () => disabledAll.includes("cozinha:equipe_pedidos");
     const aplicarBotaoPedido = () => {
@@ -158,7 +159,6 @@
       return "novo_pedido";
     };
     const board = document.getElementById("orders-board");
-    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const TIPO = { mesa: "🍽️ Mesa", delivery: "🛵 Delivery", retirada: "🥡 Retirada" };
     const minutesAgo = (d) => Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
 
@@ -258,7 +258,6 @@
     let agentsById = {};
     let leadInfo = {}; // lead_id -> { session, agent_id }
     const esc2 = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
-    const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
     // Só o cardápio do agente daquela mesa (o simulador só vê o próprio cardápio do nicho)
     function productsForLead(leadId) {
@@ -399,7 +398,7 @@
     // ================= Simulação para apresentação (só administração) =================
     // Os pedidos do Adalberto e da Juliana existem só na tela: nada é gravado no banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=83");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=84");
       const PED = {
         mesa: { titulo: "🍽️ Mesa · <strong>Mesa 7</strong>", num: "#1043", nome: "Adalberto Souza", itens: `<strong>1x</strong> Picanha na chapa<br><span style="color:#D4834A;">↳ ao ponto, sem cebola</span><br><strong>2x</strong> Cerveja long neck`, total: 86 },
         deliv: { titulo: "🛵 Delivery · <strong>Centro</strong>", num: "#1044", nome: "Juliana Prado", itens: `<strong>1x</strong> Parmegiana para dois<br><strong>1x</strong> Refrigerante 2 L`, total: 112, pagar: true },

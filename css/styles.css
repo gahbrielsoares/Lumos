@@ -2487,3 +2487,12 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 .sim-chat .ia { align-self: flex-start; background: var(--panel-card); color: var(--panel-text); border: 1px solid var(--panel-border); border-bottom-left-radius: 4px; }
 .erp-item-hint { grid-column: 1 / -1; font-size: 12px; color: var(--panel-text-muted); margin-top: -2px; }
 .erp-item-hint:empty { display: none; }
+
+/* ===== Conta de demonstração: Modo Cliente / Desenvolvedor ===== */
+.demo-modo { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 960; display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 14px; border-radius: 999px; background: var(--panel-card); border: 1px solid var(--panel-accent); box-shadow: 0 8px 24px rgba(0,0,0,.18); font-size: 12.5px; color: var(--panel-text-muted); }
+.demo-modo button { border: 0; border-radius: 999px; padding: 7px 14px; font-family: var(--panel-font-body); font-size: 13px; font-weight: 600; cursor: pointer; background: transparent; color: var(--panel-text); }
+.demo-modo button.on { background: var(--panel-accent); color: #1C1508; }
+@media (min-width: 900px) { .demo-modo { left: calc(50% + 120px); } }
+@media (max-width: 640px) { .demo-modo { top: auto; bottom: 74px; } .demo-modo > span { display: none; } }
+body.com-demo .dash-main { padding-top: 64px; }
+@media (max-width: 640px) { body.com-demo .dash-main { padding-top: inherit; } }

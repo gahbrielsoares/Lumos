@@ -2016,6 +2016,30 @@ Nenhuma Edge Function muda.
   insumo novos já nascem com o nicho da conta.
 - Ficha técnica aceita itens de revenda como ingrediente, para combos (ex.: balde com 6 long necks).
 
+## 49. Estoque com 3 casas decimais e conta de demonstração
+
+No **SQL Editor**:
+
+```sql
+-- Estoque com 3 casas decimais (a ficha técnica baixa 0,375 kg de carne; com 2 casas o saldo se perdia)
+alter table public.products alter column estoque type numeric(14,3);
+alter table public.products alter column estoque_minimo type numeric(14,3);
+
+-- Conta de demonstração (usuário "Lumos"): alterna entre o modo Cliente e o modo Desenvolvedor
+alter table public.profiles add column if not exists demo boolean not null default false;
+```
+
+Nenhuma Edge Function muda.
+
+### Como funciona
+- O saldo do estoque passa a ter 3 casas decimais, como as fichas técnicas (ex.: 0,375 kg de carne por venda).
+- **Conta de demonstração**: crie o usuário e rode `docs/conta-demonstracao.sql`. Ela entra com o usuário **Lumos** e
+  tem no topo os botões **Modo Cliente** (exatamente o que o cliente vê depois do contrato) e **Modo Desenvolvedor**.
+- **Dados de exemplo do restaurante**: `docs/dados-restaurante.sql` cria insumos com custo e estoque e as fichas técnicas
+  de todo o cardápio (troque o e-mail no topo para rodar na sua conta e na de demonstração).
+- **Cadastro com nicho**: quem cria a conta escolhe o tipo de negócio, e o sistema já abre configurado no primeiro acesso.
+- **Tutoriais guiados**: liga e desliga em Configurações. Padrão: ligados para a equipe Lumos, desligados para o cliente.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

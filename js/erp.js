@@ -1,12 +1,24 @@
-import { supabase } from "./supabaseClient.js?v=83";
-import { getWorkspaceOwnerId } from "./workspace.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
+import { getWorkspaceOwnerId } from "./workspace.js?v=84";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)
 // =====================================================================
 
 export const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-export const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+export const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const onlyDigits = (v) => String(v ?? "").replace(/\D/g, "");
+// Busca todas as linhas de uma consulta, de 1.000 em 1.000 (o banco entrega no máximo 1.000 por vez)
+export async function buscarTodos(build) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build().range(from, from + 999);
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return out;
+}
 export const num = (n, d = 2) => Number(n || 0).toLocaleString("pt-BR", { maximumFractionDigits: d });
 
 // Datas "AAAA-MM-DD" no fuso de Brasília (sem o dia "pular" por causa do UTC)

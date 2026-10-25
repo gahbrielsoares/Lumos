@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Compras | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=83" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=83" />
-  <script src="js/dialogs.js?v=83"></script>
+  <script src="js/logo.js?v=84" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=84" />
+  <script src="js/dialogs.js?v=84"></script>
 </head>
 <body>
 
@@ -82,12 +82,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=83";
-    import { initThemeToggle } from "./js/theme.js?v=83";
-    import { initMobileNav } from "./js/mobileNav.js?v=83";
-    import { renderSidebar } from "./js/sidebar.js?v=83";
-    import { supabase } from "./js/supabaseClient.js?v=83";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=83";
+    import { requireSession, signOut } from "./js/auth.js?v=84";
+    import { initThemeToggle } from "./js/theme.js?v=84";
+    import { initMobileNav } from "./js/mobileNav.js?v=84";
+    import { renderSidebar } from "./js/sidebar.js?v=84";
+    import { supabase } from "./js/supabaseClient.js?v=84";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=84";
 
     await requireSession();
     initThemeToggle();
@@ -98,7 +98,7 @@
 
     let compras = [], fornecedores = [], products = [], comFicha = new Set(), fiscalTipo = {}, usos = {};
     // Produtos de outro nicho (ex.: exemplos do simulador de materiais) não aparecem na compra do restaurante
-    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=83");
+    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=84");
     const nicho = await nichoAtual();
     // O que se compra: insumo da cozinha ou produto de revenda (vendido como chega). Prato preparado não se compra.
     const preparado = (p) => comFicha.has(p.id) || fiscalTipo[p.id] === "producao";
@@ -334,7 +334,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=83").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=84").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Compras: do pedido ao fornecedor até o estoque",
       antes: "O Estoque mostra o que está acabando. O dono escolhe o fornecedor e faz o pedido aqui.",
       faz: "Guarda os fornecedores e os pedidos de compra, com os itens, o custo e o vencimento.",

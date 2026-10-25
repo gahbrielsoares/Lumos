@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -96,6 +96,26 @@ export const ADMIN_ITEM = {
   icon: `<path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>`,
 };
 
+// ---------- Conta de demonstração: modo Cliente ou Desenvolvedor ----------
+export function modoDemo() {
+  try { return localStorage.getItem("lumos:modo-demo") === "dev" ? "dev" : "cliente"; } catch (_) { return "cliente"; }
+}
+function barraModoDemo(modo) {
+  if (document.getElementById("demo-modo")) return;
+  const bar = document.createElement("div");
+  bar.id = "demo-modo"; bar.className = "demo-modo";
+  bar.innerHTML = `<span>Conta de demonstração:</span>
+    <button data-m="cliente" class="${modo === "cliente" ? "on" : ""}">Modo Cliente</button>
+    <button data-m="dev" class="${modo === "dev" ? "on" : ""}">Modo Desenvolvedor</button>`;
+  bar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-m]"); if (!b || b.classList.contains("on")) return;
+    try { localStorage.setItem("lumos:modo-demo", b.dataset.m); } catch (_) { /* sem storage */ }
+    location.reload();
+  });
+  document.body.appendChild(bar);
+  document.body.classList.add("com-demo");
+}
+
 // ---------- Acesso da conta (definido pelo administrador no Painel Admin) ----------
 // allowed_tabs nulo/vazio = todas as abas. Admin e modo suporte veem tudo.
 let accessCache = null;
@@ -103,7 +123,12 @@ export async function getAccess() {
   if (accessCache) return accessCache;
   const { data: sess } = await supabase.auth.getSession();
   const uid = sess?.session?.user?.id;
-  const { data: p } = uid ? await supabase.from("profiles").select("role, status, allowed_tabs, suporte_ate").eq("id", uid).maybeSingle() : { data: null };
+  // select("*"): funciona mesmo antes de a coluna "demo" existir no banco
+  const { data: perfil } = uid ? await supabase.from("profiles").select("*").eq("id", uid).maybeSingle() : { data: null };
+  // Conta de demonstração: alterna entre ver como Cliente e como Desenvolvedor (a equipe Lumos)
+  const demo = perfil?.demo === true;
+  const modo = demo ? modoDemo() : null;
+  const p = demo && modo === "cliente" ? { ...perfil, role: "cliente", status: "ativo" } : perfil;
   const params = new URLSearchParams(location.search);
   try { if (params.get("suporte") === "1") sessionStorage.setItem("lumos_suporte", "1"); } catch (_) { /* sem sessionStorage */ }
   let suporteFlag = false;
@@ -118,7 +143,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=83");
+    const { getMyAccess } = await import("./workspace.js?v=84");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -131,7 +156,7 @@ export async function getAccess() {
   }
   const allowed = Array.isArray(p?.allowed_tabs) && p.allowed_tabs.length ? p.allowed_tabs : null;
   accessCache = {
-    isAdmin, isStaff, role: p?.role || null, suporte, suporteValido, preview, allowed, status: p?.status || null,
+    isAdmin, isStaff, role: p?.role || null, suporte, suporteValido, preview, allowed, status: p?.status || null, demo, modo,
     // A aba pode aparecer para esta conta?
     can: (key) => isStaff || suporte || !allowed || allowed.includes(key),
   };
@@ -151,6 +176,16 @@ export async function getDisabledTabs() {
     .select("disabled_tabs, business_type")
     .eq("owner_id", owner_id)
     .maybeSingle();
+  // Primeiro acesso de quem escolheu o nicho no cadastro: aplica a configuração do nicho uma vez
+  const nichoCadastro = userData?.user?.user_metadata?.nicho;
+  if (!data && nichoCadastro) {
+    try {
+      const { aplicarNicho } = await import("./businessConfig.js?v=84");
+      const { info } = await aplicarNicho(nichoCadastro);
+      NICHO = info.key; document.body.dataset.nicho = NICHO;
+      return info.disabledTabs || [];
+    } catch (_) { /* segue com o padrão */ }
+  }
   NICHO = data?.business_type || null;
   if (NICHO) document.body.dataset.nicho = NICHO;
   return data?.disabled_tabs || [];
@@ -167,6 +202,7 @@ export async function renderSidebar(activeKey) {
   if (!nav) return;
 
   const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
+  if (access.demo) barraModoDemo(access.modo);
   // Funcionário: esconde as configurações do dono (engrenagens e afins, marcados com .owner-only)
   document.body.classList.toggle("is-team", !!access.isMember);
   // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)

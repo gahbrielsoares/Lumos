@@ -4,12 +4,18 @@
 // 2) "Simular": passo a passo com uma historinha e dados FICTÍCIOS, montados só na tela.
 //    Nada é gravado no banco: relatórios, financeiro e notas nunca recebem dados de simulação.
 // =====================================================================
-import { getAccess } from "./sidebar.js?v=83";
-import { barraFerramentas } from "./ajuda.js?v=83";
+import { getAccess } from "./sidebar.js?v=84";
+import { barraFerramentas } from "./ajuda.js?v=84";
 
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// Tutoriais ligados? Escolha feita em Configurações. Padrão: ligados para a equipe Lumos, desligados para o cliente.
+export function preferenciaTutoriais() { try { return localStorage.getItem("lumos:tutoriais"); } catch (_) { return null; } }
+export function definirTutoriais(ligado) { try { localStorage.setItem("lumos:tutoriais", ligado ? "on" : "off"); } catch (_) { /* sem storage */ } }
 export async function podeSimular() {
+  const pref = preferenciaTutoriais();
+  if (pref === "on") return true;
+  if (pref === "off") return false;
   try { const a = await getAccess(); return !!(a.isStaff || a.suporte); } catch (_) { return false; }
 }
 

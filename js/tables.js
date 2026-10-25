@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=83";
-import { getWorkspaceOwnerId } from "./workspace.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
+import { getWorkspaceOwnerId } from "./workspace.js?v=84";
 
 // Dono dos dados: o próprio usuário ou, se for da equipe, o dono do estabelecimento
 async function getUserId() {
@@ -49,19 +49,3 @@ export async function closeSession(session_id, table_id) {
   return supabase.from("restaurant_tables").update({ status: "livre" }).eq("id", table_id);
 }
 
-// Marca todo mundo da mesa como aguardando pagamento (cobrar mesa inteira)
-export async function chargeSession(session_id) {
-  await supabase.from("table_sessions").update({ status: "aguardando_pagamento" }).eq("id", session_id);
-  return supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("table_session_id", session_id);
-}
-
-// Cobra só uma pessoa da mesa
-export async function chargeLead(lead_id) {
-  return supabase.from("leads").update({ visit_status: "aguardando_pagamento" }).eq("id", lead_id);
-}
-
-export const VISIT_STATUS_LABELS = {
-  iniciado: "Chegou",
-  conversando: "Conversando",
-  aguardando_pagamento: "Aguardando pagamento",
-};

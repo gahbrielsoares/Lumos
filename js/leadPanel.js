@@ -1,8 +1,9 @@
-import { supabase } from "./supabaseClient.js?v=83";
+import { esc, brl } from "./erp.js?v=84";
+import { supabase } from "./supabaseClient.js?v=84";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=83";
-import { getIntegration } from "./integrations.js?v=83";
+} from "./leads.js?v=84";
+import { getIntegration } from "./integrations.js?v=84";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).
@@ -105,10 +106,8 @@ async function orderAction(action, extra = {}) {
   return data;
 }
 
-const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // Mostra a formatação do WhatsApp (*negrito*, ~tachado~) como no celular
 const waFormat = (t) => esc(t).replace(/\*([^*\n]+)\*/g, "<strong>$1</strong>").replace(/~([^~\n]+)~/g, "<s>$1</s>");
-const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function ensureDom() {
   if (root) return;

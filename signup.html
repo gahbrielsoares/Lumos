@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Criar conta | Lumos CRM</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=83" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=83" />
-  <script src="js/dialogs.js?v=83"></script>
+  <script src="js/logo.js?v=84" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=84" />
+  <script src="js/dialogs.js?v=84"></script>
 </head>
 <body>
 <header class="site-header">
@@ -32,6 +32,11 @@
           <input type="email" id="email" required autocomplete="email" />
         </div>
         <div class="field">
+          <label for="nicho">Tipo de negócio</label>
+          <select id="nicho" required></select>
+          <p class="settings-hint" id="nicho-desc" style="margin-top:6px; font-size:12.5px; opacity:.8;"></p>
+        </div>
+        <div class="field">
           <label for="password">Senha</label>
           <input type="password" id="password" required minlength="6" autocomplete="new-password" />
         </div>
@@ -46,7 +51,12 @@
   </div>
 
   <script type="module">
-    import { signUp } from "./js/auth.js?v=83";
+    import { signUp } from "./js/auth.js?v=84";
+    import { BUSINESS_TYPES } from "./js/businessTypes.js?v=84";
+    // O sistema já abre configurado para o nicho escolhido aqui
+    const sel = document.getElementById("nicho");
+    sel.innerHTML = `<option value="" disabled selected>Escolha o seu tipo de negócio</option>` + BUSINESS_TYPES.map((t) => `<option value="${t.key}">${t.label}</option>`).join("");
+    sel.addEventListener("change", () => (document.getElementById("nicho-desc").textContent = BUSINESS_TYPES.find((t) => t.key === sel.value)?.description || ""));
 
     const form = document.getElementById("signup-form");
     const msg = document.getElementById("msg");
@@ -59,8 +69,10 @@
       const name = document.getElementById("name").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
+      const nicho = document.getElementById("nicho").value;
+      if (!nicho) { msg.textContent = "Escolha o tipo de negócio."; msg.classList.add("error"); return; }
 
-      const { error } = await signUp({ name, email, password });
+      const { error } = await signUp({ name, email, password, nicho });
 
       if (error) {
         console.error("Erro do Supabase:", error);

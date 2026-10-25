@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 48. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 49. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -245,7 +245,8 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (47, 'coluna', 'public', 'leads', 'marketing_optin_em'),
   (47, 'funcao', 'public', '', 'leads_optin_coerente'),
   (47, 'gatilho', 'public', 'leads', 'trg_leads_optin'),
-  (48, 'regra', 'public', 'products', 'Equipe: cria insumos')
+  (48, 'regra', 'public', 'products', 'Equipe: cria insumos'),
+  (49, 'coluna', 'public', 'profiles', 'demo')
 ),
 falta as (
   select e.* from esperado e

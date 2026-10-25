@@ -3,16 +3,14 @@
 // quem sumiu e quem aceita receber promoções. Base para campanhas.
 // Visita = dia com conta paga ligada ao cliente (vendas do simulador não contam).
 // =====================================================================
-import { supabase } from "./supabaseClient.js?v=83";
-import { getRange } from "./dateRange.js?v=83";
+import { supabase } from "./supabaseClient.js?v=84";
+import { getRange } from "./dateRange.js?v=84";
+import { esc, brl, onlyDigits, buscarTodos as todos } from "./erp.js?v=84";
 
 const TZ = "America/Sao_Paulo";
 const diaBR = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
 const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
-const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDia = (d) => (d ? d.split("-").reverse().join("/") : "-");
-const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const onlyDigits = (v) => String(v ?? "").replace(/\D/g, "");
 export const fmtFone = (p) => {
   let d = onlyDigits(p);
   if (d.length >= 12 && d.startsWith("55")) d = d.slice(2);
@@ -93,16 +91,6 @@ export function resumo(base) {
 }
 
 // ---------- Tela ----------
-async function todos(build) {
-  const out = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await build().range(from, from + 999);
-    if (error) throw error;
-    out.push(...(data || []));
-    if (!data || data.length < 1000) break;
-  }
-  return out;
-}
 
 export async function iniciarClientesRestaurante({ ownerId, openLeadPanel }) {
   const root = document.getElementById("view-rest");
@@ -253,7 +241,7 @@ export async function iniciarClientesRestaurante({ ownerId, openLeadPanel }) {
   await carregar();
 
   // ---------- Simulação (só administração; dados só na tela) ----------
-  const { botaoSimular, destacar } = await import("./simulacao.js?v=83");
+  const { botaoSimular, destacar } = await import("./simulacao.js?v=84");
   const hoje = diaBR(new Date());
   const menos = (n) => diaBR(new Date(Date.now() - n * 86400000));
   const fake = (id, nome, dias, valor, optin, extra = {}) => ({ id, nome, phone: "5516999990000", fone: "(16) 99999-0000", primeiroContato: dias[0] || menos(1), ultimoContato: dias[dias.length - 1] || menos(1),
