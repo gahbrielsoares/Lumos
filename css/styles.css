@@ -1905,3 +1905,30 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 body.com-demo .dash-main { padding-top: 64px; }
 @media (max-width: 640px) { body.com-demo .dash-main { padding-top: inherit; } }
 .aviso-offline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 990; padding: 10px 16px; text-align: center; font-size: 13.5px; font-weight: 600; background: #B94040; color: #fff; }
+
+/* ===== Caixa (dentro do PDV) ===== */
+.cx-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
+.cx-card h3 { font-size:16px; }
+.cx-hint { font-size:12.5px; color:var(--panel-text-muted); line-height:1.55; }
+.cx-num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.panel-table th.cx-num { text-align:right; }
+.cx-tot td { font-weight:700; background:var(--panel-accent-light); }
+.cx-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+.cx-badge { display:inline-block; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:999px; border:1px solid; }
+.cx-badge.ok { color:#4A7C59; border-color:rgba(74,124,89,.4); } .cx-badge.err { color:#B94040; border-color:rgba(185,64,64,.4); } .cx-badge.muted { color:var(--panel-text-muted); border-color:var(--panel-border); }
+.cx-fecha { display:grid; grid-template-columns: minmax(0,1fr) 120px 130px 110px; gap:8px; align-items:center; font-size:14px; }
+.cx-fecha input { width:100%; padding:8px 10px; border-radius:9px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); text-align:right; }
+.cx-fecha .h { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--panel-text-muted); }
+.cx-pos { color:#4A7C59; } .cx-neg { color:#B94040; }
+@media (max-width:560px) { .cx-fecha { grid-template-columns: minmax(0,1fr) 92px 104px; } .cx-fecha .d { display:none; } }
+.cx-barra { display:flex; align-items:center; gap:10px 16px; flex-wrap:wrap; background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:12px 16px; margin-top:14px; }
+.cx-barra.fechado { border-color: rgba(212,131,74,.55); }
+.cx-barra .cx-info { flex:1; min-width:220px; font-size:13.5px; line-height:1.5; }
+.cx-barra .cx-info b { font-size:15px; }
+.cx-barra .cx-nums { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--panel-text-muted); }
+.cx-barra .cx-nums strong { display:block; font-size:16px; color:var(--panel-text); font-variant-numeric:tabular-nums; }
+.cx-barra .cx-bts { display:flex; gap:6px; flex-wrap:wrap; }
+.cx-barra .cx-bts .btn { padding:8px 12px; font-size:13px; }
+.cx-barra input { width:120px; padding:8px 10px; border-radius:9px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); text-align:right; }
+.pdv-bloqueado { position:relative; }
+.pdv-bloqueado::after { content:""; position:absolute; inset:0; background:var(--panel-bg); opacity:.55; border-radius:16px; cursor:not-allowed; }

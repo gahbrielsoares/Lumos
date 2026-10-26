@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PDV | Lumos</title>
+  <title>PDV e Caixa | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=87" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=87" />
-  <script src="js/dialogs.js?v=87"></script>
+  <script src="js/logo.js?v=88" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=88" />
+  <script src="js/dialogs.js?v=88"></script>
   <style>
     .pdv { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:18px; margin-top:16px; align-items:start; }
     .pdv-busca { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); font-size:15px; font-family:var(--panel-font-body); }
@@ -41,37 +41,16 @@
 </head>
 <body>
 
-  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-  </button>
-  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
-
-  <div class="luzes luzes--panel" aria-hidden="true">
-    <div class="luz"></div>
-    <div class="luz"></div>
-    <div class="luz"></div>
-  </div>
-
   <div class="dash-shell">
-    <aside class="dash-side">
-      <div class="logo">
-        <img src="img/logo.png" class="logo-mark" alt="Lumos">
-        Lumos
-      </div>
-      <nav class="dash-nav" id="dash-nav"></nav>
-      <button class="theme-toggle-btn" id="theme-toggle-btn">
-        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
-        <span id="theme-toggle-label">Modo escuro</span>
-      </button>
-    </aside>
 
     <main class="dash-main">
       <div>
-        <h1 style="font-size: 28px;">PDV</h1>
-        <p style="margin-top: 6px;">Venda no balcão: escolha os produtos, receba e pronto. Baixa o estoque, entra no caixa e no financeiro e emite a NFC-e sozinha.</p>
+        <h1 style="font-size: 28px;">PDV e Caixa</h1>
+        <p style="margin-top: 6px;">Abra o caixa, venda no balcão e feche o turno, tudo aqui. Cada venda baixa o estoque, entra no caixa e no financeiro e emite a NFC-e sozinha.</p>
       </div>
+      <div id="caixa-barra"></div>
       <div id="aviso-caixa"></div>
-      <div class="pdv">
+      <div class="pdv" id="pdv-area">
         <section>
           <input class="pdv-busca" id="busca" placeholder="Buscar pelo nome ou ler o código de barras" autocomplete="off" />
           <div class="pdv-cats" id="cats"></div>
@@ -100,13 +79,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=87";
-    import { initThemeToggle } from "./js/theme.js?v=87";
-    import { initMobileNav } from "./js/mobileNav.js?v=87";
-    import { renderSidebar } from "./js/sidebar.js?v=87";
-    import { supabase } from "./js/supabaseClient.js?v=87";
-    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=87";
-    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=87";
+    import { requireSession, signOut } from "./js/auth.js?v=88";
+    import { initThemeToggle } from "./js/theme.js?v=88";
+    import { initMobileNav } from "./js/mobileNav.js?v=88";
+    import { renderSidebar } from "./js/sidebar.js?v=88";
+    import { supabase } from "./js/supabaseClient.js?v=88";
+    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=88";
+    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=88";
+    import { criarCaixa } from "./js/caixaTela.js?v=88";
 
     await requireSession();
     initThemeToggle();
@@ -116,6 +96,18 @@
     const owner_id = await ownerId();
     await nichoAtual();
     const $ = (id) => document.getElementById(id);
+
+    // ---------- Caixa do turno (barra no topo) ----------
+    const { getMyAccess } = await import("./js/workspace.js?v=88");
+    const acesso = await getMyAccess().catch(() => ({}));
+    const { data: u } = navigator.onLine ? await supabase.auth.getUser() : { data: null };
+    const eu = { id: u?.user?.id || null, nome: acesso?.member?.nome || u?.user?.email || "Responsável" };
+    // Com internet, só vende com o caixa aberto (a venda entra no turno). Sem internet, não trava.
+    const caixaTurno = criarCaixa({ ownerId: owner_id, eu, alvo: document.getElementById("caixa-barra"), aoMudar: (aberto) => {
+      const travar = !aberto && navigator.onLine;
+      document.getElementById("pdv-area").classList.toggle("pdv-bloqueado", travar);
+      if (typeof contas === "function") contas();
+    } });
 
     // ---------- Cardápio (só o que se vende: sem insumos, sem outro nicho) ----------
     let produtos = [], categoria = "todas";
@@ -176,7 +168,7 @@
       $("subtotal").textContent = brl(sub); $("total").textContent = brl(total);
       const rec = Number($("recebido").value || 0);
       $("troco").textContent = forma === "dinheiro" && rec > total ? brl(rec - total) : "R$ 0,00";
-      $("finalizar").disabled = !carrinho.size;
+      $("finalizar").disabled = !carrinho.size || (navigator.onLine && !caixaTurno.aberto());
       $("finalizar").textContent = carrinho.size ? `Finalizar venda · ${brl(total)}` : "Finalizar venda";
       return { sub, desc, total, rec };
     }
@@ -190,12 +182,6 @@
     });
     const zerar = () => { carrinho.clear(); $("desconto").value = ""; $("recebido").value = ""; $("cpf").value = ""; $("cozinha").checked = false; contas(); $("busca").focus(); };
     $("limpar").addEventListener("click", zerar);
-
-    // ---------- Caixa aberto? (a venda entra no turno de quem está no caixa) ----------
-    async function conferirCaixa() {
-      const { data } = await supabase.from("caixas").select("id").eq("owner_id", owner_id).eq("status", "aberto").limit(1);
-      $("aviso-caixa").innerHTML = data?.length ? "" : `<div class="pdv-aviso">O caixa está fechado. Abra o caixa para as vendas do balcão entrarem no turno: <a href="caixa.html">ir para o Caixa</a>.</div>`;
-    }
 
     // ---------- Finalizar ----------
     $("finalizar").addEventListener("click", async () => {
@@ -231,6 +217,7 @@
         <div class="modal-actions">${n?.danfe_url ? `<a class="btn btn-ghost" href="${esc(n.danfe_url)}" target="_blank" rel="noopener">Ver cupom</a>` : ""}<button class="btn btn-primary" data-close id="nova">Nova venda</button></div>`, { width: 420 });
       m.el.querySelector("#nova").focus();
       zerar();
+      caixaTurno.carregar();
     });
 
     // ---------- Fila de vendas feitas sem internet ----------
@@ -275,18 +262,29 @@
     window.addEventListener("online", enviarFila);
     window.addEventListener("offline", mostrarFila);
 
-    await Promise.all([carregar(), navigator.onLine ? conferirCaixa() : Promise.resolve()]);
+    await Promise.all([carregar(), navigator.onLine ? caixaTurno.carregar() : Promise.resolve()]);
+    if (!navigator.onLine) { document.getElementById("caixa-barra").className = "cx-barra"; document.getElementById("caixa-barra").innerHTML = `<div class="cx-info"><b>Sem internet</b><br>As vendas ficam guardadas neste aparelho e entram no caixa quando a conexão voltar.</div>`; }
+    window.addEventListener("online", () => caixaTurno.carregar());
     enviarFila();
     contas();
     $("busca").focus();
 
     // ================= Simulação para apresentação (tutoriais ligados em Configurações) =================
-    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
-      titulo: "PDV: a venda do balcão em poucos toques",
-      antes: "O cardápio vem da aba Produtos, com preço e foto. O caixa do turno é aberto na aba Caixa.",
-      faz: "O operador toca nos produtos, escolhe a forma de pagamento e finaliza. O troco é calculado na hora e, se o cliente quiser, o CPF vai na nota.",
-      depois: "Sozinho: o estoque baixa (inclusive os insumos da ficha técnica), a venda entra no caixa e no financeiro, o pedido vai para a cozinha se precisar e a NFC-e é emitida.",
+    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => {
+      const agora = Date.now();
+      const VENDAS = [["pix", 94.6], ["dinheiro", 80], ["credito", 120], ["dinheiro", 45]].map(([metodo, v]) => ({ pagamento: { metodo, valor_cobrado: v } }));
+      const SANGRIA = { tipo: "sangria", valor: 100, motivo: "cofre", por_nome: "Carla (caixa)", created_at: new Date(agora - 3600e3).toISOString() };
+      const barra = document.getElementById("caixa-barra");
+      return {
+      titulo: "PDV e Caixa: o turno inteiro numa tela só",
+      antes: "O cardápio vem da aba Produtos, com preço e foto. As vendas das mesas, do delivery e do WhatsApp também entram no caixa do turno.",
+      faz: "Abre o caixa com o troco, vende no balcão com troco e CPF na nota, registra sangrias e fecha o turno conferindo cada forma de pagamento.",
+      depois: "Sozinho: o estoque baixa (inclusive os insumos da ficha técnica), a venda entra no financeiro, o pedido vai para a cozinha se precisar, a NFC-e é emitida e o fechamento vira um relatório que ninguém altera.",
       passos: [
+        { titulo: "Abrindo o caixa", acao: () => destacar(caixaTurno.mostrarFicticio({ aberto: false })),
+          texto: "Começo do turno: a Carla informa os R$ 150,00 de troco que ficam na gaveta e abre o caixa. Enquanto o caixa está fechado, o PDV não deixa vender: assim nenhuma venda fica fora do turno." },
+        { titulo: "O turno em andamento", acao: () => destacar(caixaTurno.mostrarFicticio({ aberto: true, vendasFake: VENDAS })),
+          texto: "Com o caixa aberto, a barra mostra o turno: o total vendido, quantas vendas e quanto deveria ter de dinheiro na gaveta. A conta do Adalberto, paga na mesa no Pix, já entrou aqui sozinha." },
         { titulo: "O cardápio na tela", acao: () => {
             esconder(document.querySelector("#grid .pdv-vazio"));
             ficticio("#grid", `<button class="pdv-prod cr-simrow"><span class="n">Burger Lumos <span class="sim-mark">Simulação</span></span><span class="p">R$ 39,90</span></button>
@@ -310,10 +308,22 @@
             ficticio(document.body, `<div class="modal-backdrop" style="display:flex; z-index:940;"><div class="modal-box" style="max-width:420px; pointer-events:none;"><span class="sim-mark">Simulação</span>
               <h3 style="font-size:19px; margin-top:6px;">Venda #1045 registrada ✓</h3><div style="font-size:30px; font-weight:800; margin:10px 0;">R$ 95,60</div>
               <p style="font-size:17px;">Troco: <b>R$ 4,40</b></p><p class="settings-hint" style="margin-top:8px;">NFC-e nº 1534 autorizada. Estoque, caixa e financeiro já atualizados.</p></div></div>`, "beforeend"); },
-          texto: "Pronto: a venda foi registrada, a NFC-e saiu e o estoque baixou o pão, a carne e o queijo dos burgers (pela ficha técnica) e as duas latas. A venda já aparece no Caixa, no Financeiro e na Contabilidade." },
+          texto: "Pronto: a venda foi registrada, a NFC-e saiu e o estoque baixou o pão, a carne e o queijo dos burgers (pela ficha técnica) e as duas latas. A venda já aparece no caixa do turno, no Financeiro e na Contabilidade." },
+        { titulo: "Sangria", acao: () => {
+            document.querySelectorAll(".modal-backdrop[data-sim-tmp]").forEach((x) => x.remove());
+            destacar(caixaTurno.mostrarFicticio({ aberto: true, vendasFake: [...VENDAS, { pagamento: { metodo: "dinheiro", valor_cobrado: 95.6 } }], movsFake: [SANGRIA] })); },
+          texto: "No meio do turno, a Carla tirou R$ 100,00 da gaveta para o cofre e registrou a sangria aqui mesmo. O dinheiro esperado na gaveta já foi recalculado." },
+        { titulo: "Fechamento conferido", acao: () => {
+            ficticio(document.body, `<div class="modal-backdrop" style="display:flex; z-index:940; align-items:flex-start; padding-top:5vh;"><div class="modal-box" style="max-width:600px; width:100%; pointer-events:none;"><span class="sim-mark">Simulação</span>
+              <h3 style="font-size:18px; margin-top:6px;">Fechar caixa #12</h3><p class="cx-hint" style="margin:4px 0 12px;">Confira cada forma com a gaveta, a maquininha e o extrato.</p>
+              <div class="cx-fecha" style="margin-bottom:6px;"><span class="h">Forma</span><span class="h d" style="text-align:right;">Esperado</span><span class="h" style="text-align:right;">Conferido</span><span class="h" style="text-align:right;">Diferença</span></div>
+              ${[["Dinheiro na gaveta", 270.6, 268.6], ["Pix", 94.6, 94.6], ["Cartão de crédito", 120, 120]].map(([n, e, c]) => `<div class="cx-fecha" style="margin-bottom:8px;"><span>${n}</span><span class="cx-num d">${brl(e)}</span><input value="${c.toFixed(2)}" /><span class="cx-num ${c < e ? "cx-neg" : ""}">${c === e ? "ok" : brl(c - e)}</span></div>`).join("")}
+              <div class="modal-actions"><button class="btn btn-ghost">Voltar</button><button class="btn btn-primary">Fechar caixa</button></div></div></div>`, "beforeend"); },
+          texto: "No fim do turno, a Carla conta a gaveta e confere cartão e Pix. Faltaram R$ 2,00, e a diferença aparece na hora. O fechamento vira um relatório para imprimir e assinar, que ninguém altera depois, nem o dono." },
       ],
-      limpar: () => { document.getElementById("box-dinheiro").style.display = forma === "dinheiro" ? "" : "none"; document.querySelectorAll("#formas button").forEach((b) => b.classList.toggle("on", b.dataset.f === forma)); contas(); },
-    })));
+      limpar: () => { document.getElementById("box-dinheiro").style.display = forma === "dinheiro" ? "" : "none"; document.querySelectorAll("#formas button").forEach((b) => b.classList.toggle("on", b.dataset.f === forma)); caixaTurno.carregar(); contas(); },
+      };
+    }));
   </script>
 </body>
 </html>

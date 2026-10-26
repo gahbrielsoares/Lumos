@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 51. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 52. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -226,11 +226,8 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (45, 'indice', 'public', 'fiscal_docs', 'fiscal_docs_owner_data'),
   (45, 'indice', 'public', 'fiscal_docs', 'fiscal_docs_venda'),
   (45, 'regra', 'public', 'caixa_movs', 'Dono: movimentos do caixa'),
-  (45, 'regra', 'public', 'caixa_movs', 'Equipe: movimentos do caixa'),
   (45, 'regra', 'public', 'caixas', 'Dono: caixas'),
-  (45, 'regra', 'public', 'caixas', 'Equipe: caixas'),
   (45, 'regra', 'public', 'fiscal_docs', 'Dono: notas fiscais'),
-  (45, 'regra', 'public', 'fiscal_docs', 'Equipe: notas fiscais'),
   (45, 'tabela', 'public', 'caixa_movs', 'caixa_movs'),
   (45, 'tabela', 'public', 'caixas', 'caixas'),
   (45, 'tabela', 'public', 'fiscal_docs', 'fiscal_docs'),
@@ -287,7 +284,10 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (51, 'indice', 'public', 'products', 'products_owner_codigo'),
   (51, 'regra', 'public', 'product_categories', 'Equipe: le vinculos'),
   (51, 'regra', 'public', 'products', 'Equipe: le produtos'),
-  (51, 'tabela', 'public', 'produtos_venda', 'produtos_venda')
+  (51, 'tabela', 'public', 'produtos_venda', 'produtos_venda'),
+  (52, 'regra', 'public', 'caixa_movs', 'Equipe: movimentos do caixa'),
+  (52, 'regra', 'public', 'caixas', 'Equipe: caixas'),
+  (52, 'regra', 'public', 'fiscal_docs', 'Equipe: notas fiscais')
 ),
 falta as (
   select e.* from esperado e

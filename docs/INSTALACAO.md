@@ -2209,6 +2209,33 @@ create policy "Equipe: le vinculos" on public.product_categories for select
   envia sozinho quando a conexão volta (a NFC-e dessas vendas sai no envio).
 - **Menu** em grupos que abrem e fecham: CRM, ERP e Configuração.
 
+## 52. PDV e Caixa numa tela só
+
+No **SQL Editor**:
+
+```sql
+-- PDV e Caixa numa tela só: quem tem a aba "pdv" também abre, movimenta e fecha o caixa
+drop policy if exists "Equipe: caixas" on public.caixas;
+create policy "Equipe: caixas" on public.caixas for all
+  using (public.team_has_tab(owner_id, 'caixa') or public.team_has_tab(owner_id, 'pdv'))
+  with check (public.team_has_tab(owner_id, 'caixa') or public.team_has_tab(owner_id, 'pdv'));
+drop policy if exists "Equipe: movimentos do caixa" on public.caixa_movs;
+create policy "Equipe: movimentos do caixa" on public.caixa_movs for all
+  using (public.team_has_tab(owner_id, 'caixa') or public.team_has_tab(owner_id, 'pdv'))
+  with check (public.team_has_tab(owner_id, 'caixa') or public.team_has_tab(owner_id, 'pdv'));
+drop policy if exists "Equipe: notas fiscais" on public.fiscal_docs;
+create policy "Equipe: notas fiscais" on public.fiscal_docs for select
+  using (public.team_has_tab(owner_id, 'fiscal') or public.team_has_tab(owner_id, 'contabilidade') or public.team_has_tab(owner_id, 'caixa') or public.team_has_tab(owner_id, 'pdv'));
+```
+
+Nenhuma Edge Function muda.
+
+### Como funciona
+- A aba **PDV e Caixa** reúne a venda no balcão e o caixa do turno: abrir com o fundo de troco, sangria, suprimento,
+  resumo do turno, fechamento conferido e caixas anteriores. Com o caixa fechado (e com internet), não dá para vender.
+- O endereço antigo `caixa.html` leva para o PDV. Quem tinha só a aba "caixa" continua entrando.
+- **Testes automáticos** na pasta `tests/` (veja `tests/LEIA-ME.md`).
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

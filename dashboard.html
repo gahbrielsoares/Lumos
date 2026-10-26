@@ -5,36 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=87" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/logo.js?v=88" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=88" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=87"></script>
+  <script src="js/dialogs.js?v=88"></script>
 </head>
 <body>
 
-  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-  </button>
-  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
-
-  <div class="luzes luzes--panel" aria-hidden="true">
-    <div class="luz"></div>
-    <div class="luz"></div>
-    <div class="luz"></div>
-  </div>
-
-<div class="dash-shell">
-    <aside class="dash-side">
-      <div class="logo">
-        <img src="img/logo.png" class="logo-mark" alt="Lumos">
-        Lumos
-      </div>
-      <nav class="dash-nav" id="dash-nav"></nav>
-      <button class="theme-toggle-btn" id="theme-toggle-btn">
-        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
-        <span id="theme-toggle-label">Modo escuro</span>
-      </button>
-    </aside>
+  <div class="dash-shell">
 
     <main class="dash-main">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
@@ -142,15 +120,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=87";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=87";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=87";
-    import { listAgents } from "./js/agents.js?v=87";
-    import { initThemeToggle } from "./js/theme.js?v=87";
-    import { initMobileNav } from "./js/mobileNav.js?v=87";
-    import { renderSidebar } from "./js/sidebar.js?v=87";
-    import { getRange } from "./js/dateRange.js?v=87";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=87";
+    import { requireSession, signOut } from "./js/auth.js?v=88";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=88";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=88";
+    import { listAgents } from "./js/agents.js?v=88";
+    import { initThemeToggle } from "./js/theme.js?v=88";
+    import { initMobileNav } from "./js/mobileNav.js?v=88";
+    import { renderSidebar } from "./js/sidebar.js?v=88";
+    import { getRange } from "./js/dateRange.js?v=88";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=88";
 
     await requireSession();
     initThemeToggle();
@@ -350,7 +328,7 @@
     });
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Dashboard: o movimento da casa num olhar",
       antes: "Tudo o que acontece no Lumos: conversas no WhatsApp, pedidos, reservas e contas pagas.",
       faz: "Resume o período escolhido em números e gráficos: quantas pessoas falaram com a casa, quantas viraram clientes, as reservas, os dias e os horários de pico.",

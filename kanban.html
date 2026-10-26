@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=87" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/logo.js?v=88" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=88" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -14,33 +14,11 @@
     .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
     .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
   </style>
-  <script src="js/dialogs.js?v=87"></script>
+  <script src="js/dialogs.js?v=88"></script>
 </head>
 <body>
 
-  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-  </button>
-    <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
-
-  <div class="luzes luzes--panel" aria-hidden="true">
-    <div class="luz"></div>
-    <div class="luz"></div>
-    <div class="luz"></div>
-  </div>
-
-<div class="dash-shell">
-    <aside class="dash-side">
-      <div class="logo">
-        <img src="img/logo.png" class="logo-mark" alt="Lumos">
-        Lumos
-      </div>
-      <nav class="dash-nav" id="dash-nav"></nav>
-      <button class="theme-toggle-btn" id="theme-toggle-btn">
-        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
-        <span id="theme-toggle-label">Modo escuro</span>
-      </button>
-    </aside>
+  <div class="dash-shell">
 
     <main class="dash-main">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
@@ -101,17 +79,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=87";
-    import { initThemeToggle } from "./js/theme.js?v=87";
-    import { initMobileNav } from "./js/mobileNav.js?v=87";
-    import { renderSidebar } from "./js/sidebar.js?v=87";
-    import { supabase } from "./js/supabaseClient.js?v=87";
-    import { esc } from "./js/erp.js?v=87";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=87";
-    import { listAgents } from "./js/agents.js?v=87";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=87";
-    import { openLeadPanel } from "./js/leadPanel.js?v=87";
-    import { getRange } from "./js/dateRange.js?v=87";
+    import { requireSession, signOut } from "./js/auth.js?v=88";
+    import { initThemeToggle } from "./js/theme.js?v=88";
+    import { initMobileNav } from "./js/mobileNav.js?v=88";
+    import { renderSidebar } from "./js/sidebar.js?v=88";
+    import { supabase } from "./js/supabaseClient.js?v=88";
+    import { esc } from "./js/erp.js?v=88";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=88";
+    import { listAgents } from "./js/agents.js?v=88";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=88";
+    import { openLeadPanel } from "./js/leadPanel.js?v=88";
+    import { getRange } from "./js/dateRange.js?v=88";
 
     await requireSession();
     initThemeToggle();
@@ -284,7 +262,7 @@
 
     // ================= Simulação para apresentação (só administração) =================
     // O card do Adalberto existe só na tela: nada é gravado no banco.
-    const { botaoSimular, destacar } = await import("./js/simulacao.js?v=87");
+    const { botaoSimular, destacar } = await import("./js/simulacao.js?v=88");
     const L = (st) => STAGE_LABELS[st] || st;
     function cardSim(stage, tags) {
       board.querySelector(".sim-card")?.remove();

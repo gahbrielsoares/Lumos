@@ -5,35 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=87" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=87" />
-  <script src="js/dialogs.js?v=87"></script>
+  <script src="js/logo.js?v=88" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=88" />
+  <script src="js/dialogs.js?v=88"></script>
 </head>
 <body>
 
-  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-  </button>
-    <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
-
-  <div class="luzes luzes--panel" aria-hidden="true">
-    <div class="luz"></div>
-    <div class="luz"></div>
-    <div class="luz"></div>
-  </div>
-
-<div class="dash-shell">
-    <aside class="dash-side">
-      <div class="logo">
-        <img src="img/logo.png" class="logo-mark" alt="Lumos">
-        Lumos
-      </div>
-      <nav class="dash-nav" id="dash-nav"></nav>
-      <button class="theme-toggle-btn" id="theme-toggle-btn">
-        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
-        <span id="theme-toggle-label">Modo escuro</span>
-      </button>
-    </aside>
+  <div class="dash-shell">
 
     <main class="dash-main">
       <a href="settings.html" style="font-size: 13.5px; color: var(--text-muted);">← Configurações</a>
@@ -139,14 +117,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=87";
-    import { initThemeToggle } from "./js/theme.js?v=87";
-    import { initMobileNav } from "./js/mobileNav.js?v=87";
-    import { renderSidebar } from "./js/sidebar.js?v=87";
-    import { supabase } from "./js/supabaseClient.js?v=87";
-    import { listAgents } from "./js/agents.js?v=87";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=87";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=87";
+    import { requireSession, signOut } from "./js/auth.js?v=88";
+    import { initThemeToggle } from "./js/theme.js?v=88";
+    import { initMobileNav } from "./js/mobileNav.js?v=88";
+    import { renderSidebar } from "./js/sidebar.js?v=88";
+    import { supabase } from "./js/supabaseClient.js?v=88";
+    import { listAgents } from "./js/agents.js?v=88";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=88";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=88";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -172,7 +150,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=87";
+    } from "./js/products.js?v=88";
 
     await requireSession();
     initThemeToggle();
@@ -202,7 +180,7 @@
 
     async function renderCategories() {
       const { data } = await listCategories();
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=87"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=88"); await nichoAtual();
       categories = (data || []).filter((c) => !doOutroNicho(c));
       document.getElementById("stat-categories").textContent = categories.length;
 
@@ -246,7 +224,7 @@
         return;
       }
       // Insumos da ficha técnica ficam na aba Ficha técnica, não no cardápio
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=87"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=88"); await nichoAtual();
       const data = (todosProdutos || []).filter((p) => p.is_insumo !== true && !doOutroNicho(p));
 
       // O formulário pode estar dentro da lista (edição): volta para o lugar antes de redesenhar
@@ -391,7 +369,7 @@
 
         const result = editingId
           ? await updateProduct(editingId, fields, category_ids)
-          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=87")).segmentoNovo() });
+          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=88")).segmentoNovo() });
 
         if (result.error) throw result.error;
 
@@ -408,7 +386,7 @@
     renderCategories().then(renderProducts);
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
       titulo: "Produtos: o cardápio que alimenta tudo",
       antes: "O dono cadastra cada prato e bebida uma vez, com preço, foto e categoria.",
       faz: "Guarda o cardápio da casa. Insumos de cozinha (carne crua, pão) não ficam aqui: ficam na Ficha técnica e nunca aparecem para o cliente.",

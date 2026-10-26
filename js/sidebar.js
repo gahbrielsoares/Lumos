@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=87";
+import { supabase } from "./supabaseClient.js?v=88";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -53,12 +53,9 @@ export const NAV_ITEMS = [
     icon: `<circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.6 12.4a1.5 1.5 0 0 0 1.5 1.1h8.7a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>`,
   },
   {
-    key: "pdv", group: "erp", href: "pdv.html", label: "PDV (balcão)",
+    // PDV e Caixa numa tela só. Quem tinha só a aba "caixa" também entra (alias).
+    key: "pdv", group: "erp", href: "pdv.html", label: "PDV e Caixa", alias: ["caixa"],
     icon: `<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10M12 16v4M7 8h6M7 11h4"/>`,
-  },
-  {
-    key: "caixa", group: "erp", href: "caixa.html", label: "Caixa",
-    icon: `<rect x="3" y="10" width="18" height="10" rx="2"/><path d="M7 10V6h10v4M7 15h4M15 15h2"/>`,
   },
   {
     key: "financeiro", group: "erp", href: "financeiro.html", label: "Financeiro",
@@ -99,6 +96,37 @@ export const ADMIN_ITEM = {
   key: "admin", href: "admin.html", label: "Painel Admin",
   icon: `<path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>`,
 };
+
+// ---------- Esqueleto do painel (botão do celular, fundo e menu lateral) ----------
+// Antes ficava copiado em cada página; agora é montado aqui, uma vez só, assim que este arquivo carrega.
+// A página só precisa ter <div class="dash-shell"> com o <main> dentro.
+const ESQUELETO_FORA = `<button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+    <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
+  <div class="luzes luzes--panel" aria-hidden="true">
+    <div class="luz"></div>
+    <div class="luz"></div>
+    <div class="luz"></div>
+  </div>`;
+const ESQUELETO_MENU = `<aside class="dash-side">
+      <div class="logo">
+        <img src="img/logo.png" class="logo-mark" alt="Lumos">
+        Lumos
+      </div>
+      <nav class="dash-nav" id="dash-nav"></nav>
+      <button class="theme-toggle-btn" id="theme-toggle-btn">
+        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
+        <span id="theme-toggle-label">Modo escuro</span>
+      </button>
+    </aside>`;
+(function montarEsqueleto() {
+  const shell = document.querySelector(".dash-shell");
+  if (!shell || shell.querySelector(".dash-side")) return;
+  shell.insertAdjacentHTML("beforebegin", ESQUELETO_FORA);
+  shell.insertAdjacentHTML("afterbegin", ESQUELETO_MENU);
+})();
 
 // ---------- Conta de demonstração: modo Cliente ou Desenvolvedor ----------
 export function modoDemo() {
@@ -147,7 +175,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=87");
+    const { getMyAccess } = await import("./workspace.js?v=88");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -184,7 +212,7 @@ export async function getDisabledTabs() {
   const nichoCadastro = userData?.user?.user_metadata?.nicho;
   if (!data && nichoCadastro) {
     try {
-      const { aplicarNicho } = await import("./businessConfig.js?v=87");
+      const { aplicarNicho } = await import("./businessConfig.js?v=88");
       const { info } = await aplicarNicho(nichoCadastro);
       NICHO = info.key; document.body.dataset.nicho = NICHO;
       return info.disabledTabs || [];
@@ -226,7 +254,8 @@ export async function renderSidebar(activeKey) {
   // Funcionário: esconde as configurações do dono (engrenagens e afins, marcados com .owner-only)
   document.body.classList.toggle("is-team", !!access.isMember);
   // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)
-  const visible = (item) => (item.core && !item.adminControl) || (access.can(item.key) && (item.core || !disabled.includes(item.key)));
+  const pode = (item) => access.can(item.key) || (item.alias || []).some((k) => access.can(k));
+  const visible = (item) => (item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key)));
   const items = NAV_ITEMS.filter(visible);
   if (access.isStaff) items.push(ADMIN_ITEM);
 

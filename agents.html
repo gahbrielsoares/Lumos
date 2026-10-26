@@ -5,35 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agentes de IA | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=87" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=87" />
-  <script src="js/dialogs.js?v=87"></script>
+  <script src="js/logo.js?v=88" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=88" />
+  <script src="js/dialogs.js?v=88"></script>
 </head>
 <body>
 
-  <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Abrir menu">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-  </button>
-    <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
-
-  <div class="luzes luzes--panel" aria-hidden="true">
-    <div class="luz"></div>
-    <div class="luz"></div>
-    <div class="luz"></div>
-  </div>
-
-<div class="dash-shell">
-    <aside class="dash-side">
-      <div class="logo">
-        <img src="img/logo.png" class="logo-mark" alt="Lumos">
-        Lumos
-      </div>
-      <nav class="dash-nav" id="dash-nav"></nav>
-      <button class="theme-toggle-btn" id="theme-toggle-btn">
-        <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"></svg>
-        <span id="theme-toggle-label">Modo escuro</span>
-      </button>
-    </aside>
+  <div class="dash-shell">
 
     <main class="dash-main">
 
@@ -249,20 +227,20 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=87";
-    import { initThemeToggle } from "./js/theme.js?v=87";
-    import { initMobileNav } from "./js/mobileNav.js?v=87";
-    import { renderSidebar } from "./js/sidebar.js?v=87";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=87";
-    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=87";
+    import { requireSession, signOut } from "./js/auth.js?v=88";
+    import { initThemeToggle } from "./js/theme.js?v=88";
+    import { initMobileNav } from "./js/mobileNav.js?v=88";
+    import { renderSidebar } from "./js/sidebar.js?v=88";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=88";
+    import { getBusinessTypeInfo, buildNichePrompt } from "./js/businessTypes.js?v=88";
     import {
       listAgents, getAgent, createAgent, saveAgent, deleteAgent,
       getAiProviders, saveAiProvider,
       getWhatsappProviderConfig, saveWhatsappProviderConfig,
-    } from "./js/agents.js?v=87";
+    } from "./js/agents.js?v=88";
     import {
       SIM_BUSINESS_TYPES, SIM_PROMPTS, createSimulator, prepareSimulator, activateAgentForNumber,
-    } from "./js/simulator.js?v=87";
+    } from "./js/simulator.js?v=88";
 
     await requireSession();
     initThemeToggle();
@@ -574,10 +552,10 @@
     document.getElementById("copy-webhook").addEventListener("click", () => {
       navigator.clipboard.writeText(document.getElementById("webhook-url").value);
     });
-    import("./js/ajuda.js?v=87").then(({ botaoAjuda }) => botaoAjuda("agents"));
+    import("./js/ajuda.js?v=88").then(({ botaoAjuda }) => botaoAjuda("agents"));
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio }) => botaoSimular(() => ({
       titulo: "Agentes: a IA que atende no WhatsApp da casa",
       antes: "O número de WhatsApp da loja é conectado ao Lumos (leva 1 minuto, lendo um QR Code). O cardápio e os horários vêm das outras abas.",
       faz: "Cada número tem o seu agente de IA, que atende 24 horas: responde dúvidas, mostra o cardápio, anota pedidos e reservas e fecha a conta, sempre no jeito da casa.",
