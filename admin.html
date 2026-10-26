@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=89" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=89" />
-  <script src="js/dialogs.js?v=89"></script>
+  <script src="js/logo.js?v=90" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=90" />
+  <script src="js/dialogs.js?v=90"></script>
 </head>
 <body>
 
@@ -49,16 +49,36 @@
           <tbody id="rows"><tr><td colspan="7" style="opacity:.7;">Carregando…</td></tr></tbody>
         </table>
       </div>
+
+      <!-- ===== Assinaturas e cupons ===== -->
+      <h3 class="erp-section-title" style="margin-top:34px;">Assinaturas</h3>
+      <p class="settings-hint" id="assin-aviso" style="margin-bottom:8px;"></p>
+      <div class="panel-table-wrap">
+        <table class="panel-table">
+          <thead><tr><th>Cliente</th><th>Valor</th><th>Pagamento</th><th>Situação</th><th>Próximo vencimento</th><th></th></tr></thead>
+          <tbody id="assin-rows"><tr><td colspan="6" style="opacity:.7;">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:30px;">
+        <h3 class="erp-section-title" style="margin:0;">Cupons de desconto</h3>
+        <button class="btn btn-primary" id="b-novo-cupom">+ Novo cupom</button>
+      </div>
+      <div class="panel-table-wrap" style="margin-top:10px;">
+        <table class="panel-table">
+          <thead><tr><th>Código</th><th>Desconto</th><th>Vale por</th><th>Validade</th><th>Usos</th><th>Ativo</th><th></th></tr></thead>
+          <tbody id="cupom-rows"><tr><td colspan="7" style="opacity:.7;">Carregando…</td></tr></tbody>
+        </table>
+      </div>
     </main>
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=89";
-    import { initThemeToggle } from "./js/theme.js?v=89";
-    import { initMobileNav } from "./js/mobileNav.js?v=89";
-    import { renderSidebar } from "./js/sidebar.js?v=89";
-    import { supabase } from "./js/supabaseClient.js?v=89";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=89";
+    import { requireSession, signOut } from "./js/auth.js?v=90";
+    import { initThemeToggle } from "./js/theme.js?v=90";
+    import { initMobileNav } from "./js/mobileNav.js?v=90";
+    import { renderSidebar } from "./js/sidebar.js?v=90";
+    import { supabase } from "./js/supabaseClient.js?v=90";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=90";
 
     await requireSession();
     initThemeToggle();
@@ -67,7 +87,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=89");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=90");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -283,6 +303,75 @@
     document.getElementById("f-busca").addEventListener("input", render);
     document.getElementById("f-status").addEventListener("change", render);
     load();
+
+    // ================= Assinaturas e cupons (função "assinaturas") =================
+    {
+      const chamarA = async (body) => {
+        const { data, error } = await supabase.functions.invoke("assinaturas", { body });
+        if (error || data?.error) { let m = data?.error || "Erro"; try { m = (await error.context.json()).error || m; } catch (_) { /* sem detalhe */ } throw new Error(m); }
+        return data;
+      };
+      const SIT = { pendente: ["Aguardando pagamento", "muted"], ativa: ["Ativa", "ok"], atrasada: ["Atrasada", "warn"], cancelada: ["Cancelada", "bad"] };
+      let dados = { cupons: [], assinaturas: [] };
+      const descTxt = (c) => c.tipo === "percentual" ? `${Number(c.valor).toLocaleString("pt-BR")}%` : brl(c.valor);
+      async function carregarA() {
+        try { dados = await chamarA({ action: "admin_listar" }); }
+        catch (e) { document.getElementById("assin-rows").innerHTML = `<tr><td colspan="6">${esc(e.message)}. Confira se a função "assinaturas" e a seção 53 foram aplicadas.</td></tr>`; document.getElementById("cupom-rows").innerHTML = ""; return; }
+        document.getElementById("assin-aviso").textContent = dados.configurado ? `Plano: ${brl(dados.valor_plano)}/mês.` : "Falta cadastrar o secret LUMOS_MP_TOKEN (chave do Mercado Pago da Lumos) para os clientes conseguirem assinar.";
+        document.getElementById("assin-rows").innerHTML = dados.assinaturas.map((a) => `<tr>
+            <td><b>${esc(a.dados?.negocio || a.nome || a.email)}</b><div class="settings-hint">${esc(a.email)}</div></td>
+            <td>${brl(a.valor_mensal)}${a.cupom_codigo ? `<div class="settings-hint">cupom ${esc(a.cupom_codigo)}</div>` : ""}</td>
+            <td>${a.forma === "cartao" ? "Cartão (automático)" : "Pix ou boleto"}</td>
+            <td><span class="erp-badge ${SIT[a.status]?.[1] || ""}">${SIT[a.status]?.[0] || a.status}</span></td>
+            <td>${a.proximo_vencimento ? fmtDate(a.proximo_vencimento) : "-"}</td>
+            <td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" data-conf="${a.id}">Conferir pagamentos</button>${a.status !== "cancelada" ? ` <button class="btn btn-ghost btn-sm" data-canc="${a.id}">Cancelar</button>` : ""}</td></tr>`).join("")
+          || `<tr><td colspan="6" style="opacity:.7;">Nenhuma assinatura ainda.</td></tr>`;
+        document.getElementById("cupom-rows").innerHTML = dados.cupons.map((c) => `<tr>
+            <td><b>${esc(c.codigo)}</b>${c.descricao ? `<div class="settings-hint">${esc(c.descricao)}</div>` : ""}</td>
+            <td>${descTxt(c)}</td><td>${c.meses ? `${c.meses} mês(es)` : "todas"}</td><td>${c.validade ? fmtDate(c.validade) : "sem prazo"}</td>
+            <td>${c.usos}${c.limite_usos ? ` / ${c.limite_usos}` : ""}</td>
+            <td><input type="checkbox" class="toggle-input" data-ativo="${c.id}" ${c.ativo ? "checked" : ""} /></td>
+            <td><button class="btn btn-ghost btn-sm" data-edit-cupom="${c.id}">Editar</button></td></tr>`).join("")
+          || `<tr><td colspan="7" style="opacity:.7;">Nenhum cupom. Crie o primeiro em "+ Novo cupom".</td></tr>`;
+      }
+      function editarCupom(c = {}) {
+        const m = modal(`<h3 style="font-size:18px;">${c.id ? "Editar cupom" : "Novo cupom"}</h3>
+          <div class="field"><label>Código</label><input id="cp-cod" value="${esc(c.codigo || "")}" placeholder="Ex.: BEMVINDO" style="text-transform:uppercase;" /></div>
+          <div class="erp-row2"><div class="field"><label>Tipo de desconto</label><select id="cp-tipo"><option value="percentual" ${c.tipo !== "valor" ? "selected" : ""}>Percentual (%)</option><option value="valor" ${c.tipo === "valor" ? "selected" : ""}>Valor fixo (R$)</option></select></div>
+            <div class="field"><label>Desconto</label><input id="cp-valor" type="number" step="0.01" min="0.01" value="${c.valor ?? ""}" /></div></div>
+          <div class="erp-row2"><div class="field"><label>Vale por quantas mensalidades</label><input id="cp-meses" type="number" min="1" step="1" value="${c.meses ?? ""}" placeholder="vazio = todas" /></div>
+            <div class="field"><label>Válido até</label><input id="cp-val" type="date" value="${c.validade || ""}" /></div></div>
+          <div class="erp-row2"><div class="field"><label>Limite de usos</label><input id="cp-lim" type="number" min="1" step="1" value="${c.limite_usos ?? ""}" placeholder="vazio = sem limite" /></div>
+            <div class="field"><label>Descrição (interna)</label><input id="cp-desc" value="${esc(c.descricao || "")}" placeholder="Ex.: feira de outubro" /></div></div>
+          <p class="settings-hint" id="cp-prev"></p><div id="cp-msg" class="form-msg"></div>
+          <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="cp-ok">Salvar cupom</button></div>`, { width: 560 });
+        const v = (id) => m.el.querySelector(id).value;
+        const prev = () => { const t = v("#cp-tipo"), x = Number(v("#cp-valor") || 0), base = Number(dados.valor_plano || 1794.9);
+          const final = Math.max(0, t === "percentual" ? base * (1 - x / 100) : base - x);
+          m.el.querySelector("#cp-prev").textContent = x > 0 ? `Mensalidade com o cupom: ${brl(final)} ${v("#cp-meses") ? `por ${v("#cp-meses")} mês(es), depois ${brl(base)}` : "em todas"}.` : ""; };
+        m.el.addEventListener("input", prev); prev();
+        m.el.querySelector("#cp-ok").addEventListener("click", async () => {
+          try {
+            await chamarA({ action: "cupom_salvar", cupom: { id: c.id, codigo: v("#cp-cod"), tipo: v("#cp-tipo"), valor: Number(v("#cp-valor")), meses: v("#cp-meses") ? Number(v("#cp-meses")) : null,
+              validade: v("#cp-val") || null, limite_usos: v("#cp-lim") ? Number(v("#cp-lim")) : null, descricao: v("#cp-desc"), ativo: c.ativo !== false } });
+            m.close(); carregarA();
+          } catch (e) { const el = m.el.querySelector("#cp-msg"); el.textContent = e.message; el.className = "form-msg error"; }
+        });
+      }
+      document.getElementById("b-novo-cupom").addEventListener("click", () => editarCupom());
+      document.querySelector("main").addEventListener("click", async (e) => {
+        const ed = e.target.closest("[data-edit-cupom]"); if (ed) return editarCupom(dados.cupons.find((c) => c.id === ed.dataset.editCupom));
+        const cf = e.target.closest("[data-conf]");
+        if (cf) { cf.disabled = true; try { const r = await chamarA({ action: "assinatura_conferir", id: cf.dataset.conf }); lumosAlert(r.novos ? `${r.novos} pagamento(s) novo(s) registrado(s).` : "Nenhum pagamento novo no Mercado Pago."); } catch (err) { lumosAlert(err.message); } return carregarA(); }
+        const cc = e.target.closest("[data-canc]");
+        if (cc && await lumosConfirm("Cancelar esta assinatura? No cartão, as próximas cobranças automáticas param.")) { try { await chamarA({ action: "assinatura_cancelar", id: cc.dataset.canc }); } catch (err) { lumosAlert(err.message); } carregarA(); }
+      });
+      document.querySelector("main").addEventListener("change", async (e) => {
+        const t = e.target.closest("[data-ativo]"); if (!t) return;
+        try { await chamarA({ action: "cupom_ativo", id: t.dataset.ativo, ativo: t.checked }); } catch (err) { lumosAlert(err.message); carregarA(); }
+      });
+      carregarA();
+    }
   </script>
 </body>
 </html>

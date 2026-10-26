@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 52. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 53. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -287,7 +287,12 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (51, 'tabela', 'public', 'produtos_venda', 'produtos_venda'),
   (52, 'regra', 'public', 'caixa_movs', 'Equipe: movimentos do caixa'),
   (52, 'regra', 'public', 'caixas', 'Equipe: caixas'),
-  (52, 'regra', 'public', 'fiscal_docs', 'Equipe: notas fiscais')
+  (52, 'regra', 'public', 'fiscal_docs', 'Equipe: notas fiscais'),
+  (53, 'regra', 'public', 'assinatura_pagamentos', 'Cliente ve os proprios pagamentos'),
+  (53, 'regra', 'public', 'assinaturas', 'Cliente ve a propria assinatura'),
+  (53, 'tabela', 'public', 'assinatura_pagamentos', 'assinatura_pagamentos'),
+  (53, 'tabela', 'public', 'assinaturas', 'assinaturas'),
+  (53, 'tabela', 'public', 'cupons', 'cupons')
 ),
 falta as (
   select e.* from esperado e

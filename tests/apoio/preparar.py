@@ -25,6 +25,7 @@ esbuild(trecho(orders, "async function criarLinkPagamento", "// deno-lint-ignore
 imp = re.compile(r'^import \{ createClient \} from "https://esm\.sh/@supabase/supabase-js@2";', re.M)
 esbuild(imp.sub("const createClient = () => ({});", fn("fiscal")), "fiscal_t")
 esbuild(imp.sub("const createClient = () => globalThis.__sb;", fn("pagamentos")), "pag_t")
+esbuild(imp.sub("const createClient = () => globalThis.__sb;", fn("assinaturas")), "assin_t")
 
 def npm(pacote, arquivo, destino):
     if os.path.exists(destino): return

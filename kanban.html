@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Kanban | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=89" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=89" />
+  <script src="js/logo.js?v=90" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=90" />
   <style>
     .kc-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
     .kc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
@@ -14,7 +14,7 @@
     .kc-quote { color: var(--panel-accent); border-color: var(--panel-accent); }
     .kc-ok { color: #4A7C59; border-color: rgba(74,124,89,.4); }
   </style>
-  <script src="js/dialogs.js?v=89"></script>
+  <script src="js/dialogs.js?v=90"></script>
 </head>
 <body>
 
@@ -79,17 +79,17 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=89";
-    import { initThemeToggle } from "./js/theme.js?v=89";
-    import { initMobileNav } from "./js/mobileNav.js?v=89";
-    import { renderSidebar } from "./js/sidebar.js?v=89";
-    import { supabase } from "./js/supabaseClient.js?v=89";
-    import { esc } from "./js/erp.js?v=89";
-    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=89";
-    import { listAgents } from "./js/agents.js?v=89";
-    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=89";
-    import { openLeadPanel } from "./js/leadPanel.js?v=89";
-    import { getRange } from "./js/dateRange.js?v=89";
+    import { requireSession, signOut } from "./js/auth.js?v=90";
+    import { initThemeToggle } from "./js/theme.js?v=90";
+    import { initMobileNav } from "./js/mobileNav.js?v=90";
+    import { renderSidebar } from "./js/sidebar.js?v=90";
+    import { supabase } from "./js/supabaseClient.js?v=90";
+    import { esc } from "./js/erp.js?v=90";
+    import { STAGES, STAGE_LABELS, STAGE_DESCRIPTIONS, updateLeadStage, timeAgo } from "./js/leads.js?v=90";
+    import { listAgents } from "./js/agents.js?v=90";
+    import { getDisabledStages, saveDisabledStages } from "./js/businessConfig.js?v=90";
+    import { openLeadPanel } from "./js/leadPanel.js?v=90";
+    import { getRange } from "./js/dateRange.js?v=90";
 
     await requireSession();
     initThemeToggle();
@@ -262,7 +262,7 @@
 
     // ================= Simulação para apresentação (só administração) =================
     // O card do Adalberto existe só na tela: nada é gravado no banco.
-    const { botaoSimular, destacar } = await import("./js/simulacao.js?v=89");
+    const { botaoSimular, destacar } = await import("./js/simulacao.js?v=90");
     const L = (st) => STAGE_LABELS[st] || st;
     function cardSim(stage, tags) {
       board.querySelector(".sim-card")?.remove();

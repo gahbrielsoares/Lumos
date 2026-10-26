@@ -2236,6 +2236,78 @@ Nenhuma Edge Function muda.
 - O endereço antigo `caixa.html` leva para o PDV. Quem tinha só a aba "caixa" continua entrando.
 - **Testes automáticos** na pasta `tests/` (veja `tests/LEIA-ME.md`).
 
+## 53. Assinatura da Lumos (mensalidade), cupons, Termos de Uso e Política de Privacidade
+
+No **SQL Editor**:
+
+```sql
+-- ===== Assinatura da Lumos (mensalidade) e cupons de desconto =====
+create table if not exists public.cupons (
+  id uuid default gen_random_uuid() primary key,
+  codigo text not null unique,                  -- sempre em maiúsculas
+  tipo text not null check (tipo in ('percentual','valor')),
+  valor numeric(12,2) not null check (valor > 0),
+  meses integer check (meses is null or meses > 0),   -- por quantas mensalidades vale (vazio = todas)
+  validade date,                                -- até quando pode ser usado
+  limite_usos integer check (limite_usos is null or limite_usos > 0),
+  usos integer not null default 0,
+  ativo boolean not null default true,
+  descricao text,
+  created_at timestamptz default now()
+);
+alter table public.cupons enable row level security;   -- só o servidor (função assinaturas) mexe
+
+create table if not exists public.assinaturas (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null unique references auth.users(id) on delete cascade,
+  plano text not null default 'lumos_mensal',
+  valor_base numeric(12,2) not null,
+  valor_mensal numeric(12,2) not null,          -- valor cobrado agora (com o cupom, se houver)
+  cupom_codigo text,
+  meses_desconto_restantes integer,             -- null = desconto para sempre (ou sem cupom)
+  forma text not null check (forma in ('cartao','pix_boleto')),
+  status text not null default 'pendente' check (status in ('pendente','ativa','atrasada','cancelada')),
+  mp_preapproval_id text,
+  proximo_vencimento date,
+  ultimo_pagamento timestamptz,
+  dados jsonb default '{}'::jsonb,              -- nome do negócio, CPF/CNPJ, telefone
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table public.assinaturas enable row level security;
+drop policy if exists "Cliente ve a propria assinatura" on public.assinaturas;
+create policy "Cliente ve a propria assinatura" on public.assinaturas for select using (auth.uid() = user_id);
+
+create table if not exists public.assinatura_pagamentos (
+  id uuid default gen_random_uuid() primary key,
+  assinatura_id uuid not null references public.assinaturas(id) on delete cascade,
+  mp_payment_id text not null unique,           -- o mesmo pagamento nunca conta duas vezes
+  valor numeric(12,2) not null,
+  forma text,
+  pago_em timestamptz default now()
+);
+alter table public.assinatura_pagamentos enable row level security;
+drop policy if exists "Cliente ve os proprios pagamentos" on public.assinatura_pagamentos;
+create policy "Cliente ve os proprios pagamentos" on public.assinatura_pagamentos for select
+  using (exists (select 1 from public.assinaturas a where a.id = assinatura_id and a.user_id = auth.uid()));
+```
+
+### Edge Function e secrets
+1. Crie a função **`assinaturas`** (nova) com `supabase/functions/assinaturas/index.ts`, **"Enforce JWT verification" DESLIGADO**.
+2. Em **Edge Functions → Secrets**, crie `LUMOS_MP_TOKEN` com o **Access Token da conta Mercado Pago da Lumos** (para testar,
+   o de teste; para valer, o de produção). Opcional: `LUMOS_PLANO_VALOR` (padrão 1794.90).
+3. No painel do Mercado Pago (aplicação da Lumos → **Webhooks**), cadastre o endereço
+   `https://nkmyunxjoeqpmwolefbj.supabase.co/functions/v1/assinaturas?aviso=1` com os eventos **Pagamentos** e
+   **Planos e assinaturas**. Mesmo sem isso, a página confere os pagamentos quando o cliente volta do checkout.
+
+### Como funciona
+- `plans.html` vira a página de assinatura: dados do negócio, cartão (cobrança automática mensal) ou Pix/boleto (mês a mês),
+  cupom e aceite dos Termos. Pagamento aprovado ativa a conta do cliente sozinho.
+- **Painel Admin → Assinaturas e cupons**: lista das assinaturas (conferir pagamentos, cancelar) e cadastro de cupons
+  (percentual ou valor, por quantas mensalidades, validade, limite de usos, ativo).
+- `termos.html` e `privacidade.html`: textos próprios da Lumos. Preencha os dados marcados entre colchetes e peça a
+  revisão de um advogado antes de publicar.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

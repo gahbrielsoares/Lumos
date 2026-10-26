@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agendamentos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=89" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=89" />
-  <script src="js/dialogs.js?v=89"></script>
+  <script src="js/logo.js?v=90" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=90" />
+  <script src="js/dialogs.js?v=90"></script>
 </head>
 <body>
 
@@ -82,16 +82,16 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=89";
-    import { initThemeToggle } from "./js/theme.js?v=89";
-    import { initMobileNav } from "./js/mobileNav.js?v=89";
-    import { renderSidebar } from "./js/sidebar.js?v=89";
-    import { getRange } from "./js/dateRange.js?v=89";
-    import { supabase } from "./js/supabaseClient.js?v=89";
-    import { updateLeadStage } from "./js/leads.js?v=89";
+    import { requireSession, signOut } from "./js/auth.js?v=90";
+    import { initThemeToggle } from "./js/theme.js?v=90";
+    import { initMobileNav } from "./js/mobileNav.js?v=90";
+    import { renderSidebar } from "./js/sidebar.js?v=90";
+    import { getRange } from "./js/dateRange.js?v=90";
+    import { supabase } from "./js/supabaseClient.js?v=90";
+    import { updateLeadStage } from "./js/leads.js?v=90";
     import {
       listAppointmentsInRange, createAppointment, updateAppointmentStatus, APPOINTMENT_STATUS_LABELS,
-    } from "./js/agendamentos.js?v=89";
+    } from "./js/agendamentos.js?v=90";
 
     await requireSession();
     initThemeToggle();
@@ -223,7 +223,7 @@
     loadList(currentRange);
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=89").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => {
+    import("./js/simulacao.js?v=90").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => {
       const rest = document.body.dataset.nicho === "restaurante";
       const amanha = new Date(Date.now() + 86400000).toLocaleDateString("pt-BR");
       const sab = new Date(Date.now() + 3 * 86400000).toLocaleDateString("pt-BR");
