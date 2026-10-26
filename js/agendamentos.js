@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=88";
-import { getWorkspaceOwnerId } from "./workspace.js?v=88";
+import { supabase } from "./supabaseClient.js?v=89";
+import { getWorkspaceOwnerId } from "./workspace.js?v=89";
 
 export async function countTodayAppointments(agentId) {
   const start = new Date();

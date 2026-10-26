@@ -1903,7 +1903,7 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 @media (min-width: 900px) { .demo-modo { left: calc(50% + 120px); } }
 @media (max-width: 640px) { .demo-modo { top: auto; bottom: 74px; } .demo-modo > span { display: none; } }
 body.com-demo .dash-main { padding-top: 64px; }
-@media (max-width: 640px) { body.com-demo .dash-main { padding-top: inherit; } }
+@media (max-width: 900px) { body.com-demo .dash-main { padding-top: 70px; } }
 .aviso-offline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 990; padding: 10px 16px; text-align: center; font-size: 13.5px; font-weight: 600; background: #B94040; color: #fff; }
 
 /* ===== Caixa (dentro do PDV) ===== */
@@ -1932,3 +1932,14 @@ body.com-demo .dash-main { padding-top: 64px; }
 .cx-barra input { width:120px; padding:8px 10px; border-radius:9px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); text-align:right; }
 .pdv-bloqueado { position:relative; }
 .pdv-bloqueado::after { content:""; position:absolute; inset:0; background:var(--panel-bg); opacity:.55; border-radius:16px; cursor:not-allowed; }
+
+/* ===== Responsividade ===== */
+/* Item de grade não encolhe por padrão: os gráficos ficavam presos na largura em que foram desenhados */
+.panel-card, #charts-row > *, .panel-stat-grid > * { min-width: 0; }
+.panel-card canvas { max-width: 100% !important; }
+/* Horário de funcionamento: no celular os horários descem para a linha de baixo */
+#hours-list .hub-card { flex-wrap: wrap; gap: 8px 12px; }
+@media (max-width: 560px) {
+  #hours-list .hours-fields { margin-left: 0 !important; width: 100%; }
+  #hours-list .hours-fields input { flex: 1; min-width: 0; }
+}

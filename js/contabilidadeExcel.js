@@ -2,8 +2,8 @@
 // Contabilidade: Excel completo para o escritório de contabilidade (separado da tela)
 // Recebe o fechamento já calculado (R) e monta uma planilha com uma aba por assunto.
 // =====================================================================
-import * as T from "./tributos.js?v=88";
-import { fmtDate } from "./erp.js?v=88";
+import * as T from "./tributos.js?v=89";
+import { fmtDate } from "./erp.js?v=89";
 
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const nomeMes = (ym) => `${MESES[Number(ym.slice(5, 7)) - 1]} de ${ym.slice(0, 4)}`;

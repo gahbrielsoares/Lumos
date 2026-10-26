@@ -308,7 +308,9 @@ async function criarLinkPagamento(order: any, total: number, pag: any): Promise<
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) return { erro: `Mercado Pago recusou o link: ${d.message || r.status}.` };
-      const link = (teste ? d.sandbox_init_point : d.init_point) || d.init_point;
+      // Chave antiga de teste ("TEST-...") abre o link de sandbox. As credenciais atuais (inclusive as da conta de
+      // teste vendedor, que têm formato de produção) usam o link normal, como pede o teste do Mercado Pago.
+      const link = (chave.startsWith("TEST-") ? d.sandbox_init_point : d.init_point) || d.init_point || d.sandbox_init_point;
       if (!link) return { erro: "O Mercado Pago não devolveu o link." };
       return { link, ref: { preference_id: d.id, ambiente: teste ? "teste" : "producao" } };
     }

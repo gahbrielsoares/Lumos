@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Equipe | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=88" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=88" />
-  <script src="js/dialogs.js?v=88"></script>
+  <script src="js/logo.js?v=89" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=89" />
+  <script src="js/dialogs.js?v=89"></script>
 </head>
 <body>
 
@@ -38,12 +38,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=88";
-    import { initThemeToggle } from "./js/theme.js?v=88";
-    import { initMobileNav } from "./js/mobileNav.js?v=88";
-    import { renderSidebar } from "./js/sidebar.js?v=88";
-    import { supabase } from "./js/supabaseClient.js?v=88";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=88";
+    import { requireSession, signOut } from "./js/auth.js?v=89";
+    import { initThemeToggle } from "./js/theme.js?v=89";
+    import { initMobileNav } from "./js/mobileNav.js?v=89";
+    import { renderSidebar } from "./js/sidebar.js?v=89";
+    import { supabase } from "./js/supabaseClient.js?v=89";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=89";
 
     await requireSession();
     initThemeToggle();
@@ -52,8 +52,8 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=88");
-    const { getBusinessConfig } = await import("./js/businessConfig.js?v=88");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=89");
+    const { getBusinessConfig } = await import("./js/businessConfig.js?v=89");
     const FUNCOES = {
       garcom: { label: "Garçom", tabs: ["mesas", "cozinha"], dica: "Abre comandas nas mesas, lança pedidos e fecha a conta. Marque PDV e Caixa se ele também opera o caixa." },
       cozinha: { label: "Cozinha", tabs: ["cozinha"], dica: "Vê e movimenta os pedidos na tela da Cozinha." },
@@ -216,7 +216,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=89").then(({ botaoSimular, destacar, ficticio, esconder }) => botaoSimular(() => ({
       titulo: "Equipe: cada um vê só o que precisa",
       antes: "O dono cadastra os funcionários: garçons, cozinha, caixa, gerente e até o contador.",
       faz: "Cada pessoa ganha um login próprio, com usuário simples, e vê só as abas da sua função. O dono decide quem vê os custos.",

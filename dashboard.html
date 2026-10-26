@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=88" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=88" />
+  <script src="js/logo.js?v=89" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=89" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <script src="js/dialogs.js?v=88"></script>
+  <script src="js/dialogs.js?v=89"></script>
 </head>
 <body>
 
@@ -120,15 +120,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=88";
-    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=88";
-    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=88";
-    import { listAgents } from "./js/agents.js?v=88";
-    import { initThemeToggle } from "./js/theme.js?v=88";
-    import { initMobileNav } from "./js/mobileNav.js?v=88";
-    import { renderSidebar } from "./js/sidebar.js?v=88";
-    import { getRange } from "./js/dateRange.js?v=88";
-    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=88";
+    import { requireSession, signOut } from "./js/auth.js?v=89";
+    import { listLeadsActiveInRange, activityDate, STAGE_LABELS } from "./js/leads.js?v=89";
+    import { countTodayAppointments, getBusinessHours } from "./js/agendamentos.js?v=89";
+    import { listAgents } from "./js/agents.js?v=89";
+    import { initThemeToggle } from "./js/theme.js?v=89";
+    import { initMobileNav } from "./js/mobileNav.js?v=89";
+    import { renderSidebar } from "./js/sidebar.js?v=89";
+    import { getRange } from "./js/dateRange.js?v=89";
+    import { getDisabledDashboardCards, saveDisabledDashboardCards } from "./js/businessConfig.js?v=89";
 
     await requireSession();
     initThemeToggle();
@@ -137,6 +137,11 @@
     if (document.body.dataset.nicho === "restaurante") {
       const rot = { "card-stat_leads": "Contatos atendidos", "card-stat_clientes": "Clientes", "card-stat_consultas": "Reservas hoje" };
       for (const [id, t] of Object.entries(rot)) { const l = document.querySelector(`#${id} .label`); if (l) l.textContent = t; }
+      // Gráficos: no restaurante, "contatos" em vez de "leads"
+      const tit = { "card-chart_volume": ["Contatos por dia", "Quantos clientes conversaram com a casa a cada dia no período (novos e retornos)."],
+        "card-chart_weekday": ["Contatos por dia da semana", "Quais dias têm mais movimento."],
+        "card-table_leads": ["Contatos no período", "Todos os clientes que falaram com a casa no período. Clique numa linha para ver o histórico completo."] };
+      for (const [id, [h, p]] of Object.entries(tit)) { const c = document.getElementById(id); if (c) { c.querySelector("h3").textContent = h; c.querySelector("p").textContent = p; } }
     }
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => {
@@ -328,7 +333,7 @@
     });
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=88").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=89").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Dashboard: o movimento da casa num olhar",
       antes: "Tudo o que acontece no Lumos: conversas no WhatsApp, pedidos, reservas e contas pagas.",
       faz: "Resume o período escolhido em números e gráficos: quantas pessoas falaram com a casa, quantas viraram clientes, as reservas, os dias e os horários de pico.",

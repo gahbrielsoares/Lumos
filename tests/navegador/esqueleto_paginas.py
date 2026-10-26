@@ -1,6 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
-exec(open('tests/navegador/base_menu_real.py').read().split("async def main():")[0].replace("?v=87","?v=88").replace("?v=86","?v=88"))
+exec(open('tests/navegador/base_menu_real.py').read().split("async def main():")[0].replace("?v=89","?v=89").replace("?v=89","?v=89"))
 PAGES=["dashboard","kanban","clientes","agendamentos","products","mesas","cozinha","ficha-tecnica","estoque","compras","pdv","financeiro","relatorios","contabilidade","fiscal","agents","integracoes","equipe","settings","admin","leads","follow-up"]
 async def main():
   async with async_playwright() as p:

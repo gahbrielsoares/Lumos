@@ -4,7 +4,7 @@
 // Na tela de um nicho só aparecem os produtos dele e os sem segmento (os da própria loja).
 // Nada é apagado: ao trocar o nicho em Configurações, os produtos do outro nicho voltam a aparecer.
 // =====================================================================
-import { getBusinessConfig } from "./businessConfig.js?v=88";
+import { getBusinessConfig } from "./businessConfig.js?v=89";
 
 let cache = null;
 // O nicho da conta (o menu já grava em body.dataset.nicho; para funcionários, busca a configuração da loja)
