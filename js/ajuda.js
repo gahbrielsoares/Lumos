@@ -28,18 +28,20 @@ export const AJUDA = {
   },
   pagamento: {
     titulo: "Pagamento",
-    intro: "Para o cliente pagar pelo link ou por Pix e a venda ser confirmada sozinha, precisamos de:",
+    intro: "Para o cliente pagar pelo link com o valor exato e a venda ser confirmada sozinha, precisamos de:",
     grupos: [
-      { nome: "Forma de receber", itens: [
-        ["Quais formas a loja aceita", "Pix, cartão de crédito (até quantas parcelas e quantas sem juros), débito, dinheiro."],
-        ["Pix manual: chave Pix e nome do favorecido", "Para mostrar ao cliente na hora de pagar."],
+      { nome: "Link de pagamento (Mercado Pago ou Asaas)", itens: [
+        ["Qual dos dois a loja usa", "A conta precisa estar no CNPJ da loja."],
+        ["Mercado Pago: Access Token de produção", "No painel do Mercado Pago: Seu negócio > Configurações > Credenciais. Para testar antes, o Access Token de teste."],
+        ["Asaas: chave de API", "No Asaas: Integrações > Chave de API. O Lumos configura sozinho o aviso de pagamento na conta."],
+        ["Formas aceitas e parcelas", "Pix, cartão (até quantas vezes) e boleto, se quiser."],
       ] },
-      { nome: "Link de pagamento (opcional)", itens: [
-        ["Provedor", "Mercado Pago, Asaas ou Pagar.me, com conta aberta no CNPJ da loja."],
-        ["Chave de API (token) da conta", "Gerada no painel do provedor. A Lumos usa para criar o link com o valor exato e confirmar o pagamento."],
+      { nome: "Sem link", itens: [
+        ["Pix manual: chave Pix e nome do favorecido", "O cliente paga e manda o comprovante."],
+        ["Presencial: formas aceitas na loja ou na entrega", "Maquininha, Pix ou dinheiro."],
       ] },
     ],
-    depois: "Enquanto o link não estiver ativo, dá para usar Pix manual ou pagamento na hora (mesa, retirada ou entrega).",
+    depois: "Começamos no ambiente de teste. Quando o primeiro pagamento de teste for confirmado sozinho, passamos para produção.",
   },
   frete: {
     titulo: "Frete e entrega",

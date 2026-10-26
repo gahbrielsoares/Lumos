@@ -1680,13 +1680,18 @@ img, svg { display: block; max-width: 100%; }
 /* Interruptor travado (opção que não pode ser desligada) */
 .toggle-input:disabled { opacity: .45; cursor: not-allowed; }
 
-/* Menu lateral: grupos CRM / ERP */
+/* Menu lateral: grupos que abrem e fecham (CRM, ERP, Configuração) */
 .dash-nav { overflow-y: auto; }
-.dash-nav .nav-group {
-  font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-  color: rgba(255,255,255,.38); padding: 14px 12px 4px;
-}
-.dash-nav .nav-group-sep { padding: 6px 12px 0; border-top: 1px solid rgba(255,255,255,.08); margin: 10px 8px 4px; }
+.nav-grupo { margin-top: 4px; }
+.nav-grupo-btn { width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; color: rgba(255,255,255,.62); font-family: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+.nav-grupo-btn:hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.85); }
+.nav-grupo-btn span:first-child { flex: 1; text-align: left; }
+.nav-grupo-qtd { font-size: 10.5px; letter-spacing: 0; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.08); }
+.nav-seta { width: 15px; height: 15px; transition: transform .2s; }
+.nav-grupo.aberto .nav-seta { transform: rotate(180deg); }
+.nav-grupo.aberto .nav-grupo-btn { color: rgba(255,255,255,.9); }
+.nav-grupo-itens { display: none; padding: 2px 0 6px; }
+.nav-grupo.aberto .nav-grupo-itens { display: block; }
 
 /* ===== ERP ===== */
 .erp-modal { width: 94%; max-height: 88vh; overflow-y: auto; }
@@ -1899,3 +1904,4 @@ tr.sim-destaque > td { background: rgba(201,168,76,.28) !important; animation: s
 @media (max-width: 640px) { .demo-modo { top: auto; bottom: 74px; } .demo-modo > span { display: none; } }
 body.com-demo .dash-main { padding-top: 64px; }
 @media (max-width: 640px) { body.com-demo .dash-main { padding-top: inherit; } }
+.aviso-offline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 990; padding: 10px 16px; text-align: center; font-size: 13.5px; font-weight: 600; background: #B94040; color: #fff; }

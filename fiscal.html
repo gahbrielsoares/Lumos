@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Notas fiscais | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
   <style>
     .nf-card { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:14px; padding:20px; margin-top:16px; }
     .nf-card h3 { font-size:16px; margin-bottom:4px; }
@@ -170,13 +170,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
-    import { supabase } from "./js/supabaseClient.js?v=85";
-    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=85";
-    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { brl, esc, todayISO, addDaysISO, monthRange, ownerId, modal } from "./js/erp.js?v=87";
+    import { cnpjValido, ieValida, cscValido, lerCertificado, onlyDigits } from "./js/nfce.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -184,7 +184,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
-    const { getMyAccess } = await import("./js/workspace.js?v=85");
+    const { getMyAccess } = await import("./js/workspace.js?v=87");
     const acesso = await getMyAccess().catch(() => ({}));
     const souDono = !acesso?.member;
 
@@ -472,12 +472,12 @@
 
     await carregarStatus();
     carregarNotas();
-    import("./js/ajuda.js?v=85").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
+    import("./js/ajuda.js?v=87").then(({ botaoAjuda }) => botaoAjuda("nota_fiscal"));
 
     // ================= Simulação para apresentação (só administração) =================
     // A conexão e as notas são fictícias e existem só na tela: nada vai para o emissor nem para o banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=85");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=87");
       const agora = Date.now();
       const venda = (id, numero, nome, valor, min) => ({ id, numero, paid_at: new Date(agora - min * 60000).toISOString(), cliente: { nome }, total: valor, pagamento: { valor_cobrado: valor } });
       const nota = (sid, status, extra = {}) => ({ id: `doc-${sid}`, sales_order_id: sid, status, ambiente: "producao", created_at: new Date().toISOString(), ...extra });

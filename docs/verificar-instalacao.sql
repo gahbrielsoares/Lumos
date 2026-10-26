@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 50. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 51. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -154,11 +154,9 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (33, 'regra', 'public', 'order_items', 'Equipe: itens'),
   (33, 'regra', 'public', 'orders', 'Equipe: pedidos cozinha'),
   (33, 'regra', 'public', 'product_categories', 'Equipe: edita vinculos'),
-  (33, 'regra', 'public', 'product_categories', 'Equipe: le vinculos'),
   (33, 'regra', 'public', 'products', 'Equipe: cria produtos'),
   (33, 'regra', 'public', 'products', 'Equipe: edita produtos'),
   (33, 'regra', 'public', 'products', 'Equipe: exclui produtos'),
-  (33, 'regra', 'public', 'products', 'Equipe: le produtos'),
   (33, 'regra', 'public', 'restaurant_tables', 'Equipe: le mesas'),
   (33, 'regra', 'public', 'sales_orders', 'Equipe: pedidos de venda'),
   (33, 'regra', 'public', 'table_sessions', 'Equipe: sessoes'),
@@ -282,7 +280,14 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (50, 'indice', 'public', 'table_sessions', 'table_sessions_mesa'),
   (50, 'indice', 'public', 'table_sessions', 'table_sessions_owner'),
   (50, 'indice', 'public', 'team_members', 'team_members_owner'),
-  (50, 'tabela', 'public', 'numeracao', 'numeracao')
+  (50, 'tabela', 'public', 'numeracao', 'numeracao'),
+  (51, 'coluna', 'public', 'categories', 'segmento'),
+  (51, 'coluna', 'public', 'products', 'codigo_barras'),
+  (51, 'funcao', 'public', '', 'team_pode_ver_custos'),
+  (51, 'indice', 'public', 'products', 'products_owner_codigo'),
+  (51, 'regra', 'public', 'product_categories', 'Equipe: le vinculos'),
+  (51, 'regra', 'public', 'products', 'Equipe: le produtos'),
+  (51, 'tabela', 'public', 'produtos_venda', 'produtos_venda')
 ),
 falta as (
   select e.* from esperado e

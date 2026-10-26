@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ficha técnica | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
   <style>
     .ft-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .ft-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -107,18 +107,18 @@
             <tbody id="insumos"><tr><td colspan="7">Carregando...</td></tr></tbody>
           </table>
         </div>
-        <p class="ft-hint" style="margin-top:10px;">O custo do insumo é atualizado sozinho quando você recebe uma compra na aba Compras, e o custo de todos os pratos que usam esse insumo é recalculado na hora. Entradas, perdas e contagem do estoque ficam na aba Estoque.</p>
+        <p class="ft-hint" style="margin-top:10px;">O custo do insumo é atualizado sozinho quando você recebe uma compra na aba Compras, e o custo de todos os pratos que usam esse insumo é recalculado na hora. Insumo feito na cozinha (como um molho da casa) pode ter a sua própria <b>receita</b>: o custo dele vem dos ingredientes e o botão <b>Produzir</b> registra cada lote. Entradas, perdas e contagem do estoque ficam na aba Estoque.</p>
       </section>
     </main>
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
-    import { supabase } from "./js/supabaseClient.js?v=85";
-    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { brl, esc, num, ownerId, moverEstoque, modal } from "./js/erp.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -128,7 +128,7 @@
     const owner_id = await ownerId();
 
     // Funcionário sem "ver custos": vê as receitas (quantidades), mas não os valores
-    const { getMyAccess } = await import("./js/workspace.js?v=85");
+    const { getMyAccess } = await import("./js/workspace.js?v=87");
     const acesso = await getMyAccess().catch(() => ({}));
     const verCustos = !acesso?.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) { const st = document.createElement("style"); st.textContent = ".ft-custo { display:none !important; }"; document.head.appendChild(st); }
@@ -145,7 +145,7 @@
     let produtos = [], receitas = [];
     const insumos = () => produtos.filter((p) => p.is_insumo === true && !doOutroNicho(p));
     // Produtos de outro nicho (ex.: exemplos do simulador de materiais) não entram na ficha técnica do restaurante
-    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=85");
+    const { nichoAtual, doOutroNicho, segmentoNovo } = await import("./js/nicho.js?v=87");
     await nichoAtual();
     const pratos = () => produtos.filter((p) => p.is_insumo !== true && p.active !== false && !doOutroNicho(p));
     const fichaDe = (id) => receitas.filter((r) => r.product_id === id);
@@ -207,7 +207,9 @@
           <td class="ft-num">${i.estoque == null ? "-" : `${num(i.estoque, 3)} ${UN[i.unit] || ""}`}${baixo ? ` <span class="ft-tag alto">baixo</span>` : ""}</td>
           <td class="ft-num">${i.estoque_minimo == null ? "-" : num(i.estoque_minimo, 3)}</td>
           <td>${usado ? `${usado} prato(s)` : `<span class="ft-muted">nenhum</span>`}</td>
-          <td><button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-edit="${i.id}">Editar</button></td>
+          <td style="white-space:nowrap;"><button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-edit="${i.id}">Editar</button>
+            <button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-receita="${i.id}" title="Subreceita: o insumo é feito na cozinha a partir de outros">${fichaDe(i.id).length ? "Receita" : "+ Receita"}</button>
+            ${fichaDe(i.id).length ? `<button class="btn btn-primary" style="padding:6px 12px; font-size:13px;" data-produzir="${i.id}">Produzir</button>` : ""}</td>
         </tr>`;
       }).join("") || `<tr><td colspan="7" class="ft-muted">Nenhum insumo ainda. Clique em "Novo insumo" (ex.: carne moída em kg, pão em unidade, queijo em kg).</td></tr>`;
     }
@@ -255,7 +257,7 @@
         if (novo) ({ data: salvo, error } = await supabase.from("products").insert({ owner_id, ...campos, is_insumo: true, active: true, estoque: 0, price: null, ...segmentoNovo() }).select().single());
         else ({ data: salvo, error } = await supabase.from("products").update(campos).eq("id", ins.id).select().single());
         if (error) { msg.textContent = error.message; msg.className = "form-msg error"; return; }
-        if (novo && v("#m-ini")) await moverEstoque({ product: { ...salvo, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini"), motivo: "Saldo inicial" });
+        if (novo && v("#m-ini")) await moverEstoque({ product: { ...salvo, estoque: 0 }, tipo: "ajuste", quantidade: v("#m-ini"), motivo: "Saldo inicial", origem: "saldo_inicial" });
         m.close();
         await load();
         aoSalvar?.(produtos.find((p) => p.id === salvo.id));
@@ -263,8 +265,39 @@
     }
     document.getElementById("i-novo").addEventListener("click", () => editarInsumo(null));
     document.getElementById("insumos").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-edit]"); if (b) editarInsumo(produtos.find((p) => p.id === b.dataset.edit));
+      const b = e.target.closest("[data-edit]"); if (b) return editarInsumo(produtos.find((p) => p.id === b.dataset.edit));
+      const r = e.target.closest("[data-receita]"); if (r) return abrirFicha(produtos.find((p) => p.id === r.dataset.receita));
+      const pz = e.target.closest("[data-produzir]"); if (pz) produzirLote(produtos.find((p) => p.id === pz.dataset.produzir));
     });
+
+    // ---------- Produção de subreceita (ex.: 3 kg de molho da casa) ----------
+    // Tira do estoque os ingredientes usados e coloca o insumo produzido.
+    function produzirLote(ins) {
+      const linhas = fichaDe(ins.id);
+      const un = UN[ins.unit] || "";
+      const m = modal(`<h3 style="font-size:18px;">Produzir: ${esc(ins.name)}</h3>
+        <p class="ft-hint" style="margin:4px 0 12px;">Informe quanto foi produzido. Os ingredientes saem do estoque pela receita e o ${esc(ins.name.toLowerCase())} entra no estoque.</p>
+        <div class="field"><label>Quantidade produzida (${esc(un)})</label><input id="m-q" type="number" step="0.001" min="0.001" /></div>
+        <div id="m-prev" class="ft-hint"></div>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="m-ok">Registrar produção</button></div>`, { width: 480 });
+      const uso = (q) => linhas.map((r) => { const i = produtos.find((p) => p.id === r.insumo_id); return { i, q: Math.round(Number(r.quantidade) / (1 - Number(r.perda_pct || 0) / 100) * q * 1000) / 1000 }; }).filter((x) => x.i);
+      m.el.querySelector("#m-q").addEventListener("input", (e) => {
+        const q = Number(e.target.value || 0);
+        m.el.querySelector("#m-prev").innerHTML = q > 0 ? "Vai sair do estoque: " + uso(q).map((x) => `${num(x.q, 3)} ${UN[x.i.unit] || ""} de ${esc(x.i.name)}${x.i.estoque != null && Number(x.i.estoque) < x.q ? ` <b style="color:#B94040;">(só tem ${num(x.i.estoque, 3)})</b>` : ""}`).join(", ") : "";
+      });
+      m.el.querySelector("#m-ok").addEventListener("click", async () => {
+        const q = Number(m.el.querySelector("#m-q").value || 0), msg = m.el.querySelector("#m-msg");
+        if (!(q > 0)) { msg.textContent = "Informe a quantidade produzida."; msg.className = "form-msg error"; return; }
+        const btn = m.el.querySelector("#m-ok"); btn.disabled = true;
+        try {
+          for (const x of uso(q)) await moverEstoque({ product: { ...x.i, estoque: x.i.estoque ?? 0 }, tipo: "saida", quantidade: x.q, motivo: `Produção de ${ins.name}`, origem: "producao" });
+          await moverEstoque({ product: { ...ins, estoque: ins.estoque ?? 0 }, tipo: "entrada", quantidade: q, motivo: "Produção", origem: "producao" });
+        } catch (err) { btn.disabled = false; msg.textContent = `Não foi possível registrar: ${err.message || err}`; msg.className = "form-msg error"; return; }
+        m.close(); await load();
+        lumosAlert(`Produção registrada: ${num(q, 3)} ${un} de ${ins.name}. O estoque dos ingredientes foi atualizado.`);
+      });
+    }
 
     // ---------- Ficha técnica de um prato ----------
     function abrirFicha(prato) {
@@ -298,7 +331,7 @@
       function desenhar() {
         // Insumos da cozinha e, para combos (ex.: balde com 6 long necks), itens de revenda com estoque
         const revenda = produtos.filter((p) => p.is_insumo !== true && p.active !== false && p.estoque != null && p.id !== prato.id && !doOutroNicho(p) && !fichaDe(p.id).length);
-        const ops = `<optgroup label="Insumos da cozinha">${insumos().filter((i) => i.active !== false).map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join("")}</optgroup>`
+        const ops = `<optgroup label="Insumos da cozinha">${insumos().filter((i) => i.active !== false && i.id !== prato.id).map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join("")}</optgroup>`
           + (revenda.length ? `<optgroup label="Itens de revenda (para combos)">${revenda.map((i) => `<option value="${i.id}">${esc(i.name)}</option>`).join("")}</optgroup>` : "");
         box.innerHTML = linhas.map((l, idx) => {
           const i = produtos.find((p) => p.id === l.insumo_id);
@@ -377,7 +410,7 @@
     // O X-Burguer e os insumos são fictícios e existem só na tela: nada é gravado no banco.
     // Os números vêm do próprio cálculo da página (custo, CMV e preço sugerido).
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=85");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=87");
       const S = {
         carne: { id: "sim-carne", name: "Carne moída", unit: "kg", custo: 40, estoque: 5, estoque_minimo: 2, is_insumo: true, active: true, sim: true },
         pao: { id: "sim-pao", name: "Pão de hambúrguer", unit: "unidade", custo: 1.2, estoque: 100, estoque_minimo: 20, is_insumo: true, active: true, sim: true },

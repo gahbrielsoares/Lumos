@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
 </head>
 <body>
 
@@ -110,6 +110,10 @@
               <label for="p-stock">Estoque <span style="opacity:.7">(vazio = não controla)</span></label>
               <input type="number" id="p-stock" step="0.01" min="0" />
             </div>
+            <div class="field">
+              <label for="p-barcode">Código de barras <span style="opacity:.7">(opcional)</span></label>
+              <input type="text" id="p-barcode" inputmode="numeric" maxlength="14" placeholder="Leia com o leitor ou digite" />
+            </div>
           </div>
           <div class="field">
             <label>Aparece em quais agentes</label>
@@ -135,13 +139,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
-    import { listAgents } from "./js/agents.js?v=85";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=85";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { listAgents } from "./js/agents.js?v=87";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=87";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=87";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -167,7 +172,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=85";
+    } from "./js/products.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -191,9 +196,14 @@
     const productMsg = document.getElementById("product-msg");
     const cancelProduct = document.getElementById("cancel-product");
 
+    // A coluna do código de barras chega com a seção 51; até lá o campo fica escondido
+    const temCodigoBarras = await supabase.from("products").select("codigo_barras").limit(1).then((r) => !r.error, () => false);
+    if (!temCodigoBarras) document.getElementById("p-barcode").closest(".field").style.display = "none";
+
     async function renderCategories() {
       const { data } = await listCategories();
-      categories = data || [];
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=87"); await nichoAtual();
+      categories = (data || []).filter((c) => !doOutroNicho(c));
       document.getElementById("stat-categories").textContent = categories.length;
 
       categoriesList.innerHTML = categories.length
@@ -236,7 +246,7 @@
         return;
       }
       // Insumos da ficha técnica ficam na aba Ficha técnica, não no cardápio
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=85"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=87"); await nichoAtual();
       const data = (todosProdutos || []).filter((p) => p.is_insumo !== true && !doOutroNicho(p));
 
       // O formulário pode estar dentro da lista (edição): volta para o lugar antes de redesenhar
@@ -320,6 +330,7 @@
         document.getElementById("p-unit").value = product.unit;
         document.getElementById("p-box").value = product.m2_por_caixa ?? "";
         document.getElementById("p-stock").value = product.estoque ?? "";
+        document.getElementById("p-barcode").value = product.codigo_barras ?? "";
         document.querySelectorAll(".agent-check").forEach((c) => (c.checked = (product.agent_ids || []).includes(c.value)));
         const productCatIds = (product.product_categories || []).map((pc) => pc.category_id);
         document.querySelectorAll(".cat-check").forEach((c) => {
@@ -372,13 +383,15 @@
           m2_por_caixa: document.getElementById("p-unit").value === "m2" && document.getElementById("p-box").value
             ? parseFloat(document.getElementById("p-box").value) : null,
           estoque: document.getElementById("p-stock").value === "" ? null : parseFloat(document.getElementById("p-stock").value),
+          // Código de barras: só números (o leitor digita o código e aperta Enter). Só grava se a coluna já existir (seção 51).
+          ...(temCodigoBarras ? { codigo_barras: document.getElementById("p-barcode").value.replace(/\D/g, "") || null } : {}),
           agent_ids: [...document.querySelectorAll(".agent-check:checked")].map((c) => c.value),
           ...(photo_urls ? { photo_urls } : {}),
         };
 
         const result = editingId
           ? await updateProduct(editingId, fields, category_ids)
-          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=85")).segmentoNovo() });
+          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=87")).segmentoNovo() });
 
         if (result.error) throw result.error;
 
@@ -395,7 +408,7 @@
     renderCategories().then(renderProducts);
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
       titulo: "Produtos: o cardápio que alimenta tudo",
       antes: "O dono cadastra cada prato e bebida uma vez, com preço, foto e categoria.",
       faz: "Guarda o cardápio da casa. Insumos de cozinha (carne crua, pão) não ficam aqui: ficam na Ficha técnica e nunca aparecem para o cliente.",

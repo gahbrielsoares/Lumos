@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=85";
+import { supabase } from "./supabaseClient.js?v=87";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -147,7 +147,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=85");
+    const { getMyAccess } = await import("./workspace.js?v=87");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -184,7 +184,7 @@ export async function getDisabledTabs() {
   const nichoCadastro = userData?.user?.user_metadata?.nicho;
   if (!data && nichoCadastro) {
     try {
-      const { aplicarNicho } = await import("./businessConfig.js?v=85");
+      const { aplicarNicho } = await import("./businessConfig.js?v=87");
       const { info } = await aplicarNicho(nichoCadastro);
       NICHO = info.key; document.body.dataset.nicho = NICHO;
       return info.disabledTabs || [];
@@ -201,7 +201,23 @@ export async function saveDisabledTabs(tabs) {
   return supabase.from("business_config").upsert({ owner_id, disabled_tabs: tabs }, { onConflict: "owner_id" });
 }
 
+// ---------- Sem internet: cópia das páginas e aviso ----------
+function prepararModoOffline() {
+  if ("serviceWorker" in navigator && window.isSecureContext) navigator.serviceWorker.register("sw.js").catch(() => {});
+  const aviso = () => {
+    let b = document.getElementById("aviso-offline");
+    if (navigator.onLine) { b?.remove(); return; }
+    if (b) return;
+    b = document.createElement("div");
+    b.id = "aviso-offline"; b.className = "aviso-offline";
+    b.textContent = "Sem internet. O PDV continua registrando as vendas e envia tudo sozinho quando a conexão voltar.";
+    document.body.appendChild(b);
+  };
+  window.addEventListener("online", aviso); window.addEventListener("offline", aviso); aviso();
+}
+
 export async function renderSidebar(activeKey) {
+  prepararModoOffline();
   const nav = document.getElementById("dash-nav");
   if (!nav) return;
 
@@ -245,20 +261,31 @@ export async function renderSidebar(activeKey) {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${item.icon}</svg>
       ${(ROTULOS_NICHO[NICHO] || {})[item.key] || item.label}
     </a>`;
+  // Menu em grupos que abrem e fecham (sanfona): CRM, ERP e Configuração.
+  // O grupo da página atual já abre aberto; abrir um grupo fecha os outros.
   const top = items.filter((i) => i.key === "dashboard");
-  const crm = items.filter((i) => i.group === "crm");
-  const erp = items.filter((i) => i.group === "erp");
-  const rest = items.filter((i) => !i.group && i.key !== "dashboard");
+  const grupos = [
+    { id: "crm", nome: "CRM", itens: items.filter((i) => i.group === "crm") },
+    { id: "erp", nome: "ERP", itens: items.filter((i) => i.group === "erp") },
+    { id: "config", nome: "Configuração", itens: items.filter((i) => !i.group && i.key !== "dashboard") },
+  ].filter((g) => g.itens.length);
+  const aberto = grupos.find((g) => g.itens.some((i) => i.key === activeKey))?.id || null;
+  const seta = `<svg class="nav-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`;
   nav.innerHTML = top.map(link).join("")
-    + (crm.length ? `<div class="nav-group">CRM</div>${crm.map(link).join("")}` : "")
-    + (erp.length ? `<div class="nav-group">ERP</div>${erp.map(link).join("")}` : "")
-    + `<div class="nav-group nav-group-sep"></div>${rest.map(link).join("")}`
+    + grupos.map((g) => `<div class="nav-grupo ${g.id === aberto ? "aberto" : ""}" data-grupo="${g.id}">
+        <button type="button" class="nav-grupo-btn" aria-expanded="${g.id === aberto}"><span>${g.nome}</span><span class="nav-grupo-qtd">${g.itens.length}</span>${seta}</button>
+        <div class="nav-grupo-itens">${g.itens.map(link).join("")}</div></div>`).join("")
     + `
     <a href="#" id="logout-link">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
       Sair
     </a>
   `;
+  nav.querySelectorAll(".nav-grupo-btn").forEach((b) => b.addEventListener("click", () => {
+    const g = b.closest(".nav-grupo"), abrir = !g.classList.contains("aberto");
+    nav.querySelectorAll(".nav-grupo").forEach((x) => { x.classList.remove("aberto"); x.querySelector(".nav-grupo-btn").setAttribute("aria-expanded", "false"); });
+    if (abrir) { g.classList.add("aberto"); b.setAttribute("aria-expanded", "true"); }
+  }));
   if (blocked) {
     if (home) setTimeout(() => window.location.replace(home.href), 0);
     else {

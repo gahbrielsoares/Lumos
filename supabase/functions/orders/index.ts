@@ -277,6 +277,77 @@ function orderSummary(order: any) {
 }
 
 // ---------- Ações ----------
+// ---------- Link de pagamento real (Mercado Pago ou Asaas) ----------
+// A loja cola a chave em Integrações > Pagamento. O link sai com o valor exato do pedido e o pagamento é
+// confirmado sozinho pela função "pagamentos" (que confere direto no provedor antes de dar baixa).
+// deno-lint-ignore no-explicit-any
+async function criarLinkPagamento(order: any, total: number, pag: any): Promise<{ link: string; ref: Record<string, unknown> } | { erro: string }> {
+  const { data: integ } = await supabase.from("integrations").select("config, secrets").eq("owner_id", order.owner_id).eq("kind", "pagamento").maybeSingle();
+  const chave = String(integ?.secrets?.access_token || "").trim();
+  if (!chave) return { erro: "A chave de API do pagamento não foi informada em Integrações > Pagamento." };
+  const c = { ...(pag.config || {}), ...(integ?.config || {}) };
+  const teste = (c.ambiente || "teste") !== "producao";
+  const horas = Math.max(1, Number(c.validade_link_horas || 24));
+  const metodos: string[] = Array.isArray(c.metodos) && c.metodos.length ? c.metodos : ["pix", "cartao"];
+  const parcelas = Math.max(1, Math.min(12, Number(c.max_parcelas || 1)));
+  const titulo = `Pedido #${order.numero}`.slice(0, 120);
+  const avisoUrl = `${SUPABASE_URL}/functions/v1/pagamentos`;
+  try {
+    if (pag.provider === "mercadopago") {
+      const excluir = [!metodos.includes("cartao") && "credit_card", !metodos.includes("boleto") && "ticket"].filter(Boolean).map((id) => ({ id }));
+      const r = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        method: "POST", headers: { Authorization: `Bearer ${chave}`, "Content-Type": "application/json", "X-Idempotency-Key": `pref-${order.id}-${Math.round(total * 100)}` },
+        body: JSON.stringify({
+          items: [{ id: String(order.numero), title: titulo, quantity: 1, currency_id: "BRL", unit_price: Math.round(total * 100) / 100 }],
+          external_reference: order.id,
+          notification_url: `${avisoUrl}?p=mercadopago&o=${order.id}`,
+          expires: true, expiration_date_to: new Date(Date.now() + horas * 3600000).toISOString(),
+          payment_methods: { installments: parcelas, excluded_payment_types: excluir },
+          statement_descriptor: String(c.nome_fatura || "").slice(0, 22) || undefined,
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return { erro: `Mercado Pago recusou o link: ${d.message || r.status}.` };
+      const link = (teste ? d.sandbox_init_point : d.init_point) || d.init_point;
+      if (!link) return { erro: "O Mercado Pago não devolveu o link." };
+      return { link, ref: { preference_id: d.id, ambiente: teste ? "teste" : "producao" } };
+    }
+    if (pag.provider === "asaas") {
+      const base = teste ? "https://api-sandbox.asaas.com/v3" : "https://api.asaas.com/v3";
+      const h = { access_token: chave, "Content-Type": "application/json", "User-Agent": "Lumos" };
+      const tipo = metodos.length === 1 ? ({ pix: "PIX", cartao: "CREDIT_CARD", boleto: "BOLETO" } as Record<string, string>)[metodos[0]] || "UNDEFINED" : "UNDEFINED";
+      const r = await fetch(`${base}/paymentLinks`, {
+        method: "POST", headers: h,
+        body: JSON.stringify({
+          name: titulo, description: `${titulo}. Pagamento único.`, value: Math.round(total * 100) / 100,
+          billingType: tipo, chargeType: parcelas > 1 && (tipo === "UNDEFINED" || tipo === "CREDIT_CARD") ? "INSTALLMENT" : "DETACHED",
+          ...(parcelas > 1 ? { maxInstallmentCount: parcelas } : {}),
+          dueDateLimitDays: 1, notificationEnabled: false,
+          endDate: new Date(Date.now() + Math.max(horas, 24) * 3600000).toISOString().slice(0, 10),
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) return { erro: `Asaas recusou o link: ${d.errors?.[0]?.description || r.status}.` };
+      // Na primeira vez, registra sozinho o aviso de pagamento (webhook) na conta Asaas da loja
+      if (!c.webhook_registrado) {
+        const tokenAviso = crypto.randomUUID().replace(/-/g, "");
+        const { data: dono } = await supabase.auth.admin.getUserById(order.owner_id).catch(() => ({ data: null }));
+        const w = await fetch(`${base}/webhooks`, { method: "POST", headers: h, body: JSON.stringify({
+          name: "Lumos", url: `${avisoUrl}?p=asaas&owner=${order.owner_id}`, email: dono?.user?.email || undefined, enabled: true, interrupted: false,
+          apiVersion: 3, authToken: tokenAviso, sendType: "SEQUENTIALLY", events: ["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"],
+        }) }).catch(() => null);
+        if (w?.ok) await supabase.from("integrations").update({ config: { ...(integ?.config || {}), webhook_registrado: true }, secrets: { ...(integ?.secrets || {}), webhook_token: tokenAviso } }).eq("owner_id", order.owner_id).eq("kind", "pagamento");
+        else console.error("Asaas: não foi possível registrar o aviso de pagamento automaticamente", w?.status);
+      }
+      return { link: d.url, ref: { link_id: d.id, ambiente: teste ? "teste" : "producao" } };
+    }
+  } catch (e) {
+    console.error("Link de pagamento:", e);
+    return { erro: "Não foi possível falar com o provedor de pagamento agora. Tente de novo em instantes." };
+  }
+  return { erro: "Provedor de pagamento não suportado." };
+}
+
 // deno-lint-ignore no-explicit-any
 async function approve(ctx: any, freteManual: number | null) {
   const { order } = ctx;
@@ -325,8 +396,18 @@ async function approve(ctx: any, freteManual: number | null) {
   } else if (pag?.provider === "pix_manual") {
     pagamento = { provider: "pix_manual" };
     payText = `💠 Pagamento via Pix:\nChave: *${pag.config?.pix_chave || "-"}*${pag.config?.pix_titular ? `\nTitular: ${pag.config.pix_titular}` : ""}\n\nAssim que fizer o Pix, é só mandar o comprovante aqui que a gente confirma. 😉`;
+  } else if (pag?.provider === "mercadopago" || pag?.provider === "asaas") {
+    const r = await criarLinkPagamento({ ...order, total }, total, pag);
+    if ("erro" in r) return json({ error: r.erro }, 502);
+    const c = pag.config || {};
+    pagamento = { ...(order.pagamento || {}), provider: pag.provider, token, link: r.link, ...r.ref };
+    payText = isMesa
+      ? `💳 Pague por Pix ou cartão pelo link:\n${r.link}\n\nSe preferir, é só pedir a maquininha ao garçom. 😉`
+      : order.entrega?.cozinha
+        ? `💳 Pague com Pix ou cartão pelo link:\n${r.link}\n\nAssim que o pagamento cair, seu pedido vai direto pra cozinha. 👨‍🍳`
+        : `💳 Pague com Pix ou cartão${Number(c.max_parcelas || 1) > 1 ? ` (até ${c.max_parcelas}x)` : ""} pelo link:\n${r.link}\n\nO link vale ${c.validade_link_horas || 24} horas.`;
   } else if (pag?.provider) {
-    return json({ error: `O envio automático de link pelo ${pag.provider} ainda não foi implementado. Envie o link manualmente e use "Confirmar pagamento" quando cair.` }, 501);
+    return json({ error: `O envio automático de link pelo ${pag.provider} não é suportado. Escolha Mercado Pago, Asaas, Pix manual ou pagamento presencial em Integrações.` }, 501);
   } else {
     payText = "Em seguida nossa equipe te envia a forma de pagamento. 😉";
   }
@@ -490,6 +571,12 @@ async function workspaceOf(userId: string | null) {
 // financeiro, baixa no estoque (inclusive insumos pela ficha técnica), caixa, cozinha (opcional) e NFC-e automática.
 // deno-lint-ignore no-explicit-any
 async function pdvVenda(ownerId: string, userId: string, body: any) {
+  // Cada venda vem com um código único da tela: se ela chegar duas vezes (internet caiu no meio), não duplica
+  const idCliente = /^[0-9a-f-]{36}$/i.test(String(body.id_cliente || "")) ? String(body.id_cliente) : null;
+  if (idCliente) {
+    const { data: ja } = await supabase.from("sales_orders").select("numero, total, pagamento").eq("owner_id", ownerId).eq("pagamento->>id_cliente", idCliente).maybeSingle();
+    if (ja) return json({ ok: true, repetida: true, numero: ja.numero, total: ja.total, troco: ja.pagamento?.troco || 0, nota: null });
+  }
   const pedidos = (Array.isArray(body.itens) ? body.itens : [])
     .map((i: { product_id?: string; quantidade?: number; observacao?: string }) => ({ id: String(i.product_id || ""), q: Math.round(Number(i.quantidade || 0) * 1000) / 1000, obs: String(i.observacao || "").slice(0, 140) }))
     .filter((i: { id: string; q: number }) => i.id && i.q > 0);
@@ -512,11 +599,13 @@ async function pdvVenda(ownerId: string, userId: string, body: any) {
   const metodo = ["pix", "credito", "debito", "dinheiro"].includes(body.metodo) ? body.metodo : "dinheiro";
   const recebido = metodo === "dinheiro" ? Math.max(total, Math.round(Number(body.recebido || total) * 100) / 100) : total;
   const cpf = String(body.cpf || "").replace(/\D/g, "");
-  const agora = new Date().toISOString();
+  // Venda feita sem internet: vale o horário em que foi feita (até 3 dias atrás), não o do envio
+  const feita = Date.parse(String(body.feita_em || ""));
+  const agora = !isNaN(feita) && feita <= Date.now() + 60000 && feita >= Date.now() - 3 * 86400000 ? new Date(feita).toISOString() : new Date().toISOString();
   const { data: so, error } = await supabase.from("sales_orders").insert({
     owner_id: ownerId, agent_id: null, lead_id: null,
     itens, subtotal, frete: 0, total, status: "pago", approved_at: agora, paid_at: agora,
-    pagamento: { metodo, valor_cobrado: total, registrado_por: userId, pdv: true, desconto, ...(metodo === "dinheiro" ? { recebido, troco: Math.round((recebido - total) * 100) / 100 } : {}) },
+    pagamento: { metodo, valor_cobrado: total, registrado_por: userId, pdv: true, desconto, ...(idCliente ? { id_cliente: idCliente } : {}), ...(body.sem_internet ? { feita_sem_internet: true } : {}), ...(metodo === "dinheiro" ? { recebido, troco: Math.round((recebido - total) * 100) / 100 } : {}) },
     entrega: { tipo: "balcao", local: "Balcão", valor: 0 },
     cliente: { nome: String(body.nome || "").trim().slice(0, 80) || null, ...(cpf.length === 11 || cpf.length === 14 ? { cpf } : {}) },
   }).select().single();
@@ -759,6 +848,16 @@ Deno.serve(async (req) => {
       }
       const metodo = ["pix", "credito", "debito", "dinheiro"].includes(body.metodo) ? body.metodo : "dinheiro";
       return await mesaFechar(c, metodo, body.cobrar_taxa !== false, !!body.cobrar_couvert, data.user.id);
+    }
+
+    // Pagamento confirmado pelo provedor (chamado só pela função "pagamentos", com a chave de serviço)
+    if (action === "provider_paid") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      if (jwt !== SERVICE_KEY) return json({ error: "Sem permissão." }, 403);
+      const ctxP = await loadContext(String(order_id || ""));
+      if (!ctxP) return json({ error: "Pedido não encontrado." }, 404);
+      const metodo = ["pix", "cartao", "boleto", "debito"].includes(body.metodo) ? body.metodo : "pix";
+      return await finalizePaid(ctxP, metodo, metodo === "cartao" ? Math.max(1, Number(body.parcelas) || 1) : null);
     }
 
     if (!order_id) return json({ error: "Pedido não informado." }, 400);

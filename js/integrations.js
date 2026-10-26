@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=85";
-import { getWorkspaceOwnerId } from "./workspace.js?v=85";
+import { supabase } from "./supabaseClient.js?v=87";
+import { getWorkspaceOwnerId } from "./workspace.js?v=87";
 
 // =====================================================================
 // Integrações da loja (pagamento, frete, estoque, nota fiscal, regras de
@@ -74,14 +74,11 @@ export const INTEGRATIONS = [
   {
     kind: "pagamento",
     label: "Pagamento",
-    description: "Link de pagamento ou Pix na conversa, ou pagamento presencial (na loja ou na entrega), sem link.",
+    description: "Link de pagamento (Mercado Pago ou Asaas) com o valor exato e confirmação automática, Pix manual, ou pagamento presencial sem link.",
     icon: `<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>`,
     providers: [
       { value: "mercadopago", label: "Mercado Pago" },
       { value: "asaas", label: "Asaas" },
-      { value: "pagarme", label: "Pagar.me" },
-      { value: "infinitepay", label: "InfinitePay" },
-      { value: "stripe", label: "Stripe" },
       { value: "pix_manual", label: "Pix manual (só envia a chave Pix)" },
       { value: "presencial", label: "Presencial: na loja ou na entrega (sem link)" },
     ],
@@ -93,20 +90,18 @@ export const INTEGRATIONS = [
         showIf: { provider: ["presencial"] } },
       { key: "ambiente", label: "Ambiente", type: "select", default: "teste",
         options: [{ value: "teste", label: "Teste (sandbox)" }, { value: "producao", label: "Produção" }],
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
-      { key: "access_token", label: "Access token / Chave de API", type: "password", secret: true,
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
-      { key: "public_key", label: "Public key (se o gateway fornecer)", type: "text",
-        showIf: { provider: ["mercadopago", "pagarme", "stripe"] } },
+        showIf: { provider: ["mercadopago", "asaas"] } },
+      { key: "access_token", label: "Chave de acesso (Mercado Pago: Access Token | Asaas: chave de API)", type: "password", secret: true,
+        showIf: { provider: ["mercadopago", "asaas"] } },
       { key: "metodos", label: "Formas de pagamento aceitas", type: "multi", default: ["pix", "cartao"],
         options: [{ value: "pix", label: "Pix" }, { value: "cartao", label: "Cartão de crédito" }, { value: "boleto", label: "Boleto" }],
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
+        showIf: { provider: ["mercadopago", "asaas"] } },
       { key: "max_parcelas", label: "Máximo de parcelas no cartão", type: "number", default: 3,
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
+        showIf: { provider: ["mercadopago", "asaas"] } },
       { key: "parcelas_sem_juros", label: "Parcelas sem juros (até)", type: "number", default: 1,
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
+        showIf: { provider: ["mercadopago", "asaas"] } },
       { key: "validade_link_horas", label: "Validade do link de pagamento (horas)", type: "number", default: 24,
-        showIf: { provider: ["mercadopago", "asaas", "pagarme", "infinitepay", "stripe"] } },
+        showIf: { provider: ["mercadopago", "asaas"] } },
       { key: "pix_chave", label: "Chave Pix", type: "text", placeholder: "CNPJ, e-mail, telefone ou chave aleatória",
         showIf: { provider: ["pix_manual"] } },
       { key: "pix_titular", label: "Nome do titular (aparece pro cliente conferir)", type: "text",

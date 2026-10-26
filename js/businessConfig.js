@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=85";
-import { getWorkspaceOwnerId } from "./workspace.js?v=85";
+import { supabase } from "./supabaseClient.js?v=87";
+import { getWorkspaceOwnerId } from "./workspace.js?v=87";
 
 // Dono dos dados: o próprio usuário ou, se for da equipe, o dono do estabelecimento
 async function getUserId() {
@@ -53,7 +53,7 @@ export const WEEKDAY_LABELS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta
 // Aplica um nicho: tipo de negócio, abas, quadros do Dashboard e colunas do Kanban recomendados
 // (usado em Configurações e no primeiro acesso de quem escolheu o nicho no cadastro)
 export async function aplicarNicho(tipo) {
-  const { getBusinessTypeInfo } = await import("./businessTypes.js?v=85");
+  const { getBusinessTypeInfo } = await import("./businessTypes.js?v=87");
   const info = getBusinessTypeInfo(tipo);
   const r = await saveBusinessConfig({
     business_type: info.key,

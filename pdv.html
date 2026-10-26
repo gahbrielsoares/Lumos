@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDV | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
   <style>
     .pdv { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:18px; margin-top:16px; align-items:start; }
     .pdv-busca { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); font-size:15px; font-family:var(--panel-font-body); }
@@ -73,7 +73,7 @@
       <div id="aviso-caixa"></div>
       <div class="pdv">
         <section>
-          <input class="pdv-busca" id="busca" placeholder="Buscar produto pelo nome" autocomplete="off" />
+          <input class="pdv-busca" id="busca" placeholder="Buscar pelo nome ou ler o código de barras" autocomplete="off" />
           <div class="pdv-cats" id="cats"></div>
           <div class="pdv-grid" id="grid"><p class="pdv-vazio">Carregando o cardápio...</p></div>
         </section>
@@ -100,13 +100,13 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
-    import { supabase } from "./js/supabaseClient.js?v=85";
-    import { brl, esc, ownerId, modal, onlyDigits } from "./js/erp.js?v=85";
-    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=87";
+    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -122,8 +122,12 @@
     const carrinho = new Map(); // product_id -> { prod, q }
     let forma = "pix";
     async function carregar() {
-      const { data } = await supabase.from("products").select("id, name, price, unit, photo_urls, active, is_insumo, segmento, product_categories(categories(name))").eq("owner_id", owner_id).order("name");
+      let { data, error } = navigator.onLine ? await produtosParaVenda(owner_id) : { data: null, error: true };
+      const chaveCardapio = `lumos:pdv-cardapio:${owner_id}`;
+      if (!error && data) { try { localStorage.setItem(chaveCardapio, JSON.stringify(data)); } catch (_) { /* aparelho sem espaço */ } }
+      else { try { data = JSON.parse(localStorage.getItem(chaveCardapio) || "[]"); } catch (_) { data = []; } }
       produtos = (data || []).filter((p) => p.is_insumo !== true && p.active !== false && p.price != null && !doOutroNicho(p))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
         .map((p) => ({ ...p, cats: (p.product_categories || []).map((pc) => pc.categories?.name).filter(Boolean) }));
       const cats = [...new Set(produtos.flatMap((p) => p.cats))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       $("cats").innerHTML = [`<button data-c="todas" class="on">Todos</button>`, ...cats.map((c) => `<button data-c="${esc(c)}">${esc(c)}</button>`)].join("");
@@ -131,7 +135,7 @@
     }
     function grade() {
       const q = $("busca").value.trim().toLowerCase();
-      const lista = produtos.filter((p) => (categoria === "todas" || p.cats.includes(categoria)) && (!q || p.name.toLowerCase().includes(q)));
+      const lista = produtos.filter((p) => (categoria === "todas" || p.cats.includes(categoria)) && (!q || p.name.toLowerCase().includes(q) || (p.codigo_barras && String(p.codigo_barras).includes(q))));
       $("grid").innerHTML = lista.map((p) => `<button class="pdv-prod" data-id="${p.id}">
           ${p.photo_urls?.[0] ? `<img src="${esc(p.photo_urls[0])}" alt="" loading="lazy" />` : ""}
           <span class="n">${esc(p.name)}</span><span class="p">${brl(p.price)}</span></button>`).join("")
@@ -142,7 +146,15 @@
       categoria = b.dataset.c; $("cats").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); grade();
     });
     $("busca").addEventListener("input", grade);
-    $("busca").addEventListener("keydown", (e) => { if (e.key === "Enter") { const b = $("grid").querySelector(".pdv-prod"); if (b) { b.click(); $("busca").select(); } } });
+    // Enter: o leitor de código de barras "digita" o código e aperta Enter sozinho
+    $("busca").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const v = $("busca").value.trim();
+      const porCodigo = /^\d{6,14}$/.test(v) ? produtos.find((p) => String(p.codigo_barras || "") === v) : null;
+      if (porCodigo) { somar(porCodigo.id, 1); $("busca").value = ""; grade(); return; }
+      if (/^\d{6,14}$/.test(v)) { $("msg").textContent = `Nenhum produto com o código ${v}. Cadastre o código de barras em Produtos.`; $("msg").className = "form-msg error"; $("busca").select(); return; }
+      const b = $("grid").querySelector(".pdv-prod"); if (b) { b.click(); $("busca").select(); }
+    });
     $("grid").addEventListener("click", (e) => { const b = e.target.closest("[data-id]"); if (b) somar(b.dataset.id, 1); });
 
     // ---------- Carrinho ----------
@@ -194,13 +206,22 @@
       const cpf = onlyDigits($("cpf").value);
       if (cpf && cpf.length !== 11 && cpf.length !== 14) { msg.textContent = "CPF com 11 números (ou CNPJ com 14)."; msg.className = "form-msg error"; return; }
       const btn = $("finalizar"); btn.disabled = true; btn.textContent = "Registrando...";
-      const { data, error } = await supabase.functions.invoke("orders", { body: {
+      const venda = {
         action: "pdv_venda", metodo: forma, desconto: Number($("desconto").value || 0), recebido: rec || total, cpf, cozinha: $("cozinha").checked,
-        itens: [...carrinho.values()].map((i) => ({ product_id: i.prod.id, quantidade: i.q })),
-      } });
-      let erro = data?.error || null;
-      if (error && !erro) { try { erro = (await error.context.json()).error; } catch (_) { erro = "Não foi possível registrar a venda. Confira a internet e tente de novo."; } }
-      if (erro) { msg.textContent = erro; msg.className = "form-msg error"; contas(); return; }
+        itens: [...carrinho.values()].map((i) => ({ product_id: i.prod.id, quantidade: i.q })), feita_em: new Date().toISOString(), id_cliente: crypto.randomUUID(),
+      };
+      const r = await enviarVenda(venda);
+      if (r.semInternet) {
+        guardarNaFila(venda);
+        const m = modal(`<h3 style="font-size:19px;">Venda guardada (sem internet)</h3>
+          <div style="font-size:30px; font-weight:800; margin:10px 0;">${brl(total)}</div>
+          ${forma === "dinheiro" && rec > total ? `<p style="font-size:17px;">Troco: <b>${brl(rec - total)}</b></p>` : ""}
+          <p class="settings-hint" style="margin-top:8px;">A venda ficou guardada neste aparelho e será enviada sozinha quando a internet voltar: aí o estoque, o caixa, o financeiro e a NFC-e são atualizados.</p>
+          <div class="modal-actions"><button class="btn btn-primary" data-close id="nova">Nova venda</button></div>`, { width: 420 });
+        m.el.querySelector("#nova").focus(); zerar(); mostrarFila(); return;
+      }
+      if (r.erro) { msg.textContent = r.erro; msg.className = "form-msg error"; contas(); return; }
+      const data = r.data;
       const n = data.nota;
       const notaTxt = !n ? "NFC-e: emissão não conectada (configure em Notas fiscais)." : n.status === "autorizado" ? `NFC-e nº ${n.numero} autorizada.` : `NFC-e com problema: ${n.mensagem || "veja em Notas fiscais"}.`;
       const m = modal(`<h3 style="font-size:19px;">Venda #${data.numero} registrada ✓</h3>
@@ -212,12 +233,55 @@
       zerar();
     });
 
-    await Promise.all([carregar(), conferirCaixa()]);
+    // ---------- Fila de vendas feitas sem internet ----------
+    const chaveFila = `lumos:pdv-fila:${owner_id}`;
+    const lerFila = () => { try { return JSON.parse(localStorage.getItem(chaveFila) || "[]"); } catch (_) { return []; } };
+    const gravarFila = (f) => { try { localStorage.setItem(chaveFila, JSON.stringify(f)); } catch (_) { /* sem espaço */ } };
+    function guardarNaFila(v) { const f = lerFila(); f.push({ ...v, id_fila: crypto.randomUUID() }); gravarFila(f); }
+    async function enviarVenda(venda) {
+      if (!navigator.onLine) return { semInternet: true };
+      try {
+        const { data, error } = await supabase.functions.invoke("orders", { body: venda });
+        if (data?.error) return { erro: data.error };
+        if (error) {
+          let corpo = null; try { corpo = await error.context.json(); } catch (_) { /* sem resposta: rede */ }
+          if (corpo?.error) return { erro: corpo.error };
+          return { semInternet: true };
+        }
+        return { data };
+      } catch (_) { return { semInternet: true }; }
+    }
+    function mostrarFila() {
+      const f = lerFila();
+      let el = document.getElementById("pdv-fila");
+      if (!f.length) { el?.remove(); return; }
+      if (!el) { el = document.createElement("div"); el.id = "pdv-fila"; el.className = "pdv-aviso"; $("aviso-caixa").after(el); }
+      el.textContent = `${f.length} venda(s) feita(s) sem internet aguardando envio. ${navigator.onLine ? "Enviando..." : "Serão enviadas quando a conexão voltar."}`;
+    }
+    let enviandoFila = false;
+    async function enviarFila() {
+      if (enviandoFila || !navigator.onLine) return mostrarFila();
+      enviandoFila = true; mostrarFila();
+      let f = lerFila();
+      for (const v of [...f]) {
+        const r = await enviarVenda({ ...v, sem_internet: true });
+        if (r.semInternet) break;
+        // Enviada (ou recusada pelo servidor, por exemplo um produto que saiu do cardápio): sai da fila
+        f = lerFila().filter((x) => x.id_fila !== v.id_fila); gravarFila(f);
+        if (r.erro) console.warn("Venda offline recusada:", r.erro, v);
+      }
+      enviandoFila = false; mostrarFila();
+    }
+    window.addEventListener("online", enviarFila);
+    window.addEventListener("offline", mostrarFila);
+
+    await Promise.all([carregar(), navigator.onLine ? conferirCaixa() : Promise.resolve()]);
+    enviarFila();
     contas();
     $("busca").focus();
 
     // ================= Simulação para apresentação (tutoriais ligados em Configurações) =================
-    import("./js/simulacao.js?v=85").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=87").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "PDV: a venda do balcão em poucos toques",
       antes: "O cardápio vem da aba Produtos, com preço e foto. O caixa do turno é aberto na aba Caixa.",
       faz: "O operador toca nos produtos, escolhe a forma de pagamento e finaliza. O troco é calculado na hora e, se o cliente quiser, o CPF vai na nota.",

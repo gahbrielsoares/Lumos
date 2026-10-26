@@ -11,6 +11,7 @@ for i in range(1,len(partes),2):
         def add(m,op,tipo,sch,tab,nome): toks.append((m.start(),op,tipo,(sch or 'public').lower(),tab,nome))
         for m in re.finditer(r'create\s+table\s+(?:if\s+not\s+exists\s+)?'+OBJ, sql, re.I): add(m,'add','tabela',m.group(1),m.group(2),m.group(2))
         for m in re.finditer(r'drop\s+table\s+(?:if\s+exists\s+)?'+OBJ, sql, re.I): add(m,'del','tabela',m.group(1),m.group(2),m.group(2))
+        for m in re.finditer(r'create\s+(?:or\s+replace\s+)?view\s+'+OBJ, sql, re.I): add(m,'add','tabela',m.group(1),m.group(2),m.group(2))
         for m in re.finditer(r'alter\s+table\s+(?:if\s+exists\s+)?'+OBJ+r'\s+((?:add\s+column[^;]*?,?\s*)+);', sql, re.I|re.S):
             for c in re.finditer(r'add\s+column\s+(?:if\s+not\s+exists\s+)?(\w+)', m.group(3), re.I): add(m,'add','coluna',m.group(1),m.group(2),c.group(1))
         for m in re.finditer(r'alter\s+table\s+'+OBJ+r'\s+drop\s+column\s+(?:if\s+exists\s+)?(\w+)', sql, re.I): add(m,'del','coluna',m.group(1),m.group(2),m.group(3))

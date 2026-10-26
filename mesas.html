@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
 </head>
 <body>
 
@@ -113,19 +113,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=85";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=85";
-    import { supabase } from "./js/supabaseClient.js?v=85";
-    import { brl, esc, modal } from "./js/erp.js?v=85";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=85";
-    import { listAgents } from "./js/agents.js?v=85";
+    } from "./js/tables.js?v=87";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { brl, esc, modal, produtosParaVenda } from "./js/erp.js?v=87";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=87";
+    import { listAgents } from "./js/agents.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -320,7 +320,7 @@
     async function carregarCardapio() {
       if (cardapio) return cardapio;
       const [{ data: prods }, { data: agentes }] = await Promise.all([
-        supabase.from("products").select("*, product_categories(categories(name))").eq("owner_id", owner_id).eq("active", true).order("created_at"),
+        produtosParaVenda(owner_id),
         supabase.from("agents").select("id, enabled, is_simulator, sim_business_type").eq("owner_id", owner_id),
       ]);
       cardapio = { prods: (prods || []).filter((p) => p.is_insumo !== true), agentes: Object.fromEntries((agentes || []).map((a) => [a.id, a])) };
@@ -609,7 +609,7 @@
     // ================= Simulação para apresentação (só administração) =================
     // A Mesa 7 e o Adalberto existem só na tela: nada é gravado no banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=85");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=87");
       const ITENS = [["1x Picanha na chapa", 58], ["2x Cerveja long neck", 28]];
       const sim = { estado: "livre", pessoas: [] };
       const cartao = (p) => `

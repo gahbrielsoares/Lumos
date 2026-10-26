@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contabilidade | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=85" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=85" />
-  <script src="js/dialogs.js?v=85"></script>
+  <script src="js/logo.js?v=87" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=87" />
+  <script src="js/dialogs.js?v=87"></script>
   <style>
     .cb-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
     .cb-tab { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); font-size:13.5px; font-family:var(--panel-font-body); cursor:pointer; }
@@ -172,14 +172,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=85";
-    import { initThemeToggle } from "./js/theme.js?v=85";
-    import { initMobileNav } from "./js/mobileNav.js?v=85";
-    import { renderSidebar } from "./js/sidebar.js?v=85";
-    import { supabase } from "./js/supabaseClient.js?v=85";
-    import { brl, esc, num, todayISO, fmtDate, ownerId, buscarTodos as todos } from "./js/erp.js?v=85";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=85";
-    import * as T from "./js/tributos.js?v=85";
+    import { requireSession, signOut } from "./js/auth.js?v=87";
+    import { initThemeToggle } from "./js/theme.js?v=87";
+    import { initMobileNav } from "./js/mobileNav.js?v=87";
+    import { renderSidebar } from "./js/sidebar.js?v=87";
+    import { supabase } from "./js/supabaseClient.js?v=87";
+    import { brl, esc, num, todayISO, fmtDate, ownerId, buscarTodos as todos } from "./js/erp.js?v=87";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=87";
+    import * as T from "./js/tributos.js?v=87";
 
     await requireSession();
     initThemeToggle();
@@ -245,7 +245,7 @@
         todos(() => supabase.from("products").select("*").eq("owner_id", owner_id).order("name")),
         todos(() => supabase.from("product_fiscal").select("*").eq("owner_id", owner_id)),
       ]);
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=85"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=87"); await nichoAtual();
       produtos = prods.filter((x) => !doOutroNicho(x));
       fiscalMap = Object.fromEntries(fis.map((f) => [f.product_id, f]));
     }
@@ -262,7 +262,7 @@
           todos(() => supabase.from("compras").select("*").eq("owner_id", owner_id).eq("status", "recebida").gte("recebida_em", ini).lt("recebida_em", fim)),
           todos(() => supabase.from("fornecedores").select("id, nome, cnpj").eq("owner_id", owner_id)),
           todos(() => supabase.from("fin_lancamentos").select("valor, categoria, origem, descricao, pago_em").eq("owner_id", owner_id).eq("tipo", "despesa").gte("pago_em", `${ym}-01`).lt("pago_em", `${addMes(ym, 1)}-01`)),
-          todos(() => supabase.from("estoque_mov").select("product_id, tipo, quantidade").eq("owner_id", owner_id).gte("created_at", fim)),
+          todos(() => supabase.from("estoque_mov").select("product_id, tipo, quantidade, origem, motivo, created_at").eq("owner_id", owner_id).gte("created_at", ini)),
         ]);
         // Notas fiscais emitidas no mês (se a tabela ainda não existir, segue sem elas)
         let notas = [];
@@ -280,7 +280,8 @@
         const receitaAnoAntes = meses.filter((m) => m.slice(0, 4) === ym.slice(0, 4)).reduce((t, m) => t + porMes[m], 0);
         R = T.apurarMes({
           competencia: ym, cfg, vendas, vendas12: meses.map((m) => porMes[m]), receitaAnoAntes, produtos, fiscalPorProduto: fiscalMap,
-          compras, fornecedores, despesas: despesas.filter((d) => d.origem !== "compra"), movsDepois: movs,
+          compras, fornecedores, despesas: despesas.filter((d) => d.origem !== "compra"),
+          movsDepois: movs.filter((m) => m.created_at >= fim), movsMes: movs.filter((m) => m.created_at < fim),
         });
         R.notas = notas || [];
         R.despesasCompras = despesas.filter((d) => d.origem === "compra").reduce((t, d) => t + Number(d.valor || 0), 0);
@@ -384,6 +385,12 @@
         ${sec("Produtos vendidos, custo e margem", `CMV calculado com o custo cadastrado de cada produto${s.coberturaCmv < 100 ? ` (${s.coberturaCmv}% da receita de produtos tem custo)` : ""}.`,
           tabela([{ t: "Produto" }, { t: "NCM" }, { t: "Qtd", n: 1 }, { t: "Receita", n: 1 }, { t: "Custo (CMV)", n: 1 }, { t: "Margem", n: 1 }],
             R.produtosVendidos.map((p) => `<tr>${td(esc(p.nome))}${td(esc(T.fmtNcm(p.ncm)))}<td class="cb-num">${num(p.qtd, 3)}</td>${tdn(p.receita)}<td class="cb-num">${p.custo == null ? "sem custo" : brl(p.custo)}</td><td class="cb-num">${p.margem == null ? "-" : pct(p.margem)}</td></tr>`)))}
+        ${R.cmvReal?.temDados ? sec("CMV teórico x real (perdas e desperdício)", "Teórico: o que as vendas deveriam ter tirado do estoque pelas fichas técnicas. Real: o que saiu de fato, incluindo perdas, desperdício e diferenças nas contagens de estoque.",
+          `<div class="cb-kv">
+            <div><b>CMV teórico</b><span>${brl(R.cmvReal.teorico)}</span><div class="cb-note">pelas vendas e fichas</div></div>
+            <div><b>Perdas e ajustes</b><span style="color:${R.cmvReal.perdas > 0 ? "#B94040" : "inherit"};">${brl(R.cmvReal.perdas)}</span><div class="cb-note">${R.cmvReal.pctPerdas != null ? `${pct(R.cmvReal.pctPerdas)} do teórico` : ""}</div></div>
+            <div><b>CMV real</b><span>${brl(R.cmvReal.real)}</span><div class="cb-note">${R.cmvReal.pctReceita != null ? `${pct(R.cmvReal.pctReceita)} da receita` : ""}</div></div>
+          </div>` + (R.cmvReal.maioresPerdas.length ? tabela([{ t: "Onde mais se perdeu" }, { t: "Valor", n: 1 }], R.cmvReal.maioresPerdas.map((x) => `<tr>${td(esc(x.nome))}${tdn(x.valor)}</tr>`)) : "")) : ""}
         ${sec("Faturamento por dia", "", simples2(R.porDia.map((d) => ({ ...d, dia: fmtDate(d.data) })), "Dia", "dia"))}
         ${sec("Entradas: compras recebidas", "O contador precisa do XML ou da nota de cada compra (entrada).",
           tabela([{ t: "Compra" }, { t: "Data" }, { t: "Fornecedor" }, { t: "CNPJ" }, { t: "Valor", n: 1 }], R.entradas.map((c) => `<tr>${td(`#${c.numero}`)}${td(fmtDate(c.data))}${td(esc(c.fornecedor))}${td(esc(c.cnpj || "não informado"))}${tdn(c.valor)}</tr>`),
@@ -445,6 +452,7 @@
         add("Entradas (compras)", [...cab, ["Compra", "Data", "Fornecedor", "CNPJ", "Itens", "Valor"], ...R.entradas.map((c) => [c.numero, fmtDate(c.data), c.fornecedor, c.cnpj, c.itens, c.valor])], [10, 12, 30, 20, 8, 14]);
         add("Despesas", [...cab, ["Categoria", "Valor"], ...R.despesasPorCategoria.map((d) => [d.categoria, d.valor])], [30, 14]);
         add("DRE", [...cab, ["Conta", "Valor"], ...R.dre.map((d) => [d.conta, d.valor])], [52, 16]);
+        if (R.cmvReal?.temDados) add("CMV teórico x real", [...cab, ["Item", "Valor"], ["CMV teórico (vendas e fichas)", R.cmvReal.teorico], ["Perdas e ajustes de estoque", R.cmvReal.perdas], ["CMV real", R.cmvReal.real], ["CMV real sobre a receita (%)", R.cmvReal.pctReceita], [], ["Onde mais se perdeu", ""], ...R.cmvReal.maioresPerdas.map((x) => [x.nome, x.valor])], [36, 16]);
         add("Inventário", [...cab, ["Produto", "NCM", "Unidade", "Saldo", "Custo unitário", "Valor"], ...R.inventario.map((i) => [i.nome, T.fmtNcm(i.ncm), i.unidade, i.saldo, i.custo, i.valor]), ["Total", "", "", "", "", R.inventarioTotal]], [30, 12, 10, 10, 14, 14]);
         add("Cadastro fiscal", [...cab, ["Produto", "NCM", "Conferido", "CFOP", "Origem", "Tipo", "CSOSN", "CST ICMS", "Alíq. ICMS", "ICMS-ST", "Monofásico", "CST PIS/Cofins", "CEST", "cClassTrib"],
           ...produtos.map((p) => { const f = T.fiscalEfetivo(fiscalMap[p.id], p, cfg); return [p.name, T.fmtNcm(f.ncm), f.cadastrado ? "sim" : "sugerido", f.cfop, f.origem, f.tipo, f.csosn, f.cst_icms, f.icms_aliq || "", f.icms_st ? "sim" : "não", f.monofasico ? "sim" : "não", f.cst_pis, f.cest || "", f.cclass_trib || ""]; })],
@@ -622,13 +630,13 @@
     });
 
     carregarFechamento();
-    import("./js/ajuda.js?v=85").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
+    import("./js/ajuda.js?v=87").then(({ botaoAjuda }) => botaoAjuda("contabilidade"));
 
     // ================= Simulação para apresentação (só administração) =================
     // Um mês fictício de restaurante passa pelo motor fiscal de verdade (js/tributos.js).
     // Os números são calculados, não inventados. Nada é gravado no banco nem vai para o Excel.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=85");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=87");
       const ym = addMes(todayISO().slice(0, 7), -1);
       function mesFicticio() {
         const P = [

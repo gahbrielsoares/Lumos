@@ -302,7 +302,7 @@ const isoBR = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Am
 //   despesas (fin_lancamentos despesa pagas no mês), movsDepois (estoque_mov depois do fim do mês)
 export function apurarMes(dados) {
   const { competencia, cfg = {}, vendas = [], vendas12 = [], receitaAnoAntes = 0, produtos = [], fiscalPorProduto = {},
-    compras = [], despesas = [], movsDepois = [], fornecedores = [] } = dados;
+    compras = [], despesas = [], movsDepois = [], fornecedores = [], movsMes = [] } = dados;
   const ano = Number(competencia.slice(0, 4));
   const ctx = { uf: cfg.uf || "SP", regime: cfg.regime || "simples", nicho: cfg.nicho || "restaurante" };
   const prodMap = Object.fromEntries(produtos.map((p) => [p.id, p]));
@@ -511,6 +511,30 @@ export function apurarMes(dados) {
   }).sort((a, b) => (b.valor || 0) - (a.valor || 0));
   const inventarioTotal = r2(inventario.reduce((t, i) => t + (i.valor || 0), 0));
 
+  // CMV teórico x real (pelo estoque). Teórico: o que as vendas deveriam ter tirado do estoque (fichas técnicas e
+  // revenda). Real: tudo o que saiu de fato, incluindo perdas, desperdício e diferenças de contagem (ajustes).
+  const custoDe = (id) => { const p = prodMap[id]; return p && p.custo != null ? Number(p.custo) : null; };
+  const perdasPorItem = {};
+  let cmvEstoqueTeorico = 0, perdasEstoque = 0, semCustoEstoque = 0;
+  for (const m of movsMes) {
+    const c = custoDe(m.product_id);
+    const q = Number(m.quantidade || 0);
+    if (m.origem === "producao") continue;   // produção de subreceita é transformação, não perda
+    if (m.origem === "saldo_inicial" || m.motivo === "Saldo inicial") continue;   // saldo inicial não é sobra nem perda
+    if (c === null) { if (m.tipo !== "entrada") semCustoEstoque++; continue; }
+    if (m.tipo === "saida" && m.origem === "venda") cmvEstoqueTeorico += q * c;
+    else if (m.tipo === "saida") { perdasEstoque += q * c; perdasPorItem[m.product_id] = (perdasPorItem[m.product_id] || 0) + q * c; }
+    else if (m.tipo === "ajuste") { perdasEstoque -= q * c; perdasPorItem[m.product_id] = (perdasPorItem[m.product_id] || 0) - q * c; }
+  }
+  const cmvReal = {
+    teorico: r2(cmvEstoqueTeorico), perdas: r2(perdasEstoque), real: r2(cmvEstoqueTeorico + perdasEstoque),
+    pctReceita: receitaTributavel > 0 ? r2((cmvEstoqueTeorico + perdasEstoque) / receitaTributavel * 100) : null,
+    pctPerdas: cmvEstoqueTeorico > 0 ? r2(perdasEstoque / cmvEstoqueTeorico * 100) : null,
+    maioresPerdas: Object.entries(perdasPorItem).filter(([, v]) => v > 0.005).sort((a, b) => b[1] - a[1]).slice(0, 10)
+      .map(([id, v]) => ({ nome: prodMap[id]?.name || "Item", valor: r2(v) })),
+    movimentosSemCusto: semCustoEstoque, temDados: movsMes.length > 0,
+  };
+
   // Despesas por categoria
   const despCat = {};
   for (const d of despesas) { const k = d.categoria || "Sem categoria"; despCat[k] = (despCat[k] || 0) + Number(d.valor || 0); }
@@ -568,7 +592,7 @@ export function apurarMes(dados) {
     porPagamento: Object.entries(porPagamento).map(([forma, v]) => ({ forma, vendas: v.vendas, valor: r2(v.valor) })).sort((a, b) => b.valor - a.valor),
     porCanal: Object.entries(porCanal).map(([canal, v]) => ({ canal, vendas: v.vendas, valor: r2(v.valor) })).sort((a, b) => b.valor - a.valor),
     porDia: Object.entries(porDia).map(([data, v]) => ({ data, vendas: v.vendas, valor: r2(v.valor) })).sort((a, b) => a.data.localeCompare(b.data)),
-    produtosVendidos, linhas, vendas: vendasOut, entradas, despesasPorCategoria, inventario, inventarioTotal, dre, pendencias: pend,
+    produtosVendidos, linhas, vendas: vendasOut, entradas, despesasPorCategoria, inventario, inventarioTotal, dre, pendencias: pend, cmvReal,
   };
 }
 

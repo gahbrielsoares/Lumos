@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=85";
-import { getWorkspaceOwnerId } from "./workspace.js?v=85";
+import { supabase } from "./supabaseClient.js?v=87";
+import { getWorkspaceOwnerId } from "./workspace.js?v=87";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)
@@ -8,6 +8,26 @@ import { getWorkspaceOwnerId } from "./workspace.js?v=85";
 export const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 export const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export const onlyDigits = (v) => String(v ?? "").replace(/\D/g, "");
+// Cardápio de venda (Mesas, Cozinha, PDV): usa a versão sem custo do banco (seção 51), para quem não pode ver custos.
+// Se a seção ainda não foi aplicada, usa a tabela de produtos. Devolve no mesmo formato de antes, com as categorias.
+export async function produtosParaVenda(ownerId, { soAtivos = true } = {}) {
+  const consulta = (tabela) => {
+    let q = supabase.from(tabela).select("*");
+    if (ownerId) q = q.eq("owner_id", ownerId);
+    if (soAtivos) q = q.eq("active", true);
+    return q.order("created_at");
+  };
+  let { data, error } = await consulta("produtos_venda");
+  if (error) ({ data, error } = await consulta("products"));
+  if (error) return { data: [], error };
+  const ids = (data || []).map((p) => p.id), cats = {};
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: pc } = await supabase.from("product_categories").select("product_id, categories(name)").in("product_id", ids.slice(i, i + 200));
+    for (const x of pc || []) (cats[x.product_id] ||= []).push({ categories: x.categories });
+  }
+  return { data: (data || []).map((p) => ({ ...p, product_categories: cats[p.id] || [] })), error: null };
+}
+
 // Busca todas as linhas de uma consulta, de 1.000 em 1.000 (o banco entrega no máximo 1.000 por vez)
 export async function buscarTodos(build) {
   const out = [];

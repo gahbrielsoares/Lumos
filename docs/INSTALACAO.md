@@ -2142,6 +2142,73 @@ Depois, atualize as Edge Functions **`orders`** (venda do PDV), **`fiscal`** (qu
 - **PDV (balcão)**: aba nova. O preço vem sempre do cadastro (nunca da tela); a venda baixa o estoque (inclusive
   insumos pela ficha técnica), entra no caixa e no financeiro, vai para a cozinha se marcado e emite a NFC-e.
 
+## 51. Custo protegido, código de barras, categorias por nicho, link de pagamento real e modo sem internet
+
+No **SQL Editor**:
+
+```sql
+-- ===== Custo dos produtos protegido também no banco =====
+-- Quem pode ver custo: o dono e o funcionário com "ver custos" ligado, ou com uma aba que trabalha com custo.
+create or replace function public.team_pode_ver_custos(owner uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.team_members m
+     where m.user_id = auth.uid() and m.owner_id = owner and m.ativo
+       and (coalesce((m.perms->>'ver_custos')::boolean, false)
+            or m.allowed_tabs && array['produtos','estoque','compras','ficha_tecnica','financeiro','relatorios','contabilidade']::text[])
+  );
+$$;
+-- A equipe só lê a tabela completa (com custo) se puder ver custos
+drop policy if exists "Equipe: le produtos" on public.products;
+create policy "Equipe: le produtos" on public.products for select using (public.team_pode_ver_custos(owner_id));
+
+-- Código de barras (leitor no PDV e cadastro do produto)
+alter table public.products add column if not exists codigo_barras text;
+create index if not exists products_owner_codigo on public.products (owner_id, codigo_barras);
+
+-- Cardápio para quem não vê custo (garçom, cozinha, PDV): tudo, menos o custo
+create or replace view public.produtos_venda with (security_invoker = false) as
+  select p.id, p.owner_id, p.name, p.description, p.price, p.unit, p.photo_urls, p.active, p.created_at,
+         p.agent_ids, p.m2_por_caixa, p.estoque, p.estoque_minimo, p.segmento, p.is_insumo, p.codigo_barras
+    from public.products p
+   where p.owner_id = auth.uid() or public.is_team_of(p.owner_id);
+grant select on public.produtos_venda to authenticated;
+
+-- ===== Categorias também separadas por nicho =====
+alter table public.categories add column if not exists segmento text;
+-- Categoria cujos produtos são todos de um mesmo nicho recebe esse nicho
+update public.categories c set segmento = s.seg
+  from (select pc.category_id, min(p.segmento) as seg
+          from public.product_categories pc join public.products p on p.id = pc.product_id
+         group by pc.category_id
+        having count(distinct p.segmento) = 1 and count(*) = count(p.segmento)) s
+ where s.category_id = c.id and c.segmento is null;
+
+-- A equipe lê as categorias de cada produto pelo cardápio sem custo (o garçom não lê mais a tabela completa)
+drop policy if exists "Equipe: le vinculos" on public.product_categories;
+create policy "Equipe: le vinculos" on public.product_categories for select
+  using (exists (select 1 from public.produtos_venda p where p.id = product_id));
+```
+
+### Edge Functions
+1. Crie a função **`pagamentos`** (nova) com `supabase/functions/pagamentos/index.ts`, **"Enforce JWT verification" DESLIGADO**
+   (o Mercado Pago e o Asaas chamam sem login; a função confere cada pagamento direto no provedor).
+2. Atualize **`orders`** (link real do Mercado Pago e do Asaas, PDV sem duplicidade e com horário da venda offline).
+
+### Como funciona
+- **Custo protegido no banco**: funcionário sem "ver custos" (e sem abas de estoque, compras, ficha, financeiro,
+  relatórios ou contabilidade) lê o cardápio pela visão `produtos_venda`, que não tem a coluna de custo.
+- **Código de barras** no cadastro do produto; no PDV, o leitor lê o código e o produto entra na venda.
+- **Categorias por nicho**, como os produtos.
+- **Link de pagamento real**: em Integrações > Pagamento, escolha Mercado Pago ou Asaas, cole a chave e comece em
+  "Teste". O link sai com o valor exato do pedido; o pagamento é confirmado sozinho (Mercado Pago avisa pelo endereço
+  de cada link; no Asaas, o Lumos registra o aviso na conta da loja no primeiro link).
+- **CMV teórico x real** na Contabilidade: o real inclui perdas e diferenças de contagem do estoque.
+- **Subreceitas**: insumo feito na cozinha (ex.: molho da casa) pode ter receita própria; "Produzir" registra o lote.
+- **Sem internet**: as páginas abrem com a última cópia, aparece um aviso, e o PDV guarda as vendas no aparelho e
+  envia sozinho quando a conexão volta (a NFC-e dessas vendas sai no envio).
+- **Menu** em grupos que abrem e fecham: CRM, ERP e Configuração.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de
