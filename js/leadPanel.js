@@ -1,9 +1,9 @@
-import { esc, brl } from "./erp.js?v=94";
-import { supabase } from "./supabaseClient.js?v=94";
+import { esc, brl } from "./erp.js?v=95";
+import { supabase } from "./supabaseClient.js?v=95";
 import {
   STAGES, STAGE_LABELS, getLeadById, updateLeadStage, updateLeadFields, listMessages, whatsappLink,
-} from "./leads.js?v=94";
-import { getIntegration } from "./integrations.js?v=94";
+} from "./leads.js?v=95";
+import { getIntegration } from "./integrations.js?v=95";
 
 // =====================================================================
 // Painel lateral do lead (usado no Kanban e na ficha do lead).

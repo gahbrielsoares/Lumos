@@ -22,7 +22,7 @@ const json = (body: unknown, status = 200) =>
 
 // Abas que um funcionário pode receber (Equipe e Painel Admin nunca)
 const TAB_KEYS = ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque",
-  "compras", "pdv", "caixa", "financeiro", "relatorios", "contabilidade", "fiscal", "integracoes", "agents", "settings"];
+  "compras", "pdv", "caixa", "delivery", "financeiro", "relatorios", "contabilidade", "fiscal", "integracoes", "agents", "settings"];
 const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "contador", "personalizado"];
 const USER_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
 

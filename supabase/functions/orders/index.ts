@@ -206,6 +206,12 @@ async function sendToKitchen(ctx: any) {
   return ticket.id;
 }
 
+// Delivery: a equipe escolhe se o pedido pago vai sozinho para a cozinha ou só quando ela mandar
+async function cozinhaManual(ownerId: string) {
+  const { data } = await supabase.from("delivery_config").select("cozinha").eq("owner_id", ownerId).maybeSingle().then((r) => r, () => ({ data: null }));
+  return data?.cozinha === "manual";
+}
+
 // deno-lint-ignore no-explicit-any
 function previsaoCozinha(order: any) {
   const e = order.entrega || {};
@@ -445,11 +451,15 @@ async function approve(ctx: any, freteManual: number | null) {
     : order.entrega?.cozinha ? `🧾 *Pedido #${order.numero}* registrado!` : `🧾 *Pedido #${order.numero}* conferido e aprovado!`;
   await sendToCustomer(ctx, `${head}\n\n${orderSummary(updated)}\n\n${payText}`);
 
-  // Pagamento na entrega: o pedido vai pra cozinha agora
+  // Pagamento na entrega: o pedido vai pra cozinha agora (ou espera a equipe mandar, se o delivery estiver no manual)
   if (order.entrega?.cozinha && pref === "na_entrega") {
-    await sendToKitchen({ ...ctx, order: updated });
     await sleep(1000);
-    await sendToCustomer(ctx, `👨‍🍳 Seu pedido já foi pra cozinha!\n${previsaoCozinha(updated)}`);
+    if (await cozinhaManual(order.owner_id)) {
+      await sendToCustomer(ctx, `✅ Pedido confirmado! Aguarde o início do preparo, te aviso por aqui. 👨‍🍳`);
+    } else {
+      await sendToKitchen({ ...ctx, order: updated });
+      await sendToCustomer(ctx, `👨‍🍳 Seu pedido já foi pra cozinha!\n${previsaoCozinha(updated)}`);
+    }
   }
   await supabase.from("leads").update({
     last_message_at: new Date().toISOString(),
@@ -525,8 +535,10 @@ async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
     ? `${METODO.cartao} em ${parcelas}x de ${brl(cobrado / parcelas)}${cobrado > Number(order.total) ? " (com juros do cartão)" : " sem juros"}`
     : METODO[metodo] || metodo;
   await supabase.from("sales_orders").update({ pagamento: { ...(order.pagamento || {}), metodo, parcelas, valor_cobrado: cobrado } }).eq("id", order.id);
-  await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n\nPedido *#${order.numero}*\nValor: *${brl(cobrado)}*\nForma: ${formaTxt}\n\nJá estamos separando seus produtos. 📦`);
+  await sendToCustomer(ctx, `✅ *Pagamento confirmado!*\n\nPedido *#${order.numero}*\nValor: *${brl(cobrado)}*\nForma: ${formaTxt}\n\n${order.entrega?.cozinha ? "Aguarde o início do preparo do seu pedido. 👨‍🍳" : "Já estamos separando seus produtos. 📦"}`);
 
+  // Delivery no manual: o pedido pago espera a equipe mandar para a cozinha (aba Delivery)
+  if (order.entrega?.cozinha && (await cozinhaManual(order.owner_id))) return json({ ok: true, numero: order.numero });
   if (order.entrega?.cozinha) {
     await sendToKitchen(ctx);
     if (ctx.simulated && nf) {
@@ -759,7 +771,7 @@ async function mesaFechar(c: any, metodo: string, cobrarTaxa: boolean, cobrarCou
 }
 
 // Cozinha mudou o status do pedido: avisa o cliente (delivery e retirada)
-async function kitchenStatus(ticketId: string, status: string, userId: string | null, trusted: boolean) {
+async function kitchenStatus(ticketId: string, status: string, userId: string | null, trusted: boolean, textoProprio: string | null = null) {
   const valid = ["novo_pedido", "em_preparo", "pronto", "saiu_entrega", "entregue", "cancelado"];
   if (!valid.includes(status)) return json({ error: "Status inválido." }, 400);
   const { data: t } = await supabase.from("orders").select("*").eq("id", ticketId).maybeSingle();
@@ -784,7 +796,7 @@ async function kitchenStatus(ticketId: string, status: string, userId: string | 
     entregue: `😋 Pedido ${num} ${t.tipo === "retirada" ? "retirado" : "entregue"}. Bom apetite${nome ? `, ${nome}` : ""}! Se puder, conta pra gente depois o que achou. 💛`,
     cancelado: `Seu pedido ${num} foi cancelado. Se tiver alguma dúvida, é só chamar aqui.`,
   };
-  const text = msgs[status];
+  const text = textoProprio != null ? textoProprio : msgs[status];
   if (text) {
     await supabase.from("messages").insert({ lead_id: lead.id, direction: "out", sender: "sistema", text });
     await sendText(wa, onlyDigits(lead.phone), text);
@@ -839,7 +851,35 @@ Deno.serve(async (req) => {
       const trusted = jwt === SERVICE_KEY;
       const { data } = trusted ? { data: null } : await supabase.auth.getUser(jwt);
       if (!trusted && !data?.user) return json({ error: "Sessão expirada." }, 401);
-      return await kitchenStatus(body.ticket_id, body.status, data?.user?.id || null, trusted);
+      return await kitchenStatus(body.ticket_id, body.status, data?.user?.id || null, trusted, trusted && typeof body.texto === "string" ? body.texto : null);
+    }
+
+    // Delivery: a equipe manda o pedido pago para a cozinha
+    if (action === "send_kitchen") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      const { data } = await supabase.auth.getUser(jwt);
+      if (!data?.user) return json({ error: "Sessão expirada." }, 401);
+      const ctxK = await loadContext(String(order_id || ""));
+      if (!ctxK) return json({ error: "Pedido não encontrado." }, 404);
+      const dono = await workspaceOf(data.user.id);
+      if (ctxK.order.owner_id !== dono) return json({ error: "Sem permissão." }, 403);
+      if (dono !== data.user.id) {
+        const { data: m } = await supabase.from("team_members").select("allowed_tabs").eq("user_id", data.user.id).maybeSingle();
+        if (!(m?.allowed_tabs || []).some((t: string) => ["delivery", "cozinha"].includes(t))) return json({ error: "Sem permissão." }, 403);
+      }
+      const id = await sendToKitchen(ctxK);
+      await registrarEvento({ owner: dono, acao: "enviado_cozinha", msg: `Pedido #${ctxK.order.numero} enviado para a cozinha`, ref: ctxK.order.id });
+      return json({ ok: !!id, ticket_id: id });
+    }
+
+    // Mensagem ao cliente do pedido (usada pela função de entregas, com a chave de serviço)
+    if (action === "notify_customer") {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      if (jwt !== SERVICE_KEY) return json({ error: "Sem permissão." }, 403);
+      const ctxN = await loadContext(String(order_id || ""));
+      if (!ctxN?.lead) return json({ ok: false });
+      await sendToCustomer(ctxN, String(body.texto || "").slice(0, 3000));
+      return json({ ok: true });
     }
 
     // PDV (balcão): quem tem a aba PDV ou Caixa, ou o dono
@@ -881,7 +921,7 @@ Deno.serve(async (req) => {
       if (jwt !== SERVICE_KEY) return json({ error: "Sem permissão." }, 403);
       const ctxP = await loadContext(String(order_id || ""));
       if (!ctxP) return json({ error: "Pedido não encontrado." }, 404);
-      const metodo = ["pix", "cartao", "boleto", "debito"].includes(body.metodo) ? body.metodo : "pix";
+      const metodo = ["pix", "cartao", "boleto", "debito", "dinheiro"].includes(body.metodo) ? body.metodo : "pix";
       return await finalizePaid(ctxP, metodo, metodo === "cartao" ? Math.max(1, Number(body.parcelas) || 1) : null);
     }
 

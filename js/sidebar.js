@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=94";
+import { supabase } from "./supabaseClient.js?v=95";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -51,6 +51,10 @@ export const NAV_ITEMS = [
   {
     key: "compras", group: "erp", href: "compras.html", label: "Compras",
     icon: `<circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.6 12.4a1.5 1.5 0 0 0 1.5 1.1h8.7a1.5 1.5 0 0 0 1.5-1.2L21 7H6"/>`,
+  },
+  {
+    key: "delivery", group: "erp", href: "delivery.html", label: "Delivery",
+    icon: `<path d="M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><path d="M7 17H3v-5l2-5h7v10M12 9h5l4 4v4h-2"/>`,
   },
   {
     // PDV e Caixa numa tela só. Quem tinha só a aba "caixa" também entra (alias).
@@ -200,7 +204,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=94");
+    const { getMyAccess } = await import("./workspace.js?v=95");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -237,7 +241,7 @@ export async function getDisabledTabs() {
   const nichoCadastro = userData?.user?.user_metadata?.nicho;
   if (!data && nichoCadastro) {
     try {
-      const { aplicarNicho } = await import("./businessConfig.js?v=94");
+      const { aplicarNicho } = await import("./businessConfig.js?v=95");
       const { info } = await aplicarNicho(nichoCadastro);
       NICHO = info.key; document.body.dataset.nicho = NICHO;
       return info.disabledTabs || [];

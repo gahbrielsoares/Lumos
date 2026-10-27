@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mesas | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=94" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=94" />
-  <script src="js/dialogs.js?v=94"></script>
+  <script src="js/logo.js?v=95" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=95" />
+  <script src="js/dialogs.js?v=95"></script>
 </head>
 <body>
 
@@ -91,19 +91,19 @@
 
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=94";
-    import { initThemeToggle } from "./js/theme.js?v=94";
-    import { initMobileNav } from "./js/mobileNav.js?v=94";
-    import { renderSidebar } from "./js/sidebar.js?v=94";
+    import { requireSession, signOut } from "./js/auth.js?v=95";
+    import { initThemeToggle } from "./js/theme.js?v=95";
+    import { initMobileNav } from "./js/mobileNav.js?v=95";
+    import { renderSidebar } from "./js/sidebar.js?v=95";
     import {
       listTables, createTable, deleteTable, getActiveSession, listSessionLeads,
       closeSession,
-    } from "./js/tables.js?v=94";
-    import { listOrdersBySession, createOrder } from "./js/orders.js?v=94";
-    import { supabase } from "./js/supabaseClient.js?v=94";
-    import { brl, esc, modal, produtosParaVenda } from "./js/erp.js?v=94";
-    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=94";
-    import { listAgents } from "./js/agents.js?v=94";
+    } from "./js/tables.js?v=95";
+    import { listOrdersBySession, createOrder } from "./js/orders.js?v=95";
+    import { supabase } from "./js/supabaseClient.js?v=95";
+    import { brl, esc, modal, produtosParaVenda } from "./js/erp.js?v=95";
+    import { getMyAccess, getWorkspaceOwnerId } from "./js/workspace.js?v=95";
+    import { listAgents } from "./js/agents.js?v=95";
 
     await requireSession();
     initThemeToggle();
@@ -587,7 +587,7 @@
     // ================= Simulação para apresentação (só administração) =================
     // A Mesa 7 e o Adalberto existem só na tela: nada é gravado no banco.
     {
-      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=94");
+      const { botaoSimular, destacar } = await import("./js/simulacao.js?v=95");
       const ITENS = [["1x Picanha na chapa", 58], ["2x Cerveja long neck", 28]];
       const sim = { estado: "livre", pessoas: [] };
       const cartao = (p) => `

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delivery | Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=95" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=95" />
+  <script src="js/dialogs.js?v=95"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <style>
+    .dl-topo { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .dl-status { display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); font-size:13.5px; font-weight:600; }
+    .dl-status i { width:9px; height:9px; border-radius:50%; background:#4A7C59; } .dl-status.pausa i { background:#D4834A; } .dl-status.fechado i { background:#B94040; }
+    .dl-abas { display:flex; gap:6px; margin-top:16px; flex-wrap:wrap; }
+    .dl-abas button { padding:9px 16px; border-radius:999px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text-muted); cursor:pointer; font-family:var(--panel-font-body); font-size:14px; font-weight:600; }
+    .dl-abas button.on { background:var(--panel-accent); border-color:var(--panel-accent); color:#1C1508; }
+    .dl-quadro { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(250px, 1fr); gap:12px; overflow-x:auto; padding-bottom:10px; margin-top:14px; }
+    .dl-col { background:var(--panel-card); border:1px solid var(--panel-border); border-radius:16px; padding:10px; min-height:220px; display:flex; flex-direction:column; gap:8px; }
+    .dl-col h4 { font-size:13.5px; display:flex; justify-content:space-between; align-items:center; padding:4px 4px 6px; }
+    .dl-col h4 span { font-size:12px; padding:1px 8px; border-radius:999px; background:var(--panel-bg); }
+    .dl-card { text-align:left; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text); border-radius:12px; padding:10px; cursor:pointer; font-family:var(--panel-font-body); display:flex; flex-direction:column; gap:4px; }
+    .dl-card:hover { border-color:var(--panel-accent); }
+    .dl-card .l1 { display:flex; justify-content:space-between; font-size:12.5px; color:var(--panel-text-muted); }
+    .dl-card .nome { font-weight:700; font-size:14px; }
+    .dl-card .info { font-size:12.5px; color:var(--panel-text-muted); }
+    .dl-card .tag { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:999px; background:rgba(201,168,76,.18); margin-top:2px; }
+    .dl-card .tag.warn { background:rgba(212,131,74,.2); color:#D4834A; } .dl-card .tag.bad { background:rgba(185,64,64,.15); color:#B94040; }
+    .dl-card.atraso { border-color:#B94040; } .dl-card.atraso .tempo { color:#B94040; font-weight:700; }
+    .dl-vazio { font-size:12.5px; color:var(--panel-text-muted); text-align:center; padding:18px 6px; }
+    .dl-acoes { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+    .dl-acoes .btn { width:100%; justify-content:center; }
+    #dl-mapa { height:min(68vh, 620px); border-radius:16px; border:1px solid var(--panel-border); margin-top:14px; }
+    .dl-sug { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 10px; }
+    .dl-sug label { display:flex; gap:6px; align-items:center; padding:6px 10px; border:1px solid var(--panel-border); border-radius:999px; font-size:13px; cursor:pointer; }
+    .dl-sug label:has(input:checked) { border-color:var(--panel-accent); background:rgba(201,168,76,.12); }
+  </style>
+</head>
+<body>
+
+  <div class="dash-shell">
+
+    <main class="dash-main">
+      <div>
+        <h1 style="font-size: 28px;">Delivery</h1>
+        <p style="margin-top: 6px;">Os pedidos de entrega e retirada, do recebimento até a porta do cliente. Clique no cartão para escolher o que fazer.</p>
+      </div>
+      <div class="dl-topo"><span class="dl-status" id="dl-status"><i></i><span>Carregando...</span></span><span id="dl-pausa-bts"></span></div>
+      <div class="dl-abas" id="dl-abas">
+        <button data-aba="pedidos" class="on">Pedidos</button><button data-aba="entregadores">Entregadores</button><button data-aba="mapa">Mapa</button><button data-aba="config">Configuração</button>
+      </div>
+
+      <section data-painel="pedidos"><div class="dl-quadro" id="dl-quadro"></div></section>
+
+      <section data-painel="entregadores" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:16px;">
+          <h3 class="erp-section-title" style="margin:0;">Entregadores</h3><button class="btn btn-primary" id="dl-novo-ent">+ Novo entregador</button>
+        </div>
+        <div class="panel-table-wrap" style="margin-top:10px;"><table class="panel-table">
+          <thead><tr><th>Entregador</th><th>WhatsApp</th><th>Veículo</th><th>Taxa por entrega</th><th>Localização</th><th></th></tr></thead>
+          <tbody id="dl-ents"></tbody></table></div>
+        <h3 class="erp-section-title" style="margin-top:26px;">Acerto de hoje</h3>
+        <p class="settings-hint">Quanto cada entregador fez hoje: entregas, taxas a receber e o dinheiro recebido dos clientes na entrega.</p>
+        <div class="panel-table-wrap" style="margin-top:8px;"><table class="panel-table">
+          <thead><tr><th>Entregador</th><th>Entregas</th><th>Taxas a receber</th><th>Recebido dos clientes</th></tr></thead>
+          <tbody id="dl-acerto"></tbody></table></div>
+      </section>
+
+      <section data-painel="mapa" style="display:none;">
+        <p class="settings-hint" style="margin-top:14px;" id="dl-mapa-info">Os entregadores aparecem aqui quando abrem o link deles e permitem a localização.</p>
+        <div id="dl-mapa"></div>
+      </section>
+
+      <section data-painel="config" style="display:none;">
+        <div class="settings-block" style="margin-top:16px; max-width:640px;">
+          <div class="field"><label>Aprovação dos pedidos</label><select id="cf-aprov"><option value="manual">Manual: a equipe confere cada pedido antes do link de pagamento</option><option value="automatica">Automática: o cliente faz tudo pelo WhatsApp</option></select></div>
+          <div class="field"><label>Envio para a cozinha</label><select id="cf-coz"><option value="automatica">Automático: o pedido pago vai direto para a cozinha</option><option value="manual">Manual: a equipe manda para a cozinha</option></select></div>
+          <div class="erp-row2"><div class="field"><label>Tempo estimado de entrega (minutos)</label><input id="cf-tempo" type="number" min="5" step="5" /></div>
+            <div class="field"><label>Pedido mínimo para entrega (R$)</label><input id="cf-min" type="number" min="0" step="0.01" /></div></div>
+          <div class="field"><label>Mensagem quando o delivery está pausado (opcional)</label><input id="cf-msg" placeholder="Ex.: Cozinha cheia agora, voltamos em instantes!" /></div>
+          <label class="toggle-row" style="justify-content:space-between;"><span>Delivery aberto</span><input type="checkbox" class="toggle-input" id="cf-aberto" /></label>
+          <button class="btn btn-primary" id="cf-salvar" style="margin-top:12px;">Salvar configuração</button>
+          <div id="cf-msg-salvo" class="form-msg"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script type="module">
+    import { requireSession, signOut } from "./js/auth.js?v=95";
+    import { initThemeToggle } from "./js/theme.js?v=95";
+    import { initMobileNav } from "./js/mobileNav.js?v=95";
+    import { renderSidebar } from "./js/sidebar.js?v=95";
+    import { supabase } from "./js/supabaseClient.js?v=95";
+    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=95";
+
+    await requireSession();
+    initThemeToggle();
+    await renderSidebar("delivery");
+    initMobileNav();
+    document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
+    const owner_id = await ownerId();
+    const $ = (id) => document.getElementById(id);
+    const fn = async (nome, body) => {
+      const { data, error } = await supabase.functions.invoke(nome, { body });
+      if (error || data?.error) { let m = data?.error || "Não foi possível concluir."; try { m = (await error.context.json()).error || m; } catch (_) { /* sem detalhe */ } throw new Error(m); }
+      return data;
+    };
+    const fone = (p) => { let d = onlyDigits(p); if (d.length >= 12 && d.startsWith("55")) d = d.slice(2); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : p || ""; };
+    const minDesde = (iso) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+
+    // ---------- Abas ----------
+    let aba = "pedidos";
+    $("dl-abas").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-aba]"); if (!b) return;
+      aba = b.dataset.aba; $("dl-abas").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      document.querySelectorAll("[data-painel]").forEach((p) => (p.style.display = p.dataset.painel === aba ? "" : "none"));
+      if (aba === "mapa") abrirMapa(); if (aba === "entregadores") carregarEntregadores();
+    });
+
+    // ---------- Configuração e situação do delivery ----------
+    let cfg = { aprovacao: "manual", cozinha: "automatica", tempo_estimado: 50, pedido_minimo: 0, aberto: true, pausa_ate: null, mensagem_pausa: "" };
+    async function carregarConfig() {
+      const { data } = await supabase.from("delivery_config").select("*").eq("owner_id", owner_id).maybeSingle();
+      if (data) cfg = { ...cfg, ...data };
+      $("cf-aprov").value = cfg.aprovacao; $("cf-coz").value = cfg.cozinha; $("cf-tempo").value = cfg.tempo_estimado; $("cf-min").value = cfg.pedido_minimo;
+      $("cf-msg").value = cfg.mensagem_pausa || ""; $("cf-aberto").checked = !!cfg.aberto;
+      pintarStatus();
+    }
+    async function salvarConfig(campos) {
+      const { error } = await supabase.from("delivery_config").upsert({ owner_id, ...cfg, ...campos, updated_at: new Date().toISOString() }, { onConflict: "owner_id" });
+      if (error) { lumosAlert(/delivery_config/.test(error.message) ? "Falta aplicar a seção 55 do guia de instalação." : error.message); return false; }
+      cfg = { ...cfg, ...campos }; pintarStatus(); return true;
+    }
+    function pintarStatus() {
+      const pausado = cfg.pausa_ate && new Date(cfg.pausa_ate) > new Date();
+      const el = $("dl-status");
+      el.className = `dl-status ${!cfg.aberto ? "fechado" : pausado ? "pausa" : ""}`;
+      el.querySelector("span").textContent = !cfg.aberto ? "Delivery fechado" : pausado ? `Pausado até ${new Date(cfg.pausa_ate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : `Delivery aberto · cerca de ${cfg.tempo_estimado} min`;
+      $("dl-pausa-bts").innerHTML = !cfg.aberto ? `<button class="btn btn-primary btn-sm" data-pausa="abrir">Abrir o delivery</button>`
+        : pausado ? `<button class="btn btn-primary btn-sm" data-pausa="0">Retomar agora</button>`
+        : `<button class="btn btn-ghost btn-sm" data-pausa="15">Pausar 15 min</button> <button class="btn btn-ghost btn-sm" data-pausa="30">30 min</button> <button class="btn btn-ghost btn-sm" data-pausa="60">1 hora</button>`;
+    }
+    $("dl-pausa-bts").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-pausa]"); if (!b) return;
+      if (b.dataset.pausa === "abrir") return salvarConfig({ aberto: true, pausa_ate: null });
+      const min = Number(b.dataset.pausa);
+      await salvarConfig({ pausa_ate: min ? new Date(Date.now() + min * 60000).toISOString() : null });
+    });
+    $("cf-salvar").addEventListener("click", async () => {
+      const ok = await salvarConfig({ aprovacao: $("cf-aprov").value, cozinha: $("cf-coz").value, tempo_estimado: Math.max(5, Number($("cf-tempo").value || 50)),
+        pedido_minimo: Math.max(0, Number($("cf-min").value || 0)), mensagem_pausa: $("cf-msg").value.trim() || null, aberto: $("cf-aberto").checked });
+      if (ok) { $("cf-msg-salvo").textContent = "Configuração salva. A IA já segue as regras novas."; $("cf-msg-salvo").className = "form-msg success"; }
+    });
+
+    // ---------- Pedidos (quadro) ----------
+    const COLUNAS = [
+      ["aprovacao", "Aguardando aprovação"], ["pagamento", "Aguardando pagamento"], ["pago", "Pago, para a cozinha"],
+      ["cozinha", "Na cozinha"], ["pronto", "Pronto"], ["rota", "Saiu para entrega"], ["entregue", "Entregue hoje"],
+    ];
+    let pedidos = [], tickets = {}, entregas = {}, entregadores = [];
+    const coluna = (so) => {
+      const t = tickets[so.id], en = entregas[so.id];
+      if (en && ["entregue", "retirado"].includes(en.etapa) || t?.status === "entregue") return "entregue";
+      if (en && ["em_rota", "chegou"].includes(en.etapa) || t?.status === "saiu_entrega") return "rota";
+      if (t?.status === "pronto") return "pronto";
+      if (t) return "cozinha";
+      if (so.status === "aguardando_aprovacao") return "aprovacao";
+      if (so.status === "pago" || (so.status === "aguardando_pagamento" && so.pagamento?.preferencia === "na_entrega")) return "pago";
+      return "pagamento";
+    };
+    async function carregarPedidos() {
+      const desde = new Date(Date.now() - 20 * 3600e3).toISOString();
+      const { data } = await supabase.from("sales_orders").select("*").eq("owner_id", owner_id).neq("status", "cancelado").gte("created_at", desde).order("created_at");
+      pedidos = (data || []).filter((so) => so.entrega?.cozinha && so.entrega?.tipo !== "mesa" && !so.pagamento?.pdv);
+      const ids = pedidos.map((p) => p.id);
+      tickets = {}; entregas = {};
+      if (ids.length) {
+        const [{ data: ts }, { data: es }] = await Promise.all([
+          supabase.from("orders").select("id, status, sales_order_id, created_at").in("sales_order_id", ids),
+          supabase.from("entregas").select("*").in("sales_order_id", ids),
+        ]);
+        for (const t of ts || []) tickets[t.sales_order_id] = t;
+        for (const e of es || []) entregas[e.sales_order_id] = e;
+      }
+      if (!entregadores.length) await carregarListaEntregadores();
+      pintarQuadro();
+    }
+    const nomeEnt = (id) => entregadores.find((e) => e.id === id)?.nome || "entregador";
+    function cartao(so) {
+      const en = entregas[so.id], col = coluna(so), min = minDesde(so.created_at);
+      const atraso = col !== "entregue" && min > Number(cfg.tempo_estimado || 50);
+      const tags = [];
+      if (so.entrega?.tipo === "retirada") tags.push(`<span class="tag">🥡 Retirada</span>`);
+      if (so.pagamento?.preferencia === "na_entrega" && so.status !== "pago") tags.push(`<span class="tag warn">💵 Cobrar ${brl(so.total)}</span>`);
+      if (col === "pronto" && en?.etapa === "oferecida") tags.push(`<span class="tag">Aguardando ${esc(nomeEnt(en.entregador_id))} aceitar</span>`);
+      if (col === "pronto" && en?.etapa === "aguardando_entregador" && en.recusas?.length) tags.push(`<span class="tag bad">Recusado por ${esc(en.recusas.at(-1).entregador)}</span>`);
+      if (col === "rota" && en) tags.push(`<span class="tag">🛵 ${esc(nomeEnt(en.entregador_id))}${en.etapa === "chegou" ? ", chegou" : ""}</span>`);
+      return `<button class="dl-card ${atraso ? "atraso" : ""}" data-so="${so.id}">
+        <span class="l1"><span>#${so.numero}</span><span class="tempo">${col === "entregue" ? "" : `há ${min} min`}</span></span>
+        <span class="nome">${esc(so.cliente?.nome || "Cliente")}</span>
+        <span class="info">${esc(so.entrega?.tipo === "retirada" ? "Retirada no balcão" : so.entrega?.endereco?.bairro || so.entrega?.local || "")} · ${brl(so.total)}</span>${tags.join("")}</button>`;
+    }
+    function pintarQuadro() {
+      $("dl-quadro").innerHTML = COLUNAS.map(([k, n]) => { const lista = pedidos.filter((so) => coluna(so) === k);
+        return `<div class="dl-col"><h4>${n} <span>${lista.length}</span></h4>${lista.map(cartao).join("") || `<p class="dl-vazio">Nenhum pedido</p>`}</div>`; }).join("");
+    }
+    $("dl-quadro").addEventListener("click", (e) => { const c = e.target.closest("[data-so]"); if (c) abrirPedido(pedidos.find((p) => p.id === c.dataset.so)); });
+
+    // ---------- Cartão aberto: detalhes e ações ----------
+    function abrirPedido(so) {
+      const col = coluna(so), en = entregas[so.id];
+      const end = so.entrega?.endereco || {};
+      const itens = (so.itens || []).filter((i) => !i.taxa);
+      const acoes = [];
+      if (col === "aprovacao") acoes.push(`<button class="btn btn-primary" data-a="aprovar">Aprovar e enviar o link de pagamento</button>`, `<button class="btn btn-ghost" data-a="indisponivel">Item indisponível (sugerir outros)</button>`, `<button class="btn btn-ghost" data-a="recusar">Recusar o pedido</button>`);
+      if (col === "pagamento") acoes.push(`<button class="btn btn-ghost" data-a="recusar">Cancelar o pedido</button>`);
+      if (col === "pago") acoes.push(`<button class="btn btn-primary" data-a="cozinha">Enviar para a cozinha</button>`);
+      if (col === "cozinha") acoes.push(`<p class="settings-hint">A cozinha está preparando. Quando ela marcar como pronto, o pedido vem para a coluna Pronto.</p>`);
+      if (col === "pronto" && so.entrega?.tipo === "retirada") acoes.push(`<button class="btn btn-primary" data-a="finalizar">Cliente retirou</button>`);
+      if (col === "pronto" && so.entrega?.tipo !== "retirada") {
+        const ativos = entregadores.filter((x) => x.ativo !== false);
+        acoes.push(ativos.length ? `<div class="field"><label>Selecionar entregador</label><select id="m-ent">${ativos.map((x) => `<option value="${x.id}" ${en?.entregador_id === x.id ? "selected" : ""}>${esc(x.nome)}</option>`).join("")}</select></div>
+          <button class="btn btn-primary" data-a="atribuir">${en?.etapa === "oferecida" ? "Reenviar para o entregador" : "Enviar pedido ao entregador"}</button>` : `<p class="settings-hint">Cadastre os entregadores na aba Entregadores.</p>`,
+          `<button class="btn btn-ghost" data-a="finalizar">Entregue sem entregador cadastrado</button>`);
+      }
+      if (col === "rota") acoes.push(en?.rastreio_token ? `<a class="btn btn-ghost" target="_blank" href="rastreio.html?r=${en.rastreio_token}">Ver o que o cliente vê (rastreio)</a>` : "", `<button class="btn btn-ghost" data-a="finalizar">Marcar como entregue</button>`);
+      const m = modal(`<h3 style="font-size:19px;">Pedido #${so.numero}</h3>
+        <p class="settings-hint" style="margin:4px 0 10px;">${esc(so.cliente?.nome || "Cliente")} · ${esc(fone(so.cliente?.telefone))} · há ${minDesde(so.created_at)} min</p>
+        <div style="border:1px solid var(--panel-border); border-radius:12px; padding:10px 12px; font-size:14px;">
+          ${itens.map((i) => `<div style="display:flex; justify-content:space-between; gap:10px; padding:4px 0;"><span>${i.quantidade}x ${esc(i.nome)}${i.observacao ? `<br><small style="color:#D4834A;">↳ ${esc(i.observacao)}</small>` : ""}</span><span>${brl(i.subtotal)}</span></div>`).join("")}
+          <div style="display:flex; justify-content:space-between; padding-top:6px; margin-top:4px; border-top:1px solid var(--panel-border);"><span>Entrega</span><span>${brl(so.frete || 0)}</span></div>
+          <div style="display:flex; justify-content:space-between; font-weight:800;"><span>Total</span><span>${brl(so.total)}</span></div></div>
+        <p style="font-size:13.5px; margin-top:10px;">${so.entrega?.tipo === "retirada" ? "🥡 Retirada no balcão" : `📍 ${esc([end.rua && `${end.rua}${end.numero ? `, ${end.numero}` : ""}`, end.complemento, end.bairro].filter(Boolean).join(" - ") || so.entrega?.local || "")}${end.referencia ? `<br><small>Referência: ${esc(end.referencia)}</small>` : ""}`}
+          <br>💳 ${so.pagamento?.preferencia === "na_entrega" ? `Pagar na entrega${so.pagamento?.detalhe ? ` (${esc(so.pagamento.detalhe)})` : ""}${so.pagamento?.troco ? `, troco para ${esc(so.pagamento.troco)}` : ""}` : so.status === "pago" ? "Pago" : "Pagamento pelo link"}</p>
+        <div class="dl-acoes">${acoes.join("")}</div><div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Fechar</button></div>`, { width: 520 });
+      const msg = (t, erro) => { const el = m.el.querySelector("#m-msg"); el.textContent = t; el.className = `form-msg ${erro ? "error" : "success"}`; };
+      m.el.querySelector(".dl-acoes").addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-a]"); if (!b) return;
+        const a = b.dataset.a;
+        if (a === "recusar") return mensagemCliente(so, m, "recusar");
+        if (a === "indisponivel") return mensagemCliente(so, m, "indisponivel");
+        b.disabled = true;
+        try {
+          if (a === "aprovar") await fn("orders", { action: "approve", order_id: so.id });
+          if (a === "cozinha") await fn("orders", { action: "send_kitchen", order_id: so.id });
+          if (a === "atribuir") { const r = await fn("entregas", { action: "atribuir", order_id: so.id, entregador_id: m.el.querySelector("#m-ent").value }); if (!r.enviado) lumosAlert("O pedido foi oferecido, mas o WhatsApp não enviou a mensagem ao entregador. Confira a conexão do WhatsApp, ou envie o link da aba Entregadores."); }
+          if (a === "finalizar") await fn("entregas", { action: "finalizar", order_id: so.id });
+          m.close(); carregarPedidos();
+        } catch (err) { b.disabled = false; msg(err.message, true); }
+      });
+    }
+
+    // Mensagem pronta ao cliente: recusar ou item indisponível com sugestões do cardápio
+    let cardapio = null;
+    async function mensagemCliente(so, mPedido, tipo) {
+      mPedido.close();
+      const nome = String(so.cliente?.nome || "").split(" ")[0];
+      const itens = (so.itens || []).filter((i) => !i.taxa);
+      if (tipo === "indisponivel" && !cardapio) { const { data } = await produtosParaVenda(owner_id); cardapio = (data || []).filter((p) => p.is_insumo !== true && p.active !== false && p.price != null).map((p) => ({ ...p, cats: (p.product_categories || []).map((c) => c.categories?.name).filter(Boolean) })); }
+      const m = modal(`<h3 style="font-size:18px;">${tipo === "recusar" ? "Recusar o pedido" : "Item indisponível"} #${so.numero}</h3>
+        ${tipo === "indisponivel" ? `<p class="settings-hint" style="margin:6px 0;">O que está faltando?</p><div class="dl-sug" id="m-falta">${itens.map((i, n) => `<label><input type="checkbox" value="${n}" /> ${esc(i.nome)}</label>`).join("")}</div>
+          <p class="settings-hint" style="margin:6px 0;">Sugestões para oferecer no lugar:</p><div class="dl-sug" id="m-sug"><span class="settings-hint">Marque o item que falta.</span></div>` : ""}
+        <div class="field" style="margin-top:8px;"><label>Mensagem para o cliente (pode editar)</label><textarea id="m-texto" rows="5" style="width:100%;"></textarea></div>
+        <p class="settings-hint">O pedido é encerrado e o cliente recebe esta mensagem. Se ele responder, a IA monta o pedido de novo com o que ele escolher.</p>
+        <div id="m-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Voltar</button><button class="btn btn-primary" id="m-enviar">Enviar mensagem</button></div>`, { width: 560 });
+      const texto = m.el.querySelector("#m-texto");
+      const montar = () => {
+        if (tipo === "recusar") return (texto.value = `Olá${nome ? `, ${nome}` : ""}! Infelizmente não conseguimos atender o seu pedido #${so.numero} agora. 😔 Pedimos desculpas, e esperamos te atender numa próxima!`);
+        const faltam = [...m.el.querySelectorAll("#m-falta input:checked")].map((i) => itens[Number(i.value)]);
+        const sugs = [...m.el.querySelectorAll("#m-sug input:checked")].map((i) => i.value);
+        if (!faltam.length) return;
+        const nomes = faltam.map((i) => `*${i.nome}*`).join(" e ");
+        texto.value = `Olá${nome ? `, ${nome}` : ""}! No momento ${nomes} ${faltam.length > 1 ? "estão indisponíveis" : "está indisponível"}. 😔${sugs.length ? ` Mas temos outras opções deliciosas: ${sugs.map((s) => `*${s}*`).join(", ")}.` : ""} Quer trocar por alguma? É só me dizer que eu monto o seu pedido de novo!`;
+      };
+      m.el.querySelector("#m-falta")?.addEventListener("change", () => {
+        const faltam = [...m.el.querySelectorAll("#m-falta input:checked")].map((i) => itens[Number(i.value)]);
+        const nomesFalta = new Set(faltam.map((i) => i.nome));
+        const cats = new Set(faltam.flatMap((i) => cardapio.find((p) => p.id === i.product_id)?.cats || []));
+        const opcoes = cardapio.filter((p) => !nomesFalta.has(p.name) && (cats.size ? p.cats.some((c) => cats.has(c)) : true)).slice(0, 8);
+        m.el.querySelector("#m-sug").innerHTML = opcoes.map((p, n) => `<label><input type="checkbox" value="${esc(p.name)}" ${n < 3 ? "checked" : ""} /> ${esc(p.name)}</label>`).join("") || `<span class="settings-hint">Sem sugestões na mesma categoria.</span>`;
+        montar();
+      });
+      m.el.querySelector("#m-sug")?.addEventListener("change", montar);
+      montar();
+      m.el.querySelector("#m-enviar").addEventListener("click", async (e) => {
+        if (!texto.value.trim()) { m.el.querySelector("#m-msg").textContent = tipo === "indisponivel" ? "Marque o item que está faltando." : "Escreva a mensagem."; m.el.querySelector("#m-msg").className = "form-msg error"; return; }
+        e.target.disabled = true;
+        try { await fn("entregas", { action: "recusar", order_id: so.id, texto: texto.value.trim() }); m.close(); carregarPedidos(); }
+        catch (err) { e.target.disabled = false; m.el.querySelector("#m-msg").textContent = err.message; m.el.querySelector("#m-msg").className = "form-msg error"; }
+      });
+    }
+
+    // ---------- Entregadores ----------
+    let links = [];
+    async function carregarListaEntregadores() {
+      const [{ data: ents }, { data: ls }] = await Promise.all([
+        supabase.from("entregadores").select("*").eq("owner_id", owner_id).order("nome"),
+        supabase.from("entregador_links").select("*").eq("owner_id", owner_id).gt("expira_em", new Date().toISOString()),
+      ]);
+      entregadores = ents || []; links = ls || [];
+    }
+    const linkDe = (id) => links.filter((l) => l.entregador_id === id).sort((a, b) => (b.posicao_em || "").localeCompare(a.posicao_em || ""))[0];
+    async function carregarEntregadores() {
+      await carregarListaEntregadores();
+      $("dl-ents").innerHTML = entregadores.map((x) => { const l = linkDe(x.id);
+        const loc = !l ? `<span class="settings-hint">sem link ativo</span>` : !l.posicao_em ? `<span class="erp-badge warn">link enviado, aguardando</span>` : minDesde(l.posicao_em) <= 10 ? `<span class="erp-badge ok">ao vivo</span>` : `<span class="erp-badge muted">há ${minDesde(l.posicao_em)} min</span>`;
+        return `<tr><td><b>${esc(x.nome)}</b>${x.ativo === false ? ` <span class="erp-badge muted">inativo</span>` : ""}</td><td>${esc(fone(x.telefone))}</td><td>${esc([x.veiculo, x.placa].filter(Boolean).join(" · ") || "-")}</td><td>${brl(x.taxa_entrega)}</td><td>${loc}</td>
+          <td style="white-space:nowrap;"><button class="btn btn-primary btn-sm" data-link="${x.id}">Link de rastreio</button> <button class="btn btn-ghost btn-sm" data-edit="${x.id}">Editar</button> <button class="btn btn-ghost btn-sm" data-del="${x.id}">Excluir</button></td></tr>`; }).join("")
+        || `<tr><td colspan="6" style="opacity:.7;">Nenhum entregador ainda. Cadastre em "+ Novo entregador".</td></tr>`;
+      // Acerto do dia
+      const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+      const { data: es } = await supabase.from("entregas").select("*").eq("owner_id", owner_id).eq("etapa", "entregue").gte("entregue_em", hoje.toISOString());
+      const por = {};
+      for (const e of es || []) { if (!e.entregador_id) continue; const p = (por[e.entregador_id] ||= { n: 0, taxas: 0, recebido: 0 }); p.n++; p.taxas += Number(e.taxa_entregador || 0); p.recebido += Number(e.recebido_na_entrega || 0); }
+      $("dl-acerto").innerHTML = Object.entries(por).map(([id, p]) => `<tr><td>${esc(nomeEnt(id))}</td><td>${p.n}</td><td>${brl(p.taxas)}</td><td>${brl(p.recebido)}</td></tr>`).join("") || `<tr><td colspan="4" style="opacity:.7;">Nenhuma entrega hoje.</td></tr>`;
+    }
+    function editarEntregador(x = {}) {
+      const m = modal(`<h3 style="font-size:18px;">${x.id ? "Editar entregador" : "Novo entregador"}</h3>
+        <div class="field"><label>Nome</label><input id="e-nome" value="${esc(x.nome || "")}" /></div>
+        <div class="field"><label>WhatsApp</label><input id="e-tel" inputmode="tel" value="${esc(x.telefone || "")}" placeholder="(16) 99999-9999" /></div>
+        <div class="erp-row2"><div class="field"><label>Veículo</label><input id="e-veic" value="${esc(x.veiculo || "")}" placeholder="Moto, bicicleta..." /></div><div class="field"><label>Placa</label><input id="e-placa" value="${esc(x.placa || "")}" /></div></div>
+        <div class="field"><label>Quanto recebe por entrega (R$)</label><input id="e-taxa" type="number" min="0" step="0.01" value="${x.taxa_entrega ?? ""}" /></div>
+        ${x.id ? `<label class="toggle-row" style="justify-content:space-between;"><span>Ativo</span><input type="checkbox" class="toggle-input" id="e-ativo" ${x.ativo !== false ? "checked" : ""} /></label>` : ""}
+        <div id="e-msg" class="form-msg"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="e-ok">Salvar</button></div>`, { width: 480 });
+      m.el.querySelector("#e-ok").addEventListener("click", async () => {
+        const v = (id) => m.el.querySelector(id)?.value?.trim();
+        const linha = { owner_id, nome: v("#e-nome"), telefone: onlyDigits(v("#e-tel")), veiculo: v("#e-veic") || null, placa: v("#e-placa") || null, taxa_entrega: Number(v("#e-taxa") || 0), ativo: x.id ? m.el.querySelector("#e-ativo").checked : true };
+        if (!linha.nome || linha.telefone.length < 10) { m.el.querySelector("#e-msg").textContent = "Informe o nome e o WhatsApp com DDD."; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
+        const { error } = x.id ? await supabase.from("entregadores").update(linha).eq("id", x.id) : await supabase.from("entregadores").insert(linha);
+        if (error) { m.el.querySelector("#e-msg").textContent = /entregadores/.test(error.message) ? "Falta aplicar a seção 55 do guia." : error.message; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
+        m.close(); carregarEntregadores();
+      });
+    }
+    $("dl-novo-ent").addEventListener("click", () => editarEntregador());
+    $("dl-ents").addEventListener("click", async (e) => {
+      const ed = e.target.closest("[data-edit]"); if (ed) return editarEntregador(entregadores.find((x) => x.id === ed.dataset.edit));
+      const del = e.target.closest("[data-del]");
+      if (del && await lumosConfirm("Excluir este entregador? As entregas já feitas continuam no histórico.")) { await supabase.from("entregadores").delete().eq("id", del.dataset.del); return carregarEntregadores(); }
+      const lk = e.target.closest("[data-link]"); if (!lk) return;
+      const x = entregadores.find((y) => y.id === lk.dataset.link);
+      try {
+        const r = await fn("entregas", { action: "link_entregador", entregador_id: x.id });
+        const m = modal(`<h3 style="font-size:18px;">Link de ${esc(x.nome)}</h3>
+          <p class="settings-hint" style="margin:6px 0 10px;">Vale até ${new Date(r.expira_em).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}. Ao abrir e permitir a localização, ele aparece no mapa e recebe as entregas por esse link.</p>
+          <input readonly value="${esc(r.link)}" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--panel-border); background:var(--panel-bg); color:var(--panel-text);" />
+          <div id="l-msg" class="form-msg"></div>
+          <div class="modal-actions"><button class="btn btn-ghost" id="l-copiar">Copiar</button><button class="btn btn-ghost" id="l-novo">Gerar outro</button><button class="btn btn-primary" id="l-enviar">Enviar no WhatsApp dele</button></div>`, { width: 540 });
+        m.el.querySelector("#l-copiar").addEventListener("click", async () => { try { await navigator.clipboard.writeText(r.link); m.el.querySelector("#l-msg").textContent = "Copiado."; } catch (_) { /* sem permissão */ } });
+        m.el.querySelector("#l-novo").addEventListener("click", async () => { const n = await fn("entregas", { action: "link_entregador", entregador_id: x.id, novo: true }); m.el.querySelector("input").value = n.link; r.link = n.link; });
+        m.el.querySelector("#l-enviar").addEventListener("click", async (ev) => { ev.target.disabled = true; const n = await fn("entregas", { action: "link_entregador", entregador_id: x.id, enviar: true });
+          m.el.querySelector("#l-msg").textContent = n.enviado ? "Enviado no WhatsApp do entregador." : "Não foi possível enviar pelo WhatsApp. Copie o link e mande por outro meio."; m.el.querySelector("#l-msg").className = `form-msg ${n.enviado ? "success" : "error"}`; ev.target.disabled = false; carregarEntregadores(); });
+      } catch (err) { lumosAlert(err.message); }
+    });
+
+    // ---------- Mapa (entregadores ao vivo) ----------
+    let mapa = null, marcadores = {};
+    function abrirMapa() {
+      if (!window.L) { $("dl-mapa-info").textContent = "Não foi possível carregar o mapa. Confira a internet."; return; }
+      if (!mapa) {
+        mapa = L.map("dl-mapa").setView([-23.55, -46.63], 12);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(mapa);
+      }
+      setTimeout(() => mapa.invalidateSize(), 50);
+      atualizarMapa(true);
+    }
+    async function atualizarMapa(enquadrar) {
+      if (!mapa) return;
+      await carregarListaEntregadores();
+      const vivos = entregadores.map((x) => ({ x, l: linkDe(x.id) })).filter(({ l }) => l?.lat && minDesde(l.posicao_em) <= 30);
+      const icone = L.divIcon({ className: "", html: `<div style="font-size:26px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.4));">🛵</div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+      for (const k of Object.keys(marcadores)) if (!vivos.some(({ x }) => x.id === k)) { marcadores[k].remove(); delete marcadores[k]; }
+      for (const { x, l } of vivos) {
+        const txt = `<b>${esc(x.nome)}</b><br>atualizado há ${minDesde(l.posicao_em)} min`;
+        if (marcadores[x.id]) marcadores[x.id].setLatLng([l.lat, l.lng]).setPopupContent(txt);
+        else marcadores[x.id] = L.marker([l.lat, l.lng], { icon: icone }).addTo(mapa).bindPopup(txt);
+      }
+      $("dl-mapa-info").textContent = vivos.length ? `${vivos.length} entregador(es) no mapa. Atualiza sozinho a cada 15 segundos.` : "Nenhum entregador com localização ativa. Envie o link de rastreio na aba Entregadores.";
+      if (enquadrar && vivos.length) mapa.fitBounds(L.latLngBounds(vivos.map(({ l }) => [l.lat, l.lng])).pad(0.4), { maxZoom: 15 });
+    }
+
+    // ---------- Começo e atualização automática ----------
+    await carregarConfig();
+    await carregarPedidos();
+    setInterval(() => {
+      if (document.querySelector(".modal-backdrop") || document.body.classList.contains("sim-on")) return;
+      if (aba === "pedidos") carregarPedidos(); else if (aba === "mapa") atualizarMapa(false); else if (aba === "entregadores") carregarEntregadores();
+      pintarStatus();
+    }, 15000);
+  </script>
+</body>
+</html>

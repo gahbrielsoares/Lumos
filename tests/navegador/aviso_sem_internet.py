@@ -1,6 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
-exec(open('tests/navegador/base_menu_real.py').read().split("async def main():")[0].replace("?v=94","?v=94").replace("?v=94","?v=94"))
+exec(open('tests/navegador/base_menu_real.py').read().split("async def main():")[0].replace("?v=95","?v=95").replace("?v=95","?v=95"))
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path=__import__("os").environ.get("LUMOS_CHROMIUM") or None)

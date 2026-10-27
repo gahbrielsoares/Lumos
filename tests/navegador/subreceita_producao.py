@@ -1,6 +1,6 @@
 import asyncio
 from playwright.async_api import async_playwright
-exec(open('tests/navegador/base_paginas.py').read().split("async def run(page):")[0].replace("?v=94","?v=94").replace("?v=94","?v=94"))
+exec(open('tests/navegador/base_paginas.py').read().split("async def run(page):")[0].replace("?v=95","?v=95").replace("?v=95","?v=95"))
 STUBS["supabaseClient.js"]=r'''
 const DB={products:[
  {id:"tom",name:"Tomate",unit:"kg",custo:8,estoque:10,is_insumo:true,active:true},{id:"ceb",name:"Cebola",unit:"kg",custo:5.5,estoque:5,is_insumo:true,active:true},

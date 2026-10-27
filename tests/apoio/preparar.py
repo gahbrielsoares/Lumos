@@ -27,6 +27,7 @@ imp = re.compile(r'^import \{ createClient \} from "https://esm\.sh/@supabase/su
 esbuild(imp.sub("const createClient = () => ({});", fn("fiscal")), "fiscal_t")
 esbuild(imp.sub("const createClient = () => globalThis.__sb;", fn("pagamentos")), "pag_t")
 esbuild(imp.sub("const createClient = () => globalThis.__sb;", fn("assinaturas")), "assin_t")
+esbuild(imp.sub("const createClient = () => globalThis.__sb;", fn("entregas")), "entregas_t")
 
 def npm(pacote, arquivo, destino):
     if os.path.exists(destino): return

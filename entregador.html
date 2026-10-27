@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entregas | Lumos</title>
+  <link rel="icon" type="image/png" href="img/logo.png">
+  <script src="js/logo.js?v=95" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=95" />
+  <script src="js/dialogs.js?v=95"></script>
+</head>
+<body>
+  <style>
+    body { margin:0; background:var(--panel-bg, #0c0c0c); color:var(--panel-text, #f3efe6); font-family:var(--panel-font-body, system-ui); }
+    .mb { max-width:560px; margin:0 auto; padding:18px 16px 60px; }
+    .mb-topo { display:flex; align-items:center; gap:10px; } .mb-topo img { width:34px; height:34px; }
+    .mb-card { background:var(--panel-card, #17161a); border:1px solid var(--panel-border, #2a2a2e); border-radius:18px; padding:16px; margin-top:14px; }
+    .mb-card h3 { font-size:18px; margin:0 0 6px; } .mb-card p { margin:6px 0; font-size:14.5px; line-height:1.5; }
+    .mb-btn { display:block; width:100%; border:0; border-radius:14px; padding:15px; font-size:16px; font-weight:700; cursor:pointer; margin-top:10px; text-align:center; text-decoration:none; font-family:inherit; }
+    .mb-ok { background:#C9A84C; color:#1C1508; } .mb-sec { background:rgba(127,127,127,.18); color:inherit; } .mb-nao { background:rgba(185,64,64,.16); color:#e06666; }
+    .mb-dois { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .mb-dois .mb-btn { margin-top:10px; }
+    .mb-tag { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12.5px; font-weight:700; background:rgba(201,168,76,.18); }
+    .mb-cobrar { background:rgba(212,131,74,.15); border:1px solid rgba(212,131,74,.5); border-radius:12px; padding:10px 12px; margin-top:8px; font-weight:700; }
+    .mb-gps { display:flex; align-items:center; gap:8px; font-size:14px; } .mb-gps i { width:10px; height:10px; border-radius:50%; background:#B94040; } .mb-gps.on i { background:#4A7C59; box-shadow:0 0 0 4px rgba(74,124,89,.25); }
+    .mb-vazio { text-align:center; opacity:.75; padding:30px 10px; }
+    select.mb-sel { width:100%; padding:12px; border-radius:12px; margin-top:8px; font-size:15px; }
+  </style>
+  <div class="mb">
+    <div class="mb-topo"><img src="img/logo.png" alt="" /><div><b id="mb-ola">Entregas</b><div style="font-size:12.5px; opacity:.7;" id="mb-validade"></div></div></div>
+    <div class="mb-card" id="mb-gps-card">
+      <div class="mb-gps" id="mb-gps"><i></i><span>Localização desligada</span></div>
+      <p>Para o restaurante e o cliente acompanharem a entrega, permita a localização e deixe esta tela aberta durante as entregas.</p>
+      <button class="mb-btn mb-ok" id="mb-ativar">Ativar localização</button>
+    </div>
+    <div id="mb-lista"><p class="mb-vazio">Carregando...</p></div>
+  </div>
+  <script type="module">
+    import { supabase } from "./js/supabaseClient.js?v=95";
+    const t = new URLSearchParams(location.search).get("t") || "";
+    const $ = (id) => document.getElementById(id);
+    const brl = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    async function chamar(body) {
+      const { data, error } = await supabase.functions.invoke("entregas", { body: { ...body, t } });
+      if (error || data?.error) { let m = data?.error || "Sem conexão. Tente de novo."; try { m = (await error.context.json()).error || m; } catch (_) { /* sem detalhe */ } throw new Error(m); }
+      return data;
+    }
+    // ---------- Localização ----------
+    let ultimoEnvio = 0, travaTela = null, vigia = null;
+    function ligarGps() {
+      if (!navigator.geolocation) { $("mb-gps").querySelector("span").textContent = "Este celular não tem localização"; return; }
+      if (vigia !== null) return;
+      vigia = navigator.geolocation.watchPosition(async (p) => {
+        $("mb-gps").className = "mb-gps on"; $("mb-gps").querySelector("span").textContent = "Localização ligada"; $("mb-ativar").style.display = "none";
+        if (Date.now() - ultimoEnvio < 15000) return;
+        ultimoEnvio = Date.now();
+        try { await chamar({ action: "motoboy_posicao", lat: p.coords.latitude, lng: p.coords.longitude, precisao: p.coords.accuracy }); } catch (_) { /* tenta de novo na próxima */ }
+      }, () => { $("mb-gps").className = "mb-gps"; $("mb-gps").querySelector("span").textContent = "Localização bloqueada: libere nas configurações do navegador"; vigia = null; },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+      // Pede ao celular para não apagar a tela (o rastreio para quando a tela apaga)
+      try { navigator.wakeLock?.request("screen").then((w) => (travaTela = w)).catch(() => {}); } catch (_) { /* sem suporte */ }
+    }
+    $("mb-ativar").addEventListener("click", ligarGps);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && vigia !== null && !travaTela) try { navigator.wakeLock?.request("screen").then((w) => (travaTela = w)); } catch (_) { /* sem suporte */ } });
+
+    // ---------- Entregas ----------
+    async function carregar() {
+      let d;
+      try { d = await chamar({ action: "motoboy_estado" }); }
+      catch (e) { $("mb-lista").innerHTML = `<div class="mb-card"><h3>Link expirado</h3><p>${esc(e.message)}</p></div>`; $("mb-gps-card").style.display = "none"; return; }
+      $("mb-ola").textContent = `Olá, ${d.entregador.nome.split(" ")[0]}!`;
+      $("mb-validade").textContent = `Link válido até ${new Date(d.expira_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+      if (d.autorizado && vigia === null) ligarGps();
+      $("mb-lista").innerHTML = d.entregas.map((e) => `<div class="mb-card" data-id="${e.id}">
+          <span class="mb-tag">${e.etapa === "oferecida" ? "Nova entrega" : e.etapa === "chegou" ? "No local" : "A caminho"}</span>
+          <h3 style="margin-top:8px;">Pedido #${e.numero} · ${esc(e.cliente)}</h3>
+          <p>📍 ${esc(e.endereco || "Endereço não informado")}${e.referencia ? `<br><small>Referência: ${esc(e.referencia)}</small>` : ""}</p>
+          <p style="opacity:.8;">${e.itens.map(esc).join(" · ")}</p>
+          ${e.cobrar ? `<div class="mb-cobrar">💵 Cobrar na entrega: ${brl(e.cobrar)}${e.troco ? `<br><small>Troco para ${esc(e.troco)}</small>` : ""}${e.forma ? `<br><small>${esc(e.forma)}</small>` : ""}</div>` : `<p>✅ Pedido já pago</p>`}
+          ${e.etapa === "oferecida" ? `<div class="mb-dois"><button class="mb-btn mb-nao" data-a="recusar">Recusar</button><button class="mb-btn mb-ok" data-a="aceitar">Aceitar entrega</button></div>` : `
+            <a class="mb-btn mb-sec" href="${esc(e.mapa)}" target="_blank" rel="noopener">🗺️ Abrir o caminho no mapa</a>
+            ${e.telefone ? `<a class="mb-btn mb-sec" href="tel:+${String(e.telefone).replace(/\D/g, "")}">📞 Ligar para o cliente</a>` : ""}
+            ${e.etapa === "em_rota" ? `<button class="mb-btn mb-ok" data-a="cheguei">Cheguei</button>` : `
+              ${e.cobrar ? `<select class="mb-sel" id="f-${e.id}"><option value="dinheiro">Recebi em dinheiro</option><option value="pix">Recebi no Pix</option><option value="cartao">Recebi no cartão de crédito</option><option value="debito">Recebi no cartão de débito</option></select>` : ""}
+              <button class="mb-btn mb-ok" data-a="entregue">${e.cobrar ? `Entreguei e recebi ${brl(e.cobrar)}` : "Entreguei"}</button>`}`}
+        </div>`).join("") || `<div class="mb-card mb-vazio">Nenhuma entrega agora. Quando o restaurante enviar um pedido, ele aparece aqui.</div>`;
+    }
+    $("mb-lista").addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-a]"); if (!b) return;
+      const card = b.closest("[data-id]"), id = card.dataset.id, a = b.dataset.a;
+      if (a === "recusar" && !confirm("Recusar esta entrega? Ela volta para o restaurante escolher outro entregador.")) return;
+      b.disabled = true;
+      try {
+        await chamar({ action: `motoboy_${a === "aceitar" ? "aceitar" : a === "recusar" ? "recusar" : a === "cheguei" ? "cheguei" : "entregue"}`, entrega_id: id,
+          ...(a === "entregue" ? { recebido: true, forma: document.getElementById(`f-${id}`)?.value || "dinheiro" } : {}) });
+        if (a === "aceitar") ligarGps();
+        await carregar();
+        if (a === "aceitar") { const mapa = document.querySelector(`[data-id="${id}"] a[href*="google.com/maps"]`); if (mapa) window.open(mapa.href, "_blank"); }
+      } catch (e) { alert(e.message); b.disabled = false; }
+    });
+    carregar();
+    setInterval(carregar, 15000);
+  </script>
+</body>
+</html>

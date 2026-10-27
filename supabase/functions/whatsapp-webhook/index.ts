@@ -1409,7 +1409,7 @@ Deno.serve(async (req) => {
       .eq("owner_id", owner_id);
 
     const effIntegrations = effectiveIntegrations(agent, integrations || []);
-    const storeInfo = buildStoreInfo(effIntegrations);
+    let storeInfo = buildStoreInfo(effIntegrations);
     const disabledStages: string[] = bizConfig?.disabled_stages || [];
     const canStage = (st: string) => !disabledStages.includes(st);
     const businessType = agent.is_simulator ? (agent.sim_business_type || "materiais_construcao") : bizConfig?.business_type;
@@ -1418,12 +1418,29 @@ Deno.serve(async (req) => {
     const vendasCfg = effIntegrations.find((i: any) => i.kind === "vendas" && i.enabled)?.config || {};
     // deno-lint-ignore no-explicit-any
     const freteInt = effIntegrations.find((i: any) => i.kind === "frete" && i.enabled && i.config?.ia_consulta !== false);
-    const autoApprove = vendasCfg.aprovacao_humana === false;
+    let autoApprove = vendasCfg.aprovacao_humana === false;
 
     // Restaurante: o que a casa oferece. Sem configuração, mantém o comportamento antigo (só pedido na mesa).
     // deno-lint-ignore no-explicit-any
     const restCfg = effIntegrations.find((i: any) => i.kind === "restaurante" && i.enabled)?.config || null;
     const modalidades: string[] = isRestaurant ? (restCfg?.modalidades?.length ? restCfg.modalidades : ["mesa"]) : [];
+    // Delivery (aba Delivery): aprovação, pausa e pedido mínimo definidos pelo restaurante
+    // deno-lint-ignore no-explicit-any
+    let dCfg: any = null;
+    if (isRestaurant) { try { ({ data: dCfg } = await supabase.from("delivery_config").select("*").eq("owner_id", owner_id).maybeSingle()); } catch (_) { dCfg = null; } }
+    if (dCfg) autoApprove = dCfg.aprovacao === "automatica";
+    const pausaAte = dCfg?.pausa_ate && new Date(dCfg.pausa_ate) > new Date() ? new Date(dCfg.pausa_ate) : null;
+    const deliveryFechado = !!dCfg && (!dCfg.aberto || !!pausaAte);
+    const pedidoMinimo = Number(dCfg?.pedido_minimo || 0);
+    const horaBR = (d: Date) => d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    const avisoFechado = deliveryFechado
+      ? (dCfg.mensagem_pausa || (pausaAte ? `Nosso delivery está pausado no momento e volta às ${horaBR(pausaAte)}.` : "Nosso delivery está fechado no momento."))
+      : "";
+    if (isRestaurant && dCfg) {
+      storeInfo += `\n\nDELIVERY: ${deliveryFechado ? `${avisoFechado} NÃO aceite pedidos para entrega agora: explique com gentileza${modalidades.includes("retirada") ? " e ofereça a retirada no balcão" : ""}.` : `aberto. Tempo estimado de entrega: cerca de ${dCfg.tempo_estimado || 50} minutos.`}`
+        + (pedidoMinimo > 0 ? ` Pedido mínimo para entrega: R$ ${pedidoMinimo.toFixed(2).replace(".", ",")}.` : "")
+        + (!autoApprove ? " Quando o pedido estiver completo, diga que ele foi registrado e que o estabelecimento vai confirmar em instantes (não prometa link de pagamento antes da confirmação)." : "");
+    }
     // Fluxo de venda (orçamento -> pedido -> pagamento): lojas sempre; restaurante no delivery/retirada (não na mesa)
     const salesFlow = !isRestaurant || ((modalidades.includes("delivery") || modalidades.includes("retirada")) && !lead.table_session_id);
     // Pagamento presencial (sem link): as mensagens de fechamento não falam em link
@@ -1900,6 +1917,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     // deno-lint-ignore no-explicit-any
     let newOrder: any = null;
     const closing = salesFlow && orcamentoMatches.length > 0 && etapaMatch?.[1]?.toLowerCase() === "aguardando_link";
+    let bloqueioDelivery = "";
     if (salesFlow && orcamentoMatches.length) {
       const itens: Record<string, unknown>[] = buildOrderItems(orcamentoMatches, products || []);
       const bruto = Math.round(itens.reduce((s, i) => s + Number(i.subtotal), 0) * 100) / 100;
@@ -1910,12 +1928,17 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
       }
       const subtotal = Math.round(itens.reduce((s, i) => s + Number(i.subtotal), 0) * 100) / 100;
       const fromMarker = entregaMatch?.[1] ? await resolveDelivery([entregaMatch[1]], freteInt, subtotal) : null;
-      const entrega = fromMarker || (knownDelivery
+      let entrega = fromMarker || (knownDelivery
         ? (knownDelivery.tipo === "retirada" ? knownDelivery : computeFreight(knownDelivery.local, freteInt, subtotal, { cep: knownDelivery.cep, bairro: knownDelivery.faixa || null }))
         : computeFreight(entregaMatch?.[1] || null, freteInt, subtotal));
+      // Delivery pausado ou abaixo do pedido mínimo: não registra o pedido de entrega, avisa o cliente
+      // deno-lint-ignore no-explicit-any
+      const ehEntrega = isRestaurant && (entrega as any)?.tipo && !["retirada", "mesa"].includes((entrega as any).tipo);
+      if (ehEntrega && deliveryFechado) { bloqueioDelivery = `${avisoFechado}${modalidades.includes("retirada") ? " Se preferir, você pode retirar no balcão. 😉" : ""}`; }
+      else if (ehEntrega && pedidoMinimo > 0 && subtotal < pedidoMinimo) { bloqueioDelivery = `O pedido mínimo para entrega é de *R$ ${pedidoMinimo.toFixed(2).replace(".", ",")}*. Seu pedido está em R$ ${subtotal.toFixed(2).replace(".", ",")}. Quer acrescentar mais alguma coisa? 😊`; }
       leadUpdate.orcamento = { itens, total: subtotal, frete: entrega.valor, entrega, criado_em: new Date().toISOString() };
 
-      if (closing) {
+      if (closing && !bloqueioDelivery) {
         const orderRow = {
           owner_id, agent_id, lead_id: lead.id, itens, subtotal,
           frete: entrega.valor,
@@ -1980,7 +2003,9 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
 
     console.log("Config de WhatsApp usada:", JSON.stringify({ ...waConfig, api_key: waConfig?.api_key ? "(definida)" : null }));
 
-    if (confirmButtons) await sendButtons(waConfig, payload, customerNumber, reply, ["Sim", "Não"]);
+    // Delivery pausado ou abaixo do mínimo: o aviso substitui a resposta da IA (que poderia dizer que o pedido foi feito)
+    if (bloqueioDelivery) await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, bloqueioDelivery);
+    else if (confirmButtons) await sendButtons(waConfig, payload, customerNumber, reply, ["Sim", "Não"]);
     else await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber, reply);
 
     if (enteredAwaiting && newOrder) {
@@ -1998,6 +2023,11 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
         });
         if (!res.ok) console.error("Falha na aprovação automática:", res.status, await res.text());
       } else {
+        // Restaurante com aprovação manual: o cliente sabe que precisa aguardar a equipe conferir
+        if (isRestaurant && !autoApprove) {
+          await sendWhatsAppReply(waConfig, payload.BaseUrl, payload.token, customerNumber,
+            `Recebemos seu pedido *#${newOrder.numero}*! ✅ Aguarde a aprovação do estabelecimento, já já te mandamos a confirmação${pagPresencial ? "" : " e o link de pagamento"}.`);
+        }
         // Vai pro vendedor (aprovação manual, ou frete que só ele define)
         // Avisa o vendedor que tem pedido esperando aprovação
         const sellerPhone = onlyDigits(vendasCfg.telefone_aprovacao);

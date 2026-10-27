@@ -2363,6 +2363,113 @@ Depois, atualize as Edge Functions **`orders`**, **`pagamentos`**, **`assinatura
 - Só a equipe Lumos lê. Guarda o essencial (valores, números, situação), nunca chaves ou conversas. Apaga sozinho
   depois de 90 dias.
 
+## 55. Delivery: pedidos, entregadores, rastreio e mapa
+
+No **SQL Editor**:
+
+```sql
+-- ===================== Delivery =====================
+-- Configuração do delivery de cada estabelecimento
+create table if not exists public.delivery_config (
+  owner_id uuid primary key references auth.users(id) on delete cascade,
+  aprovacao text not null default 'manual' check (aprovacao in ('automatica','manual')),   -- manual: a equipe confere antes do link
+  cozinha text not null default 'automatica' check (cozinha in ('automatica','manual')),   -- manual: a equipe manda para a cozinha
+  tempo_estimado integer not null default 50,          -- minutos, informado ao cliente na aprovação
+  pedido_minimo numeric(12,2) not null default 0,
+  aberto boolean not null default true,
+  pausa_ate timestamptz,                               -- pausado até este horário
+  mensagem_pausa text,
+  minutos_sem_resposta integer not null default 15,    -- cliente que não responde à sugestão: pedido encerrado
+  updated_at timestamptz default now()
+);
+
+-- Entregadores (motoboys)
+create table if not exists public.entregadores (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  nome text not null,
+  telefone text not null,
+  veiculo text,
+  placa text,
+  taxa_entrega numeric(12,2) not null default 0,       -- quanto o entregador recebe por entrega
+  ativo boolean not null default true,
+  created_at timestamptz default now()
+);
+create index if not exists entregadores_owner on public.entregadores (owner_id);
+
+-- Link do entregador (tela dele e rastreio): vale 8 horas
+create table if not exists public.entregador_links (
+  token text primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  entregador_id uuid not null references public.entregadores(id) on delete cascade,
+  expira_em timestamptz not null,
+  autorizado_em timestamptz,                           -- quando o entregador permitiu a localização
+  lat double precision, lng double precision, precisao double precision,
+  posicao_em timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists entregador_links_entregador on public.entregador_links (entregador_id, expira_em desc);
+create index if not exists entregador_links_owner on public.entregador_links (owner_id, expira_em desc);
+
+-- Entrega de cada pedido (depois que fica pronto)
+create table if not exists public.entregas (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  sales_order_id uuid not null unique references public.sales_orders(id) on delete cascade,
+  entregador_id uuid references public.entregadores(id) on delete set null,
+  etapa text not null default 'aguardando_entregador'
+    check (etapa in ('aguardando_entregador','oferecida','em_rota','chegou','entregue','retirado','cancelada')),
+  rastreio_token text unique,                          -- link de acompanhamento do cliente
+  taxa_entregador numeric(12,2),
+  recebido_na_entrega numeric(12,2),
+  forma_na_entrega text,
+  recusas jsonb default '[]'::jsonb,                   -- quem recusou e quando
+  oferecida_em timestamptz, saiu_em timestamptz, chegou_em timestamptz, entregue_em timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+create index if not exists entregas_owner on public.entregas (owner_id, created_at desc);
+create index if not exists entregas_entregador on public.entregas (entregador_id, etapa);
+
+-- Acesso: o dono e a equipe com a aba Delivery. A tela do entregador e o rastreio usam a função "entregas".
+alter table public.delivery_config enable row level security;
+alter table public.entregadores enable row level security;
+alter table public.entregador_links enable row level security;
+alter table public.entregas enable row level security;
+do $$ declare t text; begin
+  foreach t in array array['delivery_config','entregadores','entregador_links','entregas'] loop
+    execute format('drop policy if exists "Dono: %1$s" on public.%1$s', t);
+    execute format('create policy "Dono: %1$s" on public.%1$s for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id)', t);
+    execute format('drop policy if exists "Equipe: %1$s" on public.%1$s', t);
+    execute format('create policy "Equipe: %1$s" on public.%1$s for all using (public.team_has_tab(owner_id, ''delivery'')) with check (public.team_has_tab(owner_id, ''delivery''))', t);
+  end loop;
+end $$;
+-- A equipe do Delivery também precisa ver os pedidos e a cozinha (para o painel)
+drop policy if exists "Equipe Delivery: le pedidos" on public.sales_orders;
+create policy "Equipe Delivery: le pedidos" on public.sales_orders for select using (public.team_has_tab(owner_id, 'delivery'));
+drop policy if exists "Equipe Delivery: le cozinha" on public.orders;
+create policy "Equipe Delivery: le cozinha" on public.orders for select using (public.team_has_tab(owner_id, 'delivery'));
+```
+
+### Edge Functions
+1. Crie a função **`entregas`** (nova) com `supabase/functions/entregas/index.ts`, **"Enforce JWT verification" DESLIGADO**
+   (o entregador e o cliente abrem links com código, sem login).
+2. Atualize **`orders`** (envio manual para a cozinha, aviso ao cliente, pagamento em dinheiro na entrega),
+   **`whatsapp-webhook`** (aprovação manual, delivery pausado e pedido mínimo) e **`team`** (aba `delivery`).
+
+### Como funciona
+- **Delivery → Pedidos**: quadro por etapa (Aguardando aprovação, Aguardando pagamento, Pago, Na cozinha, Pronto,
+  Saiu para entrega, Entregue). Clique no cartão para agir: aprovar e enviar o link, item indisponível (mensagem pronta
+  com sugestões da mesma categoria), recusar, enviar para a cozinha, selecionar o entregador. Atraso fica em vermelho.
+- **Configuração**: aprovação manual ou automática, envio à cozinha automático ou manual, tempo estimado, pedido mínimo,
+  abrir, fechar e pausar (15, 30 ou 60 min). A IA segue essas regras no WhatsApp.
+- **Entregadores**: cadastro, link de rastreio de 8 horas (enviado no WhatsApp dele) e acerto do dia.
+- **Tela do entregador** (`entregador.html`): aceitar ou recusar, abrir o caminho no mapa, ligar, "Cheguei" e
+  "Entreguei" (com o recebimento do pagamento na entrega). Envia a localização enquanto a tela está aberta.
+- **Rastreio do cliente** (`rastreio.html`): o cliente recebe o link quando o pedido sai e acompanha no mapa.
+- **Mapa**: os entregadores com localização ativa, atualizado a cada 15 segundos (mapas do OpenStreetMap).
+- **Cozinha**: clique no cartão para escolher a ação; pedidos de delivery levam o selo "Delivery".
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

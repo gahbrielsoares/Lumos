@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 54. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 55. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -298,7 +298,20 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (54, 'indice', 'public', 'eventos_sistema', 'eventos_owner_data'),
   (54, 'indice', 'public', 'eventos_sistema', 'eventos_tipo_data'),
   (54, 'regra', 'public', 'eventos_sistema', 'Equipe Lumos le o historico'),
-  (54, 'tabela', 'public', 'eventos_sistema', 'eventos_sistema')
+  (54, 'tabela', 'public', 'eventos_sistema', 'eventos_sistema'),
+  (55, 'indice', 'public', 'entregador_links', 'entregador_links_entregador'),
+  (55, 'indice', 'public', 'entregador_links', 'entregador_links_owner'),
+  (55, 'indice', 'public', 'entregadores', 'entregadores_owner'),
+  (55, 'indice', 'public', 'entregas', 'entregas_entregador'),
+  (55, 'indice', 'public', 'entregas', 'entregas_owner'),
+  (55, 'regra', 'public', 'orders', 'Equipe Delivery: le cozinha'),
+  (55, 'regra', 'public', 'public', 'Dono: %1$s'),
+  (55, 'regra', 'public', 'public', 'Equipe: %1$s'),
+  (55, 'regra', 'public', 'sales_orders', 'Equipe Delivery: le pedidos'),
+  (55, 'tabela', 'public', 'delivery_config', 'delivery_config'),
+  (55, 'tabela', 'public', 'entregador_links', 'entregador_links'),
+  (55, 'tabela', 'public', 'entregadores', 'entregadores'),
+  (55, 'tabela', 'public', 'entregas', 'entregas')
 ),
 falta as (
   select e.* from esperado e
