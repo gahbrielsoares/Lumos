@@ -3,10 +3,10 @@
 // Barra no estilo dock (Lumos, CRM, ERP e as páginas abertas), painéis com os ícones de cada grupo,
 // páginas abertas como janelas (alternar sem perder o que estava na tela) e favoritos na área de trabalho.
 // =====================================================================
-import { requireSession, signOut } from "./auth.js?v=91";
-import { alternarTema } from "./theme.js?v=91";
-import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=91";
-import { supabase } from "./supabaseClient.js?v=91";
+import { requireSession, signOut } from "./auth.js?v=92";
+import { alternarTema } from "./theme.js?v=92";
+import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=92";
+import { supabase } from "./supabaseClient.js?v=92";
 
 const MAX_JANELAS = 8;
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -147,7 +147,7 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharPain
 // ---------- Favoritos na área de trabalho (arrastar e organizar) ----------
 const chaveFav = `lumos:area:${uid}`;
 let favoritos = (() => { try { return JSON.parse(localStorage.getItem(chaveFav) || "null"); } catch (_) { return null; } })();
-if (!Array.isArray(favoritos)) favoritos = ["dashboard", "kanban", "pdv", "financeiro"].filter((k) => porKey[k]).map((key, n) => ({ key, x: 32, y: 32 + n * 112 }));
+if (!Array.isArray(favoritos)) favoritos = [];   // começa vazia: cada um fixa o que quiser
 favoritos = favoritos.filter((f) => porKey[f.key]);
 const salvarFav = () => { try { localStorage.setItem(chaveFav, JSON.stringify(favoritos)); } catch (_) { /* sem storage */ } };
 function alternarFavorito(key) {
@@ -185,7 +185,7 @@ function pintarArea() {
   const pos = posicoesNaTela();
   $("ad-area").innerHTML = favoritos.map((f) => { const i = porKey[f.key];
     return `<div class="ad-icone ad-na-area" data-fav="${f.key}" style="left:${pos[f.key].x}px; top:${pos[f.key].y}px;" tabindex="0" role="button" title="${esc(i.label)}">${tile(i)}<span>${esc(i.label)}</span></div>`; }).join("")
-    + (favoritos.length ? "" : `<p class="ad-dica">Abra o CRM ou o ERP na barra abaixo e toque no alfinete de um ícone para deixá-lo aqui.</p>`);
+    ;
 }
 // Arrastar: segura e move; solta encaixando na grade. Toque rápido abre.
 let arrasto = null;
@@ -202,16 +202,26 @@ $("ad-area").addEventListener("pointermove", (e) => {
   arrasto.moveu = true; arrasto.el.classList.add("arrastando");
   arrasto.el.style.left = `${Math.max(0, arrasto.fx + dx)}px`; arrasto.el.style.top = `${Math.max(0, arrasto.fy + dy)}px`;
 });
+let acabouDeArrastar = false;
 $("ad-area").addEventListener("pointerup", (e) => {
   if (!arrasto) return;
   const { el, f, moveu } = arrasto; arrasto = null;
-  if (!moveu) return abrir(porKey[f.key]);
+  try { el.releasePointerCapture(e.pointerId); } catch (_) { /* já liberado */ }
+  if (!moveu) return;   // toque sem arrastar: quem abre é o clique (abaixo)
+  acabouDeArrastar = true; setTimeout(() => (acabouDeArrastar = false), 0);
   const area = $("ad-area").getBoundingClientRect();
   const x = Math.min(Math.max(0, Math.round((parseFloat(el.style.left) - 32) / GRADE.w) * GRADE.w + 32), Math.max(32, area.width - GRADE.w));
   const y = Math.min(Math.max(0, Math.round((parseFloat(el.style.top) - 32) / GRADE.h) * GRADE.h + 32), Math.max(32, area.height - GRADE.h));
   const outro = favoritos.find((o) => o !== f && o.x === x && o.y === y);
   if (outro) { outro.x = f.x; outro.y = f.y; }   // troca de lugar com quem estava lá
   f.x = x; f.y = y; salvarFav(); pintarArea();
+});
+// Clique (ou toque) no atalho: abre a página na frente
+$("ad-area").addEventListener("click", (e) => {
+  const el = e.target.closest("[data-fav]"); if (!el || acabouDeArrastar) return;
+  e.stopPropagation();
+  const item = porKey[el.dataset.fav];
+  requestAnimationFrame(() => abrir(item));
 });
 $("ad-area").addEventListener("keydown", (e) => { if (e.key === "Enter") { const el = e.target.closest("[data-fav]"); if (el) abrir(porKey[el.dataset.fav]); } });
 $("ad-area").addEventListener("contextmenu", async (e) => {

@@ -2,9 +2,9 @@
 // Caixa do turno (usado dentro do PDV): abertura, sangria, suprimento, resumo, fechamento e histórico.
 // Fica numa barra no topo do PDV. Os cálculos são de js/caixa.js.
 // =====================================================================
-import { supabase } from "./supabaseClient.js?v=91";
-import { brl, esc, modal, buscarTodos } from "./erp.js?v=91";
-import { resumoCaixa, FORMAS_CAIXA } from "./caixa.js?v=91";
+import { supabase } from "./supabaseClient.js?v=92";
+import { brl, esc, modal, buscarTodos } from "./erp.js?v=92";
+import { resumoCaixa, FORMAS_CAIXA } from "./caixa.js?v=92";
 
 const hora = (iso) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 

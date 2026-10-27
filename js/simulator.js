@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=91";
-import { getWorkspaceOwnerId } from "./workspace.js?v=91";
+import { supabase } from "./supabaseClient.js?v=92";
+import { getWorkspaceOwnerId } from "./workspace.js?v=92";
 
 // =====================================================================
 // Agente simulador: um agente normal (número de WhatsApp, IA, Kanban...)
