@@ -38,7 +38,7 @@
         }
       })();
     </script>
-    <h1 style="font-size: 32px;">Assine a Lumos</h1>
+    <h1 style="font-size: 32px;" id="titulo">Assine a Lumos</h1>
     <p style="margin-top:8px; font-size:16px; opacity:.85;">Atendimento por IA no WhatsApp, salão, cozinha, PDV, estoque, financeiro, notas fiscais e contabilidade num sistema só.</p>
 
     <div id="assin-status" style="display:none;"></div>
@@ -170,11 +170,18 @@
       const a = r.assinatura; if (!a) return;
       const box = $("assin-status"); box.style.display = ""; box.className = "ck-status";
       const ok = a.status === "ativa";
+      if (ok || a.status === "atrasada") $("titulo").textContent = "Sua assinatura";
+      // Pix/boleto: a próxima mensalidade pode ser paga nos 5 dias antes do vencimento (ou quando atrasa)
+      const venc = a.proximo_vencimento ? new Date(`${a.proximo_vencimento}T12:00:00-03:00`) : null;
+      const diasParaVencer = venc ? Math.ceil((venc - Date.now()) / 86400000) : 0;
+      const podePagar = a.forma === "pix_boleto" && (a.status === "atrasada" || (a.status === "ativa" && diasParaVencer <= 5));
+      const liberaEm = venc ? new Date(venc.getTime() - 5 * 86400000).toLocaleDateString("pt-BR") : "";
       box.innerHTML = `<b style="font-size:17px;">${ok ? "✓ Sua assinatura está ativa" : `Sua assinatura está ${STATUS[a.status] || a.status}`}</b>
         <p style="margin-top:6px;">Valor: ${brl(a.valor_mensal)}/mês${a.cupom_codigo ? ` (cupom ${a.cupom_codigo})` : ""} · Pagamento: ${a.forma === "cartao" ? "cartão, automático" : "Pix ou boleto, mês a mês"}${a.proximo_vencimento ? ` · Próximo vencimento: ${fmtData(a.proximo_vencimento)}` : ""}</p>
         <div class="acoes">${ok || a.status === "atrasada" ? `<a class="btn btn-primary" href="dashboard.html">Entrar no painel</a>` : ""}
-          ${a.forma === "pix_boleto" && a.status !== "cancelada" && a.status !== "pendente" ? `<button class="btn btn-ghost" id="b-mes">Pagar a mensalidade</button>` : ""}
-          ${a.status === "pendente" ? `<button class="btn btn-ghost" id="b-atualizar">Já paguei, atualizar</button>` : ""}</div>`;
+          ${podePagar ? `<button class="btn btn-primary" id="b-mes">Pagar a mensalidade</button>` : ""}
+          ${a.status === "pendente" ? `<button class="btn btn-ghost" id="b-atualizar">Já paguei, atualizar</button>` : ""}</div>
+        ${a.forma === "pix_boleto" && ok && !podePagar && liberaEm ? `<p style="margin-top:10px; font-size:13.5px; opacity:.75;">A próxima mensalidade fica disponível para pagamento a partir de ${liberaEm}.</p>` : ""}`;
       if (ok || a.status === "atrasada") $("checkout").style.display = "none";
       $("b-mes")?.addEventListener("click", async (e) => { e.target.disabled = true; try { location.href = (await chamar({ action: "pagar_mes" })).link; } catch (err) { lumosAlert(err.message); e.target.disabled = false; } });
       $("b-atualizar")?.addEventListener("click", async () => { history.replaceState(null, "", "plans.html?assinatura=retorno"); situacao(); });
