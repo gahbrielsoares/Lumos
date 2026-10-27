@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Estoque | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=93" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=93" />
-  <script src="js/dialogs.js?v=93"></script>
+  <script src="js/logo.js?v=94" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=94" />
+  <script src="js/dialogs.js?v=94"></script>
 </head>
 <body>
 
@@ -62,12 +62,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=93";
-    import { initThemeToggle } from "./js/theme.js?v=93";
-    import { initMobileNav } from "./js/mobileNav.js?v=93";
-    import { renderSidebar } from "./js/sidebar.js?v=93";
-    import { supabase } from "./js/supabaseClient.js?v=93";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=93";
+    import { requireSession, signOut } from "./js/auth.js?v=94";
+    import { initThemeToggle } from "./js/theme.js?v=94";
+    import { initMobileNav } from "./js/mobileNav.js?v=94";
+    import { renderSidebar } from "./js/sidebar.js?v=94";
+    import { supabase } from "./js/supabaseClient.js?v=94";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=94";
 
     await requireSession();
     initThemeToggle();
@@ -78,7 +78,7 @@
 
     const UN = { m2: "m²", saco: "sc", unidade: "un", caixa: "cx", metro: "m", kg: "kg", litro: "L", rolo: "rl", pacote: "pct", fardo: "fd", duzia: "dz" };
     let products = [];
-    const { getMyAccess } = await import("./js/workspace.js?v=93");
+    const { getMyAccess } = await import("./js/workspace.js?v=94");
     const acesso = await getMyAccess();
     const verCustos = !acesso.member || !!acesso.member.perms?.ver_custos;
     if (!verCustos) {
@@ -93,7 +93,7 @@
         supabase.from("products").select("*").eq("owner_id", owner_id).order("name"),
         supabase.from("estoque_mov").select("*, products(name, unit, segmento)").eq("owner_id", owner_id).order("created_at", { ascending: false }).limit(80),
       ]);
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=93"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=94"); await nichoAtual();
       products = (p || []).filter((x) => !doOutroNicho(x));
       m = (m || []).filter((x) => !doOutroNicho(x.products)).slice(0, 50);
       render();
@@ -183,7 +183,7 @@
     load();
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=93").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=94").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => ({
       titulo: "Estoque: nada falta na hora do pedido",
       antes: "As compras recebidas dão entrada sozinhas. As vendas baixam sozinhas, inclusive os insumos de cada prato, pela ficha técnica.",
       faz: "Mostra o saldo de cada produto e insumo, avisa o que está abaixo do mínimo ou acabou, e registra cada movimento com o motivo.",

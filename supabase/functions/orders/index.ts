@@ -17,6 +17,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SITE_URL = (Deno.env.get("SITE_URL") || "https://gahbrielsoares.github.io/Lumos").replace(/\/$/, "");
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const ORIGEM_LOG = "orders";
+// ---------- Histórico do sistema (Painel Admin): o essencial de cada passo, nunca chaves ou conversas ----------
+// deno-lint-ignore no-explicit-any
+async function registrarEvento(e: { owner?: string | null; tipo?: "info" | "aviso" | "erro"; acao: string; msg?: string; dados?: any; ref?: string | null }) {
+  try {
+    await supabase.from("eventos_sistema").insert({ owner_id: e.owner || null, origem: ORIGEM_LOG, tipo: e.tipo || "info", acao: e.acao,
+      mensagem: e.msg ? String(e.msg).slice(0, 500) : null, dados: e.dados ?? null, ref_id: e.ref ? String(e.ref) : null });
+  } catch (_) { /* o histórico nunca pode derrubar o fluxo principal */ }
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -159,9 +168,14 @@ async function emitirNfceAutomatica(order: any) {
       body: JSON.stringify({ action: "emitir", owner_id: order.owner_id, sales_order_id: order.id }),
     });
     clearTimeout(timer);
-    if (!res.ok) console.error("NFC-e automática não emitida:", res.status, (await res.text()).slice(0, 300));
+    if (!res.ok) {
+      const txt = (await res.text()).slice(0, 300);
+      console.error("NFC-e automática não emitida:", res.status, txt);
+      await registrarEvento({ owner: order.owner_id, tipo: "erro", acao: "nota_automatica_falhou", msg: `Venda #${order.numero}: ${txt}`, ref: order.id });
+    }
   } catch (err) {
     console.error("Falha na NFC-e automática:", err);
+    await registrarEvento({ owner: order?.owner_id, tipo: "erro", acao: "nota_automatica_falhou", msg: `Venda #${order?.numero}: ${String(err)}`, ref: order?.id });
   }
 }
 
@@ -311,11 +325,12 @@ async function criarLinkPagamento(order: any, total: number, pag: any): Promise<
         }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) return { erro: `Mercado Pago recusou o link: ${d.message || r.status}.` };
+      if (!r.ok) { await registrarEvento({ owner: order.owner_id, tipo: "erro", acao: "link_falhou", msg: `Mercado Pago recusou o link do pedido #${order.numero}: ${d.message || r.status}`, dados: { status: r.status }, ref: order.id }); return { erro: `Mercado Pago recusou o link: ${d.message || r.status}.` }; }
       // Chave antiga de teste ("TEST-...") abre o link de sandbox. As credenciais atuais (inclusive as da conta de
       // teste vendedor, que têm formato de produção) usam o link normal, como pede o teste do Mercado Pago.
       const link = (chave.startsWith("TEST-") ? d.sandbox_init_point : d.init_point) || d.init_point || d.sandbox_init_point;
       if (!link) return { erro: "O Mercado Pago não devolveu o link." };
+      await registrarEvento({ owner: order.owner_id, acao: "link_criado", msg: `Link do Mercado Pago para o pedido #${order.numero}: R$ ${total.toFixed(2)}`, dados: { provedor: "mercadopago", valor: total, ambiente: teste ? "teste" : "producao" }, ref: order.id });
       return { link, ref: { preference_id: d.id, ambiente: teste ? "teste" : "producao" } };
     }
     if (pag.provider === "asaas") {
@@ -333,7 +348,7 @@ async function criarLinkPagamento(order: any, total: number, pag: any): Promise<
         }),
       });
       const d = await r.json().catch(() => ({}));
-      if (!r.ok) return { erro: `Asaas recusou o link: ${d.errors?.[0]?.description || r.status}.` };
+      if (!r.ok) { await registrarEvento({ owner: order.owner_id, tipo: "erro", acao: "link_falhou", msg: `Asaas recusou o link do pedido #${order.numero}: ${d.errors?.[0]?.description || r.status}`, ref: order.id }); return { erro: `Asaas recusou o link: ${d.errors?.[0]?.description || r.status}.` }; }
       // Na primeira vez, registra sozinho o aviso de pagamento (webhook) na conta Asaas da loja
       if (!c.webhook_registrado) {
         const tokenAviso = crypto.randomUUID().replace(/-/g, "");
@@ -345,10 +360,12 @@ async function criarLinkPagamento(order: any, total: number, pag: any): Promise<
         if (w?.ok) await supabase.from("integrations").update({ config: { ...(integ?.config || {}), webhook_registrado: true }, secrets: { ...(integ?.secrets || {}), webhook_token: tokenAviso } }).eq("owner_id", order.owner_id).eq("kind", "pagamento");
         else console.error("Asaas: não foi possível registrar o aviso de pagamento automaticamente", w?.status);
       }
+      await registrarEvento({ owner: order.owner_id, acao: "link_criado", msg: `Link do Asaas para o pedido #${order.numero}: R$ ${total.toFixed(2)}`, dados: { provedor: "asaas", valor: total, ambiente: teste ? "teste" : "producao" }, ref: order.id });
       return { link: d.url, ref: { link_id: d.id, ambiente: teste ? "teste" : "producao" } };
     }
   } catch (e) {
     console.error("Link de pagamento:", e);
+    await registrarEvento({ owner: order.owner_id, tipo: "erro", acao: "link_falhou", msg: `Sem resposta do provedor (${pag.provider}) no pedido #${order.numero}: ${String(e)}`, ref: order.id });
     return { erro: "Não foi possível falar com o provedor de pagamento agora. Tente de novo em instantes." };
   }
   return { erro: "Provedor de pagamento não suportado." };
@@ -446,6 +463,7 @@ async function approve(ctx: any, freteManual: number | null) {
 async function finalizePaid(ctx: any, metodo: string, parcelas: number | null) {
   const { order } = ctx;
   if (order.status === "pago") return json({ ok: true, already: true, numero: order.numero });
+  await registrarEvento({ owner: order.owner_id, acao: "pagamento_confirmado", msg: `Pedido #${order.numero} pago: R$ ${Number(order.total).toFixed(2)} (${metodo}${parcelas && parcelas > 1 ? ` em ${parcelas}x` : ""})${ctx.simulated ? " [simulação]" : ""}`, dados: { metodo, parcelas, valor: Number(order.total) }, ref: order.id });
   if (order.status !== "aguardando_pagamento") return json({ error: "Este pedido não está aguardando pagamento." }, 409);
 
   const nf = ctx.notaFiscal?.provider && ctx.notaFiscal.provider !== "nenhum"
@@ -625,6 +643,7 @@ async function pdvVenda(ownerId: string, userId: string, body: any) {
     }).select().single();
     if (t) await supabase.from("order_items").insert(itens.map((i) => ({ order_id: t.id, product_id: i.product_id, product_name: i.nome, quantity: Math.max(1, Math.round(i.quantidade)), unit_price: i.preco_unitario, observacao: i.observacao || null })));
   }
+  await registrarEvento({ owner: ownerId, acao: "venda_pdv", msg: `Venda #${so.numero} no balcão: R$ ${total.toFixed(2)} (${metodo})${body.sem_internet ? ", feita sem internet" : ""}`, dados: { valor: total, metodo, itens: itens.length, sem_internet: !!body.sem_internet }, ref: so.id });
   await emitirNfceAutomatica(so);
   const { data: nota } = await supabase.from("fiscal_docs").select("status, numero, danfe_url, mensagem").eq("sales_order_id", so.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   return json({ ok: true, numero: so.numero, total, desconto, troco: so.pagamento?.troco || 0, nota: nota || null });
@@ -909,6 +928,7 @@ Deno.serve(async (req) => {
     return json({ error: "Ação desconhecida." }, 400);
   } catch (err) {
     console.error(err);
+    await registrarEvento({ tipo: "erro", acao: "erro_inesperado", msg: String((err as Error)?.stack || err).slice(0, 500) });
     return json({ error: "Erro inesperado." }, 500);
   }
 });

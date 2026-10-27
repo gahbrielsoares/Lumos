@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel Admin | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=93" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=93" />
-  <script src="js/dialogs.js?v=93"></script>
+  <script src="js/logo.js?v=94" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=94" />
+  <script src="js/dialogs.js?v=94"></script>
 </head>
 <body>
 
@@ -50,6 +50,26 @@
         </table>
       </div>
 
+      <!-- ===== Histórico do sistema ===== -->
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:34px;">
+        <h3 class="erp-section-title" style="margin:0;">Histórico do sistema</h3>
+        <button class="btn btn-ghost" id="ev-copiar">Copiar para o suporte</button>
+      </div>
+      <p class="settings-hint" style="margin:4px 0 10px;">O que aconteceu em cada cliente: links e pagamentos, vendas, notas fiscais, assinaturas e falhas. Fica guardado por 90 dias.</p>
+      <div class="erp-toolbar">
+        <select id="ev-cliente"><option value="">Todos os clientes</option></select>
+        <select id="ev-tipo"><option value="">Todos os tipos</option><option value="erro">Só erros</option><option value="aviso">Só avisos</option><option value="info">Só informações</option></select>
+        <select id="ev-periodo"><option value="1">Últimas 24 horas</option><option value="7" selected>Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option></select>
+        <input id="ev-busca" placeholder="Buscar (ex.: número do pedido)" />
+        <button class="btn btn-ghost" id="ev-atualizar">Atualizar</button>
+      </div>
+      <div class="panel-table-wrap" style="margin-top:8px;">
+        <table class="panel-table">
+          <thead><tr><th>Quando</th><th>Cliente</th><th>Tipo</th><th>O que aconteceu</th><th></th></tr></thead>
+          <tbody id="ev-rows"><tr><td colspan="5" style="opacity:.7;">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+
       <!-- ===== Assinaturas e cupons ===== -->
       <h3 class="erp-section-title" style="margin-top:34px;">Assinaturas</h3>
       <p class="settings-hint" id="assin-aviso" style="margin-bottom:8px;"></p>
@@ -73,12 +93,12 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=93";
-    import { initThemeToggle } from "./js/theme.js?v=93";
-    import { initMobileNav } from "./js/mobileNav.js?v=93";
-    import { renderSidebar } from "./js/sidebar.js?v=93";
-    import { supabase } from "./js/supabaseClient.js?v=93";
-    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=93";
+    import { requireSession, signOut } from "./js/auth.js?v=94";
+    import { initThemeToggle } from "./js/theme.js?v=94";
+    import { initMobileNav } from "./js/mobileNav.js?v=94";
+    import { renderSidebar } from "./js/sidebar.js?v=94";
+    import { supabase } from "./js/supabaseClient.js?v=94";
+    import { brl, esc, num, todayISO, fmtDate, addDaysISO, monthRange, ownerId, moverEstoque, modal } from "./js/erp.js?v=94";
 
     await requireSession();
     initThemeToggle();
@@ -87,7 +107,7 @@
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
     const owner_id = await ownerId();
 
-    const { NAV_ITEMS } = await import("./js/sidebar.js?v=93");
+    const { NAV_ITEMS } = await import("./js/sidebar.js?v=94");
     const NICHO = { materiais_construcao: "Materiais de construção", restaurante: "Restaurante", geral: "Geral", clinica: "Clínica", salao: "Salão", imobiliaria: "Imobiliária" };
     const SIT = {
       ativo: '<span class="erp-badge ok">Cliente ativo</span>',
@@ -371,6 +391,52 @@
         try { await chamarA({ action: "cupom_ativo", id: t.dataset.ativo, ativo: t.checked }); } catch (err) { lumosAlert(err.message); carregarA(); }
       });
       carregarA();
+    }
+
+    // ================= Histórico do sistema (tabela eventos_sistema, só a equipe Lumos lê) =================
+    {
+      const TIPO = { erro: ["Erro", "bad"], aviso: ["Aviso", "warn"], info: ["Info", "muted"] };
+      const ORIGEM = { orders: "Pedidos", pagamentos: "Pagamento", assinaturas: "Assinatura", fiscal: "Nota fiscal", whatsapp: "WhatsApp" };
+      let eventos = [];
+      const nomeCliente = (id) => { if (!id) return "Lumos"; const a = (accounts || []).find((x) => x.id === id); return a ? (a.negocio || a.nome || a.email || id.slice(0, 8)) : id.slice(0, 8); };
+      const quando = (iso) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
+      async function carregarEv() {
+        const sel = document.getElementById("ev-cliente");
+        if (sel.options.length <= 1 && accounts?.length) sel.insertAdjacentHTML("beforeend", accounts.map((a) => `<option value="${a.id}">${esc(a.negocio || a.nome || a.email)}</option>`).join(""));
+        const dias = Number(document.getElementById("ev-periodo").value);
+        let q = supabase.from("eventos_sistema").select("*").gte("created_at", new Date(Date.now() - dias * 86400000).toISOString()).order("created_at", { ascending: false }).limit(500);
+        if (sel.value) q = q.eq("owner_id", sel.value);
+        const tipo = document.getElementById("ev-tipo").value; if (tipo) q = q.eq("tipo", tipo);
+        const { data, error } = await q;
+        if (error) { document.getElementById("ev-rows").innerHTML = `<tr><td colspan="5">${/eventos_sistema/.test(error.message) ? "Falta aplicar a seção 54 do guia de instalação." : esc(error.message)}</td></tr>`; return; }
+        eventos = data || []; pintarEv();
+      }
+      function filtrados() { const b = document.getElementById("ev-busca").value.trim().toLowerCase(); return b ? eventos.filter((e) => `${e.mensagem} ${e.acao} ${e.ref_id}`.toLowerCase().includes(b)) : eventos; }
+      function pintarEv() {
+        document.getElementById("ev-rows").innerHTML = filtrados().map((e) => `<tr>
+            <td style="white-space:nowrap;">${quando(e.created_at)}</td><td>${esc(nomeCliente(e.owner_id))}</td>
+            <td><span class="erp-badge ${TIPO[e.tipo]?.[1] || ""}">${TIPO[e.tipo]?.[0] || e.tipo}</span><div class="settings-hint">${ORIGEM[e.origem] || esc(e.origem)}</div></td>
+            <td>${esc(e.mensagem || e.acao)}</td><td>${e.dados ? `<button class="btn btn-ghost btn-sm" data-ev="${e.id}">Detalhes</button>` : ""}</td></tr>`).join("")
+          || `<tr><td colspan="5" style="opacity:.7;">Nenhum evento neste filtro.</td></tr>`;
+      }
+      ["ev-cliente", "ev-tipo", "ev-periodo"].forEach((id) => document.getElementById(id).addEventListener("change", carregarEv));
+      document.getElementById("ev-busca").addEventListener("input", pintarEv);
+      document.getElementById("ev-atualizar").addEventListener("click", carregarEv);
+      document.getElementById("ev-rows").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-ev]"); if (!b) return;
+        const ev = eventos.find((x) => String(x.id) === b.dataset.ev);
+        modal(`<h3 style="font-size:17px;">${esc(ev.acao)}</h3><p class="settings-hint" style="margin:4px 0 10px;">${quando(ev.created_at)} · ${esc(nomeCliente(ev.owner_id))}${ev.ref_id ? ` · ref. ${esc(ev.ref_id)}` : ""}</p>
+          <pre style="white-space:pre-wrap; font-size:12.5px; background:var(--panel-bg); padding:12px; border-radius:10px; max-height:50vh; overflow:auto;">${esc(JSON.stringify(ev.dados, null, 2))}</pre>
+          <div class="modal-actions"><button class="btn btn-primary" data-close>Fechar</button></div>`, { width: 600 });
+      });
+      // Texto para colar na conversa com o suporte (o que está filtrado na tela)
+      document.getElementById("ev-copiar").addEventListener("click", async () => {
+        const linhas = filtrados().slice(0, 200).map((e) => `${quando(e.created_at)} | ${nomeCliente(e.owner_id)} | ${e.tipo.toUpperCase()} | ${e.origem}/${e.acao} | ${e.mensagem || ""}${e.ref_id ? ` | ref ${e.ref_id}` : ""}${e.dados ? ` | ${JSON.stringify(e.dados)}` : ""}`);
+        const texto = `Histórico do sistema Lumos (${linhas.length} eventos)\n` + linhas.join("\n");
+        try { await navigator.clipboard.writeText(texto); lumosAlert(`${linhas.length} evento(s) copiado(s). É só colar na conversa com o suporte.`); } catch (_) { lumosAlert("Não foi possível copiar."); }
+      });
+      // A lista de contas carrega antes: espera um pouco para os nomes dos clientes aparecerem
+      setTimeout(carregarEv, 600);
     }
   </script>
 </body>

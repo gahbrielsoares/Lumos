@@ -1,7 +1,7 @@
 // Lumos: funcionamento sem internet (service worker)
 // Estratégia "internet primeiro": com conexão, sempre busca a versão nova do site e guarda uma cópia;
 // sem conexão, usa a última cópia guardada. Só guarda arquivos do próprio site (nunca dados do banco).
-const CACHE = "lumos-v93";
+const CACHE = "lumos-v94";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => {

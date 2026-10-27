@@ -12,6 +12,15 @@ const MP_TOKEN = Deno.env.get("LUMOS_MP_TOKEN") || "";
 const SITE_URL = (Deno.env.get("SITE_URL") || "https://www.lumos.tec.br").replace(/\/$/, "");
 const VALOR_PLANO = Number(Deno.env.get("LUMOS_PLANO_VALOR") || 1794.9);
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const ORIGEM_LOG = "assinaturas";
+// ---------- Histórico do sistema (Painel Admin): o essencial de cada passo, nunca chaves ou conversas ----------
+// deno-lint-ignore no-explicit-any
+async function registrarEvento(e: { owner?: string | null; tipo?: "info" | "aviso" | "erro"; acao: string; msg?: string; dados?: any; ref?: string | null }) {
+  try {
+    await supabase.from("eventos_sistema").insert({ owner_id: e.owner || null, origem: ORIGEM_LOG, tipo: e.tipo || "info", acao: e.acao,
+      mensagem: e.msg ? String(e.msg).slice(0, 500) : null, dados: e.dados ?? null, ref_id: e.ref ? String(e.ref) : null });
+  } catch (_) { /* o histórico nunca pode derrubar o fluxo principal */ }
+}
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
@@ -70,6 +79,7 @@ async function registrar(assin: any, pag: { id: string; valor: number; forma: st
     }
   }
   await supabase.from("assinaturas").update(campos).eq("id", assin.id);
+  await registrarEvento({ owner: assin.user_id, acao: "mensalidade_paga", msg: `Mensalidade paga: R$ ${Number(pag.valor).toFixed(2)} (${pag.forma}). Próximo vencimento: ${campos.proximo_vencimento}`, dados: { valor: pag.valor, forma: pag.forma, pagamento: pag.id }, ref: assin.id });
   // Libera a conta do cliente (sem mexer em quem é da equipe Lumos)
   const { data: perfil } = await supabase.from("profiles").select("role").eq("id", assin.user_id).maybeSingle();
   if (!perfil || ["user", "cliente"].includes(perfil.role)) await supabase.from("profiles").update({ status: "ativo", role: "cliente" }).eq("id", assin.user_id);
@@ -209,11 +219,13 @@ Deno.serve(async (req) => {
           auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: valor, currency_id: "BRL" },
           back_url: `${SITE_URL}/plans.html?assinatura=retorno`, status: "pending",
         });
-        if (!r.ok) return json({ error: `O Mercado Pago recusou a assinatura: ${r.d?.message || r.status}.` }, 502);
+        if (!r.ok) { await registrarEvento({ owner: user.id, tipo: "erro", acao: "assinatura_falhou", msg: `Mercado Pago recusou a assinatura no cartão: ${r.d?.message || r.status}`, ref: assin.id }); return json({ error: `O Mercado Pago recusou a assinatura: ${r.d?.message || r.status}.` }, 502); }
+        await registrarEvento({ owner: user.id, acao: "assinatura_iniciada", msg: `Assinatura no cartão iniciada: R$ ${valor.toFixed(2)}/mês${cupom ? ` (cupom ${cupom})` : ""}`, ref: assin.id });
         await supabase.from("assinaturas").update({ mp_preapproval_id: r.d.id }).eq("id", assin.id);
         return json({ link: r.d.init_point });
       }
       const l = await linkMensalidade(assin);
+      await registrarEvento({ owner: user.id, tipo: l.erro ? "erro" : "info", acao: l.erro ? "assinatura_falhou" : "assinatura_iniciada", msg: l.erro || `Assinatura no Pix/boleto iniciada: R$ ${valor.toFixed(2)}/mês${cupom ? ` (cupom ${cupom})` : ""}`, ref: assin.id });
       return l.erro ? json({ error: l.erro }, 502) : json(l);
     }
     if (acao === "pagar_mes") {
@@ -264,6 +276,7 @@ Deno.serve(async (req) => {
     return json({ error: "Ação desconhecida." }, 400);
   } catch (e) {
     console.error("assinaturas:", e);
+    await registrarEvento({ tipo: "erro", acao: "erro_inesperado", msg: String((e as Error)?.stack || e).slice(0, 500) });
     return json({ error: "Erro inesperado. Tente de novo em instantes." }, 500);
   }
 });

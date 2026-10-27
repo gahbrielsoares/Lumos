@@ -21,6 +21,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FOCUS_TOKEN_CONTA = Deno.env.get("FOCUS_TOKEN_CONTA") || "";
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const ORIGEM_LOG = "fiscal";
+// ---------- Histórico do sistema (Painel Admin): o essencial de cada passo, nunca chaves ou conversas ----------
+// deno-lint-ignore no-explicit-any
+async function registrarEvento(e: { owner?: string | null; tipo?: "info" | "aviso" | "erro"; acao: string; msg?: string; dados?: any; ref?: string | null }) {
+  try {
+    await supabase.from("eventos_sistema").insert({ owner_id: e.owner || null, origem: ORIGEM_LOG, tipo: e.tipo || "info", acao: e.acao,
+      mensagem: e.msg ? String(e.msg).slice(0, 500) : null, dados: e.dados ?? null, ref_id: e.ref ? String(e.ref) : null });
+  } catch (_) { /* o histórico nunca pode derrubar o fluxo principal */ }
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -293,6 +302,10 @@ async function registrarResposta(docId: string, r: { ok: boolean; status: number
     xml_url: abs(d.caminho_xml_nota_fiscal), danfe_url: abs(d.caminho_danfe), qrcode_url: d.qrcode_url || d.url_consulta_nf || null,
   };
   await supabase.from("fiscal_docs").update(campos).eq("id", docId);
+  const { data: docInfo } = await supabase.from("fiscal_docs").select("owner_id, ambiente, teste").eq("id", docId).maybeSingle();
+  await registrarEvento({ owner: docInfo?.owner_id, tipo: st === "erro" ? "erro" : "info", acao: st === "erro" ? "nota_recusada" : st === "autorizado" ? "nota_autorizada" : `nota_${st}`,
+    msg: st === "erro" ? `NFC-e recusada: ${campos.mensagem}` : `NFC-e ${st}${d.numero ? ` nº ${d.numero}` : ""}${docInfo?.ambiente === "homologacao" ? " (homologação)" : ""}${docInfo?.teste ? " [nota de teste]" : ""}`,
+    dados: { status: st, http: r.status }, ref: salesOrderId || docId });
   if (st === "autorizado" && salesOrderId) await supabase.from("sales_orders").update({ nf_numero: String(d.numero || "") }).eq("id", salesOrderId);
   return { status: st, ...campos };
 }
@@ -513,6 +526,7 @@ Deno.serve(async (req) => {
     return json({ error: "Ação desconhecida." }, 400);
   } catch (err) {
     console.error("fiscal:", err);
+    await registrarEvento({ tipo: "erro", acao: "erro_inesperado", msg: String((err as Error)?.stack || err).slice(0, 500) });
     return json({ error: "Erro inesperado na emissão. Tente de novo em instantes." }, 500);
   }
 });

@@ -16,7 +16,8 @@ def esbuild(ts_txt, nome):
 
 def trecho(txt, ini, fim):
     a = txt.index(ini); b = txt.index(fim, a)
-    return "export " + txt[a:b]
+    # O pedaço isolado não tem o registro de histórico: um vazio basta para testar a lógica
+    return "const registrarEvento = async (_e) => {};\nexport " + txt[a:b]
 
 orders = fn("orders")
 esbuild(trecho(orders, "async function registrarVendaNoErp", "// ---------- NFC-e automática depois do pagamento"), "fn")

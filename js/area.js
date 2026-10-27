@@ -3,10 +3,10 @@
 // Barra no estilo dock (Lumos, CRM, ERP e as páginas abertas), painéis com os ícones de cada grupo,
 // páginas abertas como janelas (alternar sem perder o que estava na tela) e favoritos na área de trabalho.
 // =====================================================================
-import { requireSession, signOut } from "./auth.js?v=93";
-import { alternarTema } from "./theme.js?v=93";
-import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=93";
-import { supabase } from "./supabaseClient.js?v=93";
+import { requireSession, signOut } from "./auth.js?v=94";
+import { alternarTema } from "./theme.js?v=94";
+import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=94";
+import { supabase } from "./supabaseClient.js?v=94";
 
 const MAX_JANELAS = 8;
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

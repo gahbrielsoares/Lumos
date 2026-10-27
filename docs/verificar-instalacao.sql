@@ -1,5 +1,5 @@
 -- Lumos: o que falta aplicar do guia de instalação (docs/INSTALACAO.md)
--- Gerado a partir das seções 1 a 53. Só LÊ o banco, não altera nada.
+-- Gerado a partir das seções 1 a 54. Só LÊ o banco, não altera nada.
 -- Resultado: uma linha por seção com pendência. Se vier só "Tudo aplicado", está em dia.
 with esperado(secao, tipo, esquema, tabela, nome) as (values
   (2, 'funcao', 'public', '', 'handle_new_user'),
@@ -292,7 +292,13 @@ with esperado(secao, tipo, esquema, tabela, nome) as (values
   (53, 'regra', 'public', 'assinaturas', 'Cliente ve a propria assinatura'),
   (53, 'tabela', 'public', 'assinatura_pagamentos', 'assinatura_pagamentos'),
   (53, 'tabela', 'public', 'assinaturas', 'assinaturas'),
-  (53, 'tabela', 'public', 'cupons', 'cupons')
+  (53, 'tabela', 'public', 'cupons', 'cupons'),
+  (54, 'funcao', 'public', '', 'e_equipe_lumos'),
+  (54, 'indice', 'public', 'eventos_sistema', 'eventos_data'),
+  (54, 'indice', 'public', 'eventos_sistema', 'eventos_owner_data'),
+  (54, 'indice', 'public', 'eventos_sistema', 'eventos_tipo_data'),
+  (54, 'regra', 'public', 'eventos_sistema', 'Equipe Lumos le o historico'),
+  (54, 'tabela', 'public', 'eventos_sistema', 'eventos_sistema')
 ),
 falta as (
   select e.* from esperado e

@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-exec(open('tests/navegador/pdv_venda.py').read().split("async def main():")[0].replace("?v=93","?v=93").replace("?v=93","?v=93"))
+exec(open('tests/navegador/pdv_venda.py').read().split("async def main():")[0].replace("?v=94","?v=94").replace("?v=94","?v=94"))
 STUBS["supabaseClient.js"]=STUBS["supabaseClient.js"].replace("functions:{invoke:async(n,{body})=>{window.__inv=body;","functions:{invoke:async(n,{body})=>{(window.__envios=window.__envios||[]).push(body);window.__inv=body;")
 async def main():
   async with async_playwright() as p:

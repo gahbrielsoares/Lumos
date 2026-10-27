@@ -14,6 +14,15 @@ const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FALLBACK_OPENROUTER_KEY = Deno.env.get("OPENROUTER_API_KEY") || "";
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+const ORIGEM_LOG = "whatsapp";
+// ---------- Histórico do sistema (Painel Admin): o essencial de cada passo, nunca chaves ou conversas ----------
+// deno-lint-ignore no-explicit-any
+async function registrarEvento(e: { owner?: string | null; tipo?: "info" | "aviso" | "erro"; acao: string; msg?: string; dados?: any; ref?: string | null }) {
+  try {
+    await supabase.from("eventos_sistema").insert({ owner_id: e.owner || null, origem: ORIGEM_LOG, tipo: e.tipo || "info", acao: e.acao,
+      mensagem: e.msg ? String(e.msg).slice(0, 500) : null, dados: e.dados ?? null, ref_id: e.ref ? String(e.ref) : null });
+  } catch (_) { /* o histórico nunca pode derrubar o fluxo principal */ }
+}
 
 function sanitizeReply(text: string): string {
   return toWhatsAppFormat(
@@ -2146,6 +2155,7 @@ NÃO feche ainda (não use [ORCAMENTO] nem [ETAPA: aguardando_link]). Diga que e
     return new Response("ok", { status: 200 });
   } catch (err) {
     console.error(err);
+    await registrarEvento({ tipo: "erro", acao: "erro_inesperado", msg: `Falha ao processar mensagem do WhatsApp: ${String((err as Error)?.stack || err).slice(0, 450)}` });
     return new Response("error", { status: 200 });
   }
 });
