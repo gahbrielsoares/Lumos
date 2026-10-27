@@ -10,7 +10,7 @@ function q(t){let single=false;const rows=t==="profiles"?[PERFIL]:t==="business_
 const user={id:"u1",email:"lumos@equipe.lumos.app",user_metadata:{}};
 export const supabase={from:q,rpc:async()=>({data:null,error:null}),auth:{getSession:async()=>({data:{session:{user}}}),getUser:async()=>({data:{user}}),onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}}},
  signUp:async(a)=>{window.__signup=a;return {data:{},error:null}},signOut:async()=>({})},functions:{invoke:async()=>({data:{}})}};'''
-STUBS={"supabaseClient.js":FAKE,"auth.js":"export async function requireSession(){return {user:{id:'u1'}}} export function signOut(){} export async function signUp(a){const {supabase}=await import('./supabaseClient.js?v=92');return supabase.auth.signUp({email:a.email,password:a.password,options:{data:{name:a.name,nicho:a.nicho}}})}"}
+STUBS={"supabaseClient.js":FAKE,"auth.js":"export async function requireSession(){return {user:{id:'u1'}}} export function signOut(){} export async function signUp(a){const {supabase}=await import('./supabaseClient.js?v=93');return supabase.auth.signUp({email:a.email,password:a.password,options:{data:{name:a.name,nicho:a.nicho}}})}"}
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch(executable_path=__import__("os").environ.get("LUMOS_CHROMIUM") or None)

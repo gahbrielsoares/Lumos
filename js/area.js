@@ -3,10 +3,10 @@
 // Barra no estilo dock (Lumos, CRM, ERP e as páginas abertas), painéis com os ícones de cada grupo,
 // páginas abertas como janelas (alternar sem perder o que estava na tela) e favoritos na área de trabalho.
 // =====================================================================
-import { requireSession, signOut } from "./auth.js?v=92";
-import { alternarTema } from "./theme.js?v=92";
-import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=92";
-import { supabase } from "./supabaseClient.js?v=92";
+import { requireSession, signOut } from "./auth.js?v=93";
+import { alternarTema } from "./theme.js?v=93";
+import { itensDoMenu, barraModoDemo, prepararModoOffline } from "./sidebar.js?v=93";
+import { supabase } from "./supabaseClient.js?v=93";
 
 const MAX_JANELAS = 8;
 const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -123,12 +123,10 @@ function abrirPainel(grupo) {
     ${grupo === "lumos" ? `<div class="ad-painel-rodape"><span class="ad-usuario">${svg('<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>')}${esc(sessao?.user?.email || "")}</span>
       <span style="flex:1"></span>
       <button class="ad-acao" id="ad-tema">${svg('<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>')}<span>${document.documentElement.classList.contains("dark") ? "Modo claro" : "Modo escuro"}</span></button>
-      <button class="ad-acao" id="ad-area">${svg('<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/>')}<span>Área de trabalho</span></button>
       <button class="ad-acao sair" id="ad-sair">${svg('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>')}<span>Sair</span></button></div>` : ""}`;
   p.className = `ad-painel aberto ad-painel-${grupo}`;
   $("ad-busca").addEventListener("input", (e) => { $("ad-grade").innerHTML = lista(e.target.value.trim().toLowerCase()); });
   $("ad-tema")?.addEventListener("click", (e) => { const t = alternarTema(); e.currentTarget.querySelector("span").textContent = t === "dark" ? "Modo claro" : "Modo escuro"; });
-  $("ad-area")?.addEventListener("click", () => { fecharPainel(); mostrar(null); });
   $("ad-sair")?.addEventListener("click", () => signOut());
   setTimeout(() => $("ad-busca")?.focus({ preventScroll: true }), 30);
   pintarDock();

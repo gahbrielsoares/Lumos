@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Criar conta | Lumos CRM</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=92" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=92" />
-  <script src="js/dialogs.js?v=92"></script>
+  <script src="js/logo.js?v=93" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=93" />
+  <script src="js/dialogs.js?v=93"></script>
 </head>
 <body>
 <header class="site-header">
@@ -51,8 +51,8 @@
   </div>
 
   <script type="module">
-    import { signUp } from "./js/auth.js?v=92";
-    import { BUSINESS_TYPES } from "./js/businessTypes.js?v=92";
+    import { signUp } from "./js/auth.js?v=93";
+    import { BUSINESS_TYPES } from "./js/businessTypes.js?v=93";
     // O sistema já abre configurado para o nicho escolhido aqui
     const sel = document.getElementById("nicho");
     sel.innerHTML = `<option value="" disabled selected>Escolha o seu tipo de negócio</option>` + BUSINESS_TYPES.map((t) => `<option value="${t.key}">${t.label}</option>`).join("");
