@@ -238,10 +238,14 @@ async function loadContext(orderId: string) {
   // deno-lint-ignore no-explicit-any
   const get = (k: string) => (integrations || []).find((i: any) => i.kind === k && i.enabled);
   const simulated = !!(order.simulado || agent?.is_simulator);
+  // Simulador: usa o pagamento de mentira, a não ser que a loja tenha Mercado Pago ou Asaas ativo em ambiente de TESTE
+  // (sem dinheiro de verdade). Assim dá para testar o link real pelo simulador. Em produção, continua o de mentira.
+  const pagLoja = get("pagamento");
+  const pagTeste = pagLoja && ["mercadopago", "asaas"].includes(pagLoja.provider) && (pagLoja.config?.ambiente || "teste") === "teste" ? pagLoja : null;
   return {
     order, lead, agent, wa, simulated,
     vendas: get("vendas")?.config || {},
-    pagamento: simulated ? SIM_PAGAMENTO : get("pagamento") || null,
+    pagamento: simulated ? (pagTeste || SIM_PAGAMENTO) : pagLoja || null,
     notaFiscal: simulated ? { provider: "simulado" } : get("nota_fiscal") || null,
     obsEntrega: get("frete")?.config?.observacao_entrega || (simulated ? SIM_OBS_ENTREGA : ""),
   };
