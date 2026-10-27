@@ -6,12 +6,13 @@ const DB = {
   sales_orders: [{ id: "so1", owner_id: DONO, numero: 1050, agent_id: "ag1", status: "aguardando_pagamento", total: 64.79, itens: [{ nome: "Isca de Peixe", quantidade: 1 }],
     cliente: { nome: "Alessandro Lima", telefone: "5516988887777" }, entrega: { tipo: "delivery", cozinha: true, endereco: { rua: "Rua A", numero: "10", bairro: "Centro", cidade: "São Carlos" } },
     pagamento: { preferencia: "na_entrega", troco: "100" } }],
-  entregadores: [{ id: "e1", owner_id: DONO, nome: "João Moto", telefone: "16999990000", taxa_entrega: 7, ativo: true }, { id: "e2", owner_id: DONO, nome: "Pedro", telefone: "16999991111", taxa_entrega: 7, ativo: true }],
-  entregador_links: [], entregas: [], orders: [{ id: "t1", sales_order_id: "so1", status: "pronto" }], team_members: [], agents: [{ id: "ag1", owner_id: DONO }],
+  entregadores: [{ id: "e3", owner_id: DONO, nome: "Zé Logado", telefone: "16999992222", taxa_entrega: 7, ativo: true, user_id: "uZe" }, { id: "e1", owner_id: DONO, nome: "João Moto", telefone: "16999990000", taxa_entrega: 7, ativo: true }, { id: "e2", owner_id: DONO, nome: "Pedro", telefone: "16999991111", taxa_entrega: 7, ativo: true }],
+  entregador_links: [], entregas: [], orders: [{ id: "t1", sales_order_id: "so1", status: "pronto" }],
+  team_members: [{ user_id: "uZe", owner_id: DONO, allowed_tabs: ["entregas"], ativo: true }, { user_id: "uGarcom", owner_id: DONO, allowed_tabs: ["mesas"], ativo: true }], agents: [{ id: "ag1", owner_id: DONO }],
   whatsapp_provider_config: [{ agent_id: "ag1", base_url: "https://wa", api_key: "k" }], eventos_sistema: [],
 };
 globalThis.__sb = {
-  auth: { getUser: async (jwt) => ({ data: { user: jwt === "JWT-DONO" ? { id: DONO } : null } }) },
+  auth: { getUser: async (jwt) => ({ data: { user: jwt === "JWT-DONO" ? { id: DONO } : jwt === "a.JWT-ZE.c" ? { id: "uZe" } : jwt === "a.JWT-GARCOM.c" ? { id: "uGarcom" } : null } }) },
   from: (t) => { let rows = [...(DB[t] || [])]; let single = false, upd = null; const o = {
     select() { return o; }, order() { return o; }, limit() { return o; }, not(k) { rows = rows.filter((r) => r[k] != null); return o; },
     gt(k, v) { rows = rows.filter((r) => r[k] > v); return o; }, in(k, vs) { rows = rows.filter((r) => vs.includes(r[k])); return o; },
@@ -58,3 +59,19 @@ DB.entregador_links.find((l) => l.token === tokenPedro).expira_em = "2020-01-01T
 r = await call({ action: "motoboy_estado", t: tokenPedro }); ok(r.s === 401, "link expirado não abre mais");
 r = await call({ action: "motoboy_estado", t: "naoexiste" }); ok(r.s === 401, "link inventado não abre");
 r = await call({ action: "rastreio", r: "x" }); ok(r.s === 404, "rastreio com código inválido não mostra nada");
+
+// ---------- Entregador com login (aba Minhas entregas) ----------
+DB.sales_orders.push({ ...DB.sales_orders[0], id: "so2", numero: 1051, status: "pago", pagamento: {} });
+DB.orders.push({ id: "t2", sales_order_id: "so2", status: "pronto" });
+const zapAntes = zap.length;
+r = await call({ action: "atribuir", order_id: "so2", entregador_id: "e3" }, "JWT-DONO");
+ok(r.d.na_tela && zap.length === zapAntes, "entregador com login: a entrega aparece na tela dele, sem mensagem no WhatsApp");
+r = await call({ action: "motoboy_estado" }, "a.JWT-ZE.c");
+ok(r.s === 200 && r.d.logado && r.d.entregas.some((e) => e.numero === 1051) && r.d.rastreio_ativo === false, "Zé vê a entrega na tela Minhas entregas (rastreio ainda desligado)");
+r = await call({ action: "motoboy_posicao", lat: -22, lng: -47 }, "a.JWT-ZE.c"); ok(r.d.sem_link === true, "sem o link de rastreio do dia, a localização não é guardada");
+r = await call({ action: "link_entregador", entregador_id: "e3", enviar: true }, "JWT-DONO");
+ok(zap.at(-1)?.number === "5516999992222" && /link de rastreio/.test(zap.at(-1).text) && !/Nova entrega/.test(zap.at(-1).text), "pelo WhatsApp ele recebe só o link de rastreio");
+r = await call({ action: "motoboy_posicao", lat: -22, lng: -47 }, "a.JWT-ZE.c"); ok(r.d.ok === true, "com o link do dia, a localização da tela Minhas entregas é guardada");
+const enZe = DB.entregas.find((e) => e.sales_order_id === "so2");
+r = await call({ action: "motoboy_aceitar", entrega_id: enZe.id }, "a.JWT-ZE.c"); ok(enZe.etapa === "em_rota", "Zé aceita pela tela dele");
+r = await call({ action: "motoboy_estado" }, "a.JWT-GARCOM.c"); ok(r.s === 401, "funcionário sem a função Entregador não usa a tela de entregas");

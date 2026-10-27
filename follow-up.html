@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Follow Up | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=95" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=95" />
-  <script src="js/dialogs.js?v=95"></script>
+  <script src="js/logo.js?v=96" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=96" />
+  <script src="js/dialogs.js?v=96"></script>
 </head>
 <body>
 
@@ -87,12 +87,12 @@
   </style>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=95";
-    import { initThemeToggle } from "./js/theme.js?v=95";
-    import { initMobileNav } from "./js/mobileNav.js?v=95";
-    import { renderSidebar } from "./js/sidebar.js?v=95";
-    import { esc } from "./js/erp.js?v=95";
-    import { supabase } from "./js/supabaseClient.js?v=95";
+    import { requireSession, signOut } from "./js/auth.js?v=96";
+    import { initThemeToggle } from "./js/theme.js?v=96";
+    import { initMobileNav } from "./js/mobileNav.js?v=96";
+    import { renderSidebar } from "./js/sidebar.js?v=96";
+    import { esc } from "./js/erp.js?v=96";
+    import { supabase } from "./js/supabaseClient.js?v=96";
 
     await requireSession();
     initThemeToggle();
@@ -100,7 +100,7 @@
     initMobileNav();
     document.getElementById("logout-link").addEventListener("click", (e) => { e.preventDefault(); signOut(); });
 
-    const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=95");
+    const { getWorkspaceOwnerId } = await import("./js/workspace.js?v=96");
     const owner_id = await getWorkspaceOwnerId();
 
     const OBJETIVOS = [

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Delivery | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=95" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=95" />
-  <script src="js/dialogs.js?v=95"></script>
+  <script src="js/logo.js?v=96" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=96" />
+  <script src="js/dialogs.js?v=96"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <style>
     .dl-topo { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; }
@@ -89,12 +89,12 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=95";
-    import { initThemeToggle } from "./js/theme.js?v=95";
-    import { initMobileNav } from "./js/mobileNav.js?v=95";
-    import { renderSidebar } from "./js/sidebar.js?v=95";
-    import { supabase } from "./js/supabaseClient.js?v=95";
-    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=95";
+    import { requireSession, signOut } from "./js/auth.js?v=96";
+    import { initThemeToggle } from "./js/theme.js?v=96";
+    import { initMobileNav } from "./js/mobileNav.js?v=96";
+    import { renderSidebar } from "./js/sidebar.js?v=96";
+    import { supabase } from "./js/supabaseClient.js?v=96";
+    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=96";
 
     await requireSession();
     initThemeToggle();
@@ -248,6 +248,7 @@
           if (a === "aprovar") await fn("orders", { action: "approve", order_id: so.id });
           if (a === "cozinha") await fn("orders", { action: "send_kitchen", order_id: so.id });
           if (a === "atribuir") { const r = await fn("entregas", { action: "atribuir", order_id: so.id, entregador_id: m.el.querySelector("#m-ent").value }); if (!r.enviado) lumosAlert("O pedido foi oferecido, mas o WhatsApp não enviou a mensagem ao entregador. Confira a conexão do WhatsApp, ou envie o link da aba Entregadores."); }
+          // Entregador com acesso ao Lumos: o pedido aparece na tela Minhas entregas dele
           if (a === "finalizar") await fn("entregas", { action: "finalizar", order_id: so.id });
           m.close(); carregarPedidos();
         } catch (err) { b.disabled = false; msg(err.message, true); }
@@ -309,7 +310,7 @@
       await carregarListaEntregadores();
       $("dl-ents").innerHTML = entregadores.map((x) => { const l = linkDe(x.id);
         const loc = !l ? `<span class="settings-hint">sem link ativo</span>` : !l.posicao_em ? `<span class="erp-badge warn">link enviado, aguardando</span>` : minDesde(l.posicao_em) <= 10 ? `<span class="erp-badge ok">ao vivo</span>` : `<span class="erp-badge muted">há ${minDesde(l.posicao_em)} min</span>`;
-        return `<tr><td><b>${esc(x.nome)}</b>${x.ativo === false ? ` <span class="erp-badge muted">inativo</span>` : ""}</td><td>${esc(fone(x.telefone))}</td><td>${esc([x.veiculo, x.placa].filter(Boolean).join(" · ") || "-")}</td><td>${brl(x.taxa_entrega)}</td><td>${loc}</td>
+        return `<tr><td><b>${esc(x.nome)}</b>${x.ativo === false ? ` <span class="erp-badge muted">inativo</span>` : ""}${x.user_id ? ` <span class="erp-badge info">acesso ao Lumos</span>` : ""}</td><td>${esc(fone(x.telefone))}</td><td>${esc([x.veiculo, x.placa].filter(Boolean).join(" · ") || "-")}</td><td>${brl(x.taxa_entrega)}</td><td>${loc}</td>
           <td style="white-space:nowrap;"><button class="btn btn-primary btn-sm" data-link="${x.id}">Link de rastreio</button> <button class="btn btn-ghost btn-sm" data-edit="${x.id}">Editar</button> <button class="btn btn-ghost btn-sm" data-del="${x.id}">Excluir</button></td></tr>`; }).join("")
         || `<tr><td colspan="6" style="opacity:.7;">Nenhum entregador ainda. Cadastre em "+ Novo entregador".</td></tr>`;
       // Acerto do dia
@@ -326,15 +327,26 @@
         <div class="erp-row2"><div class="field"><label>Veículo</label><input id="e-veic" value="${esc(x.veiculo || "")}" placeholder="Moto, bicicleta..." /></div><div class="field"><label>Placa</label><input id="e-placa" value="${esc(x.placa || "")}" /></div></div>
         <div class="field"><label>Quanto recebe por entrega (R$)</label><input id="e-taxa" type="number" min="0" step="0.01" value="${x.taxa_entrega ?? ""}" /></div>
         ${x.id ? `<label class="toggle-row" style="justify-content:space-between;"><span>Ativo</span><input type="checkbox" class="toggle-input" id="e-ativo" ${x.ativo !== false ? "checked" : ""} /></label>` : ""}
+        <h4 style="font-size:14.5px; margin-top:14px;">Acesso ao Lumos</h4>
+        ${x.user_id ? `<p class="settings-hint">✓ Tem acesso. Ele entra no Lumos e usa a tela Minhas entregas. Para trocar a senha ou desligar o acesso, use a aba Equipe.</p>`
+          : `<p class="settings-hint">Com acesso, ele vê e aceita as entregas na tela Minhas entregas do Lumos, e pelo WhatsApp recebe só o link de rastreio. Deixe em branco para ele usar só o link.</p>
+            <div class="erp-row2"><div class="field"><label>Usuário</label><input id="e-user" autocomplete="off" placeholder="ex.: joao.moto" /></div><div class="field"><label>Senha (mín. 6)</label><input id="e-senha" type="password" autocomplete="new-password" /></div></div>`}
         <div id="e-msg" class="form-msg"></div>
         <div class="modal-actions"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="e-ok">Salvar</button></div>`, { width: 480 });
       m.el.querySelector("#e-ok").addEventListener("click", async () => {
         const v = (id) => m.el.querySelector(id)?.value?.trim();
         const linha = { owner_id, nome: v("#e-nome"), telefone: onlyDigits(v("#e-tel")), veiculo: v("#e-veic") || null, placa: v("#e-placa") || null, taxa_entrega: Number(v("#e-taxa") || 0), ativo: x.id ? m.el.querySelector("#e-ativo").checked : true };
         if (!linha.nome || linha.telefone.length < 10) { m.el.querySelector("#e-msg").textContent = "Informe o nome e o WhatsApp com DDD."; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
+        // Acesso ao Lumos: cria o login de funcionário (função Entregador, só a tela Minhas entregas) e liga ao cadastro
+        const usuario = (m.el.querySelector("#e-user")?.value || "").trim().toLowerCase(), senha = m.el.querySelector("#e-senha")?.value || "";
+        if (!x.user_id && (usuario || senha)) {
+          try { const r = await fn("team", { action: "create", nome: linha.nome, username: usuario, senha, funcao: "entregador", allowed_tabs: ["entregas"] }); linha.user_id = r.user_id; }
+          catch (err) { m.el.querySelector("#e-msg").textContent = err.message; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
+        }
         const { error } = x.id ? await supabase.from("entregadores").update(linha).eq("id", x.id) : await supabase.from("entregadores").insert(linha);
-        if (error) { m.el.querySelector("#e-msg").textContent = /entregadores/.test(error.message) ? "Falta aplicar a seção 55 do guia." : error.message; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
+        if (error) { m.el.querySelector("#e-msg").textContent = /user_id/.test(error.message) ? "Falta aplicar a seção 56 do guia." : /entregadores/.test(error.message) ? "Falta aplicar a seção 55 do guia." : error.message; m.el.querySelector("#e-msg").className = "form-msg error"; return; }
         m.close(); carregarEntregadores();
+        if (linha.user_id && !x.user_id) lumosAlert(`Acesso criado. ${linha.nome} entra no Lumos com o usuário "${usuario}" e a senha que você definiu.`);
       });
     }
     $("dl-novo-ent").addEventListener("click", () => editarEntregador());

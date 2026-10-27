@@ -23,6 +23,8 @@ for i in range(1,len(partes),2):
         for m in re.finditer(r'drop\s+policy\s+(?:if\s+exists\s+)?"([^"]+)"\s+on\s+'+OBJ, sql, re.I): add(m,'del','regra',m.group(2),m.group(3),m.group(1))
         for m in re.finditer(r'create\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?(\w+)\s+on\s+'+OBJ, sql, re.I): add(m,'add','indice',m.group(2),m.group(3),m.group(1))
         for m in re.finditer(r'drop\s+index\s+(?:if\s+exists\s+)?'+OBJ, sql, re.I): add(m,'del','indice',m.group(1),'',m.group(2))
+        # Nomes montados dentro de laços (format com %1$s): a consulta não consegue conferir, então não acusa
+        toks=[t for t in toks if '%' not in t[4] and '%' not in t[5]]
         for pos,op,tipo,sch,tab,nome in sorted(toks):
             tab=tab.lower(); nl=nome if tipo=='regra' else nome.lower()
             if tipo=='indice':

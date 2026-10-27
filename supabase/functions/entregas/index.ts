@@ -75,6 +75,20 @@ async function entregadorDoLink(token: string) {
   const { data: e } = await supabase.from("entregadores").select("*").eq("id", l.entregador_id).maybeSingle();
   return e && e.ativo !== false ? { link: l, entregador: e } : null;
 }
+// Entregador logado no Lumos (aba "Minhas entregas"): funcionário com a aba entregas e cadastro ligado ao login
+async function entregadorLogado(req: Request) {
+  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!jwt || jwt.split(".").length !== 3) return null;
+  const { data } = await supabase.auth.getUser(jwt);
+  if (!data?.user) return null;
+  const { data: m } = await supabase.from("team_members").select("owner_id, allowed_tabs, ativo").eq("user_id", data.user.id).maybeSingle();
+  if (!m || m.ativo === false || !(m.allowed_tabs || []).includes("entregas")) return null;
+  const { data: e } = await supabase.from("entregadores").select("*").eq("user_id", data.user.id).eq("owner_id", m.owner_id).maybeSingle();
+  if (!e || e.ativo === false) return null;
+  const { data: l } = await supabase.from("entregador_links").select("*").eq("entregador_id", e.id).gt("expira_em", new Date().toISOString()).order("expira_em", { ascending: false }).limit(1).maybeSingle();
+  return { link: l || null, entregador: e, logado: true };
+}
+
 // deno-lint-ignore no-explicit-any
 async function entregaDoEntregador(ent: any, entregaId: string) {
   const { data } = await supabase.from("entregas").select("*").eq("id", entregaId).eq("entregador_id", ent.id).maybeSingle();
@@ -114,11 +128,14 @@ Deno.serve(async (req) => {
 
     // ================= Entregador =================
     if (acao.startsWith("motoboy_")) {
-      const ctx = await entregadorDoLink(String(body.t || ""));
-      if (!ctx) return json({ error: "Este link expirou. Peça um novo ao estabelecimento." }, 401);
+      // deno-lint-ignore no-explicit-any
+      const ctx: any = body.t ? await entregadorDoLink(String(body.t)) : await entregadorLogado(req);
+      if (!ctx) return json({ error: body.t ? "Este link expirou. Peça um novo ao estabelecimento." : "Seu acesso de entregador não está ligado a um cadastro. Fale com o estabelecimento." }, 401);
       const { link, entregador: ent } = ctx;
 
       if (acao === "motoboy_posicao") {
+        // Sem link de rastreio ativo (ou ainda não autorizado), não guarda a localização
+        if (!link) return json({ ok: false, sem_link: true });
         const lat = Number(body.lat), lng = Number(body.lng);
         if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return json({ error: "Posição inválida." }, 400);
         await supabase.from("entregador_links").update({ lat, lng, precisao: Number(body.precisao) || null, posicao_em: new Date().toISOString(), ...(link.autorizado_em ? {} : { autorizado_em: new Date().toISOString() }) }).eq("token", link.token);
@@ -135,7 +152,7 @@ Deno.serve(async (req) => {
             itens: (so.itens || []).filter((i: any) => !i.taxa).map((i: any) => `${i.quantidade}x ${i.nome}`),
             cobrar: naEntrega ? Number(so.total) : 0, troco: naEntrega ? so.pagamento?.troco || null : null, forma: naEntrega ? so.pagamento?.detalhe || null : null });
         }
-        return json({ entregador: { nome: ent.nome }, expira_em: link.expira_em, autorizado: !!link.autorizado_em, entregas: lista });
+        return json({ entregador: { nome: ent.nome }, expira_em: link?.expira_em || null, autorizado: !!link?.autorizado_em, rastreio_ativo: !!link, logado: !!ctx.logado, entregas: lista });
       }
       const en = await entregaDoEntregador(ent, String(body.entrega_id || ""));
       if (!en) return json({ error: "Entrega não encontrada." }, 404);
@@ -205,6 +222,10 @@ Deno.serve(async (req) => {
       const agora = new Date().toISOString();
       const linha = { owner_id: eq.owner, sales_order_id: so.id, entregador_id: ent.id, etapa: "oferecida", oferecida_em: agora, taxa_entregador: Number(ent.taxa_entrega || 0), rastreio_token: atual?.rastreio_token || novoToken(), updated_at: agora };
       await supabase.from("entregas").upsert(linha, { onConflict: "sales_order_id" });
+      if (ent.user_id) {
+        await registrarEvento({ owner: eq.owner, acao: "entrega_oferecida", msg: `Pedido #${so.numero} oferecido a ${ent.nome} (na tela Minhas entregas)`, ref: so.id });
+        return json({ ok: true, enviado: true, na_tela: true });
+      }
       const l = await linkAtivo(eq.owner, ent.id);
       const naEntrega = so.pagamento?.preferencia === "na_entrega" && so.status !== "pago";
       const msg = `🛵 *Nova entrega: pedido #${so.numero}*\n${so.cliente?.nome || "Cliente"}\n📍 ${enderecoTexto(so.entrega?.endereco) || so.entrega?.local || ""}${so.entrega?.endereco?.referencia ? `\nReferência: ${so.entrega.endereco.referencia}` : ""}${naEntrega ? `\n💵 Cobrar na entrega: *${brl(so.total)}*${so.pagamento?.troco ? ` (troco para ${so.pagamento.troco})` : ""}` : "\n✅ Já está pago"}\n\nAceite ou recuse aqui: ${urlEntregador(l.token)}`;
@@ -218,7 +239,7 @@ Deno.serve(async (req) => {
       const l = await linkAtivo(eq.owner, ent.id, !!body.novo);
       let enviado = false;
       if (body.enviar) enviado = await enviarWhatsApp(eq.owner, null, ent.telefone,
-        `Olá, ${String(ent.nome).split(" ")[0]}! 🛵 Este é o seu link de entregas de hoje (vale ${HORAS_LINK} horas):\n${urlEntregador(l.token)}\n\nAbra e permita a localização para o restaurante acompanhar as entregas.`);
+        `Olá, ${String(ent.nome).split(" ")[0]}! 🛵 Este é o seu link de rastreio de hoje (vale ${HORAS_LINK} horas):\n${urlEntregador(l.token)}\n\nAbra e permita a localização. ${ent.user_id ? "Depois, use a tela Minhas entregas no Lumos normalmente: a localização segue enquanto ela estiver aberta." : "As entregas aparecem nesse mesmo link."}`);
       return json({ ok: true, link: urlEntregador(l.token), expira_em: l.expira_em, enviado });
     }
     if (acao === "finalizar") {   // retirada no balcão ou entrega sem entregador cadastrado

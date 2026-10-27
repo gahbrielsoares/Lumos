@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=95";
+import { supabase } from "./supabaseClient.js?v=96";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -55,6 +55,11 @@ export const NAV_ITEMS = [
   {
     key: "delivery", group: "erp", href: "delivery.html", label: "Delivery",
     icon: `<path d="M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z"/><path d="M7 17H3v-5l2-5h7v10M12 9h5l4 4v4h-2"/>`,
+  },
+  {
+    // Tela do entregador (motoboy): só para funcionários com a função Entregador
+    key: "entregas", group: "erp", href: "motoboy.html", label: "Minhas entregas", apenasEquipe: true,
+    icon: `<circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M14 6h3l3 5v6M14 6l-3 6h7"/>`,
   },
   {
     // PDV e Caixa numa tela só. Quem tinha só a aba "caixa" também entra (alias).
@@ -204,10 +209,10 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=95");
+    const { getMyAccess } = await import("./workspace.js?v=96");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
-    const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
+    const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k) || (k === "entregas" && ownerTabs.includes("delivery")));
     accessCache = {
       isAdmin: false, isStaff: false, isMember: true, member: me.member, role: "equipe", suporte: false, suporteValido: false,
       preview: false, allowed: tabs, status: "ativo",
@@ -241,7 +246,7 @@ export async function getDisabledTabs() {
   const nichoCadastro = userData?.user?.user_metadata?.nicho;
   if (!data && nichoCadastro) {
     try {
-      const { aplicarNicho } = await import("./businessConfig.js?v=95");
+      const { aplicarNicho } = await import("./businessConfig.js?v=96");
       const { info } = await aplicarNicho(nichoCadastro);
       NICHO = info.key; document.body.dataset.nicho = NICHO;
       return info.disabledTabs || [];
@@ -276,7 +281,7 @@ function prepararModoOffline() {
 export async function itensDoMenu() {
   const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
   const pode = (item) => access.can(item.key) || (item.alias || []).some((k) => access.can(k));
-  const visible = (item) => (item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key)));
+  const visible = (item) => !(item.apenasEquipe && !access.isMember) && ((item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key))));
   const items = NAV_ITEMS.filter(visible).map((i) => ({ ...i, label: (ROTULOS_NICHO[NICHO] || {})[i.key] || i.label }));
   if (access.isStaff) items.push(ADMIN_ITEM);
   return { items, access, nicho: NICHO };
@@ -294,7 +299,7 @@ export async function renderSidebar(activeKey) {
   document.body.classList.toggle("is-team", !!access.isMember);
   // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)
   const pode = (item) => access.can(item.key) || (item.alias || []).some((k) => access.can(k));
-  const visible = (item) => (item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key)));
+  const visible = (item) => !(item.apenasEquipe && !access.isMember) && ((item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key))));
   const items = NAV_ITEMS.filter(visible);
   if (access.isStaff) items.push(ADMIN_ITEM);
 

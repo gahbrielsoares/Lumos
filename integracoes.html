@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Integrações | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=95" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=95" />
+  <script src="js/logo.js?v=96" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=96" />
   <style>
     .int-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 24px; }
     .int-grid .hub-card { cursor: pointer; transition: border-color .2s ease, transform .2s ease; }
@@ -29,7 +29,7 @@
     .int-table .row-del { background: none; border: none; color: #B94040; cursor: pointer; font-size: 18px; padding: 4px 8px; }
     .secret-saved { font-size: 12px; color: #7FBF8A; margin-top: 6px; }
   </style>
-  <script src="js/dialogs.js?v=95"></script>
+  <script src="js/dialogs.js?v=96"></script>
 </head>
 <body>
 
@@ -76,15 +76,15 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=95";
-    import { initThemeToggle } from "./js/theme.js?v=95";
-    import { initMobileNav } from "./js/mobileNav.js?v=95";
-    import { renderSidebar } from "./js/sidebar.js?v=95";
-    import { esc } from "./js/erp.js?v=95";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=95";
+    import { requireSession, signOut } from "./js/auth.js?v=96";
+    import { initThemeToggle } from "./js/theme.js?v=96";
+    import { initMobileNav } from "./js/mobileNav.js?v=96";
+    import { renderSidebar } from "./js/sidebar.js?v=96";
+    import { esc } from "./js/erp.js?v=96";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=96";
     import {
       INTEGRATIONS, getIntegrationDef, listIntegrations, getIntegration, saveIntegration,
-    } from "./js/integrations.js?v=95";
+    } from "./js/integrations.js?v=96";
 
     await requireSession();
     initThemeToggle();
@@ -313,12 +313,12 @@
     });
     // Ajuda: o que a loja precisa passar (lista geral ou da integração aberta)
     {
-      const { botaoAjuda } = await import("./js/ajuda.js?v=95");
+      const { botaoAjuda } = await import("./js/ajuda.js?v=96");
       botaoAjuda(new URLSearchParams(location.search).get("tipo") || "integracoes");
     }
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=95").then(({ botaoSimular, destacar }) => botaoSimular(() => {
+    import("./js/simulacao.js?v=96").then(({ botaoSimular, destacar }) => botaoSimular(() => {
       const card = (txt) => [...document.querySelectorAll("#int-list .hub-card")].find((c) => c.textContent.includes(txt));
       return {
         titulo: "Integrações: o Lumos conversando com os outros sistemas",

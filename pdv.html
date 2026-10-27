@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PDV e Caixa | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=95" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=95" />
-  <script src="js/dialogs.js?v=95"></script>
+  <script src="js/logo.js?v=96" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=96" />
+  <script src="js/dialogs.js?v=96"></script>
   <style>
     .pdv { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:18px; margin-top:16px; align-items:start; }
     .pdv-busca { width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--panel-border); background:var(--panel-card); color:var(--panel-text); font-size:15px; font-family:var(--panel-font-body); }
@@ -79,14 +79,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=95";
-    import { initThemeToggle } from "./js/theme.js?v=95";
-    import { initMobileNav } from "./js/mobileNav.js?v=95";
-    import { renderSidebar } from "./js/sidebar.js?v=95";
-    import { supabase } from "./js/supabaseClient.js?v=95";
-    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=95";
-    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=95";
-    import { criarCaixa } from "./js/caixaTela.js?v=95";
+    import { requireSession, signOut } from "./js/auth.js?v=96";
+    import { initThemeToggle } from "./js/theme.js?v=96";
+    import { initMobileNav } from "./js/mobileNav.js?v=96";
+    import { renderSidebar } from "./js/sidebar.js?v=96";
+    import { supabase } from "./js/supabaseClient.js?v=96";
+    import { brl, esc, ownerId, modal, onlyDigits, produtosParaVenda } from "./js/erp.js?v=96";
+    import { nichoAtual, doOutroNicho } from "./js/nicho.js?v=96";
+    import { criarCaixa } from "./js/caixaTela.js?v=96";
 
     await requireSession();
     initThemeToggle();
@@ -98,7 +98,7 @@
     const $ = (id) => document.getElementById(id);
 
     // ---------- Caixa do turno (barra no topo) ----------
-    const { getMyAccess } = await import("./js/workspace.js?v=95");
+    const { getMyAccess } = await import("./js/workspace.js?v=96");
     const acesso = await getMyAccess().catch(() => ({}));
     const { data: u } = navigator.onLine ? await supabase.auth.getUser() : { data: null };
     const eu = { id: u?.user?.id || null, nome: acesso?.member?.nome || u?.user?.email || "Responsável" };
@@ -270,7 +270,7 @@
     $("busca").focus();
 
     // ================= Simulação para apresentação (tutoriais ligados em Configurações) =================
-    import("./js/simulacao.js?v=95").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => {
+    import("./js/simulacao.js?v=96").then(({ botaoSimular, destacar, ficticio, trocar, esconder }) => botaoSimular(() => {
       const agora = Date.now();
       const VENDAS = [["pix", 94.6], ["dinheiro", 80], ["credito", 120], ["dinheiro", 45]].map(([metodo, v]) => ({ pagamento: { metodo, valor_cobrado: v } }));
       const SANGRIA = { tipo: "sangria", valor: 100, motivo: "cofre", por_nome: "Carla (caixa)", created_at: new Date(agora - 3600e3).toISOString() };

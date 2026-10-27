@@ -2470,6 +2470,26 @@ create policy "Equipe Delivery: le cozinha" on public.orders for select using (p
 - **Mapa**: os entregadores com localização ativa, atualizado a cada 15 segundos (mapas do OpenStreetMap).
 - **Cozinha**: clique no cartão para escolher a ação; pedidos de delivery levam o selo "Delivery".
 
+## 56. Entregador com login no Lumos (aba Minhas entregas)
+
+No **SQL Editor**:
+
+```sql
+-- Entregador com login no Lumos (aba "Minhas entregas"): liga o cadastro do entregador ao acesso de funcionário
+alter table public.entregadores add column if not exists user_id uuid references auth.users(id) on delete set null;
+create unique index if not exists entregadores_user on public.entregadores (user_id) where user_id is not null;
+```
+
+Depois, atualize as Edge Functions **`entregas`** e **`team`** (função Entregador e aba `entregas`).
+
+### Como funciona
+- Em **Delivery → Entregadores**, ao cadastrar ou editar, preencha **Acesso ao Lumos** (usuário e senha). O sistema cria o
+  login de funcionário com a função **Entregador**, que só vê a aba **Minhas entregas**.
+- A entrega oferecida aparece na tela **Minhas entregas** (aceitar, recusar, mapa, cheguei, entreguei), sem mensagem no WhatsApp.
+- Pelo WhatsApp, o entregador recebe só o **link de rastreio** do dia (8 horas). Depois de abrir e permitir a localização,
+  ela segue enquanto a tela Minhas entregas estiver aberta.
+- Entregador sem login continua funcionando como antes, tudo pelo link.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

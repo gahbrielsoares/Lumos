@@ -22,13 +22,14 @@ const json = (body: unknown, status = 200) =>
 
 // Abas que um funcionário pode receber (Equipe e Painel Admin nunca)
 const TAB_KEYS = ["dashboard", "kanban", "leads", "clientes", "follow_up", "agendamentos", "produtos", "mesas", "cozinha", "ficha_tecnica", "estoque",
-  "compras", "pdv", "caixa", "delivery", "financeiro", "relatorios", "contabilidade", "fiscal", "integracoes", "agents", "settings"];
-const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "contador", "personalizado"];
+  "compras", "pdv", "caixa", "delivery", "entregas", "financeiro", "relatorios", "contabilidade", "fiscal", "integracoes", "agents", "settings"];
+const FUNCOES = ["garcom", "cozinha", "atendente", "gerente", "contador", "entregador", "personalizado"];
 const USER_RE = /^[a-z0-9][a-z0-9._-]{2,39}$/;
 
 function cleanTabs(tabs: unknown, ownerTabs: string[] | null) {
   const list = Array.isArray(tabs) ? tabs.map(String) : [];
-  return [...new Set(list)].filter((k) => TAB_KEYS.includes(k) && (!ownerTabs || ownerTabs.includes(k)));
+  // "Minhas entregas" (tela do entregador) vem junto com o Delivery da loja
+  return [...new Set(list)].filter((k) => TAB_KEYS.includes(k) && (!ownerTabs || ownerTabs.includes(k) || (k === "entregas" && ownerTabs.includes("delivery"))));
 }
 
 Deno.serve(async (req) => {
