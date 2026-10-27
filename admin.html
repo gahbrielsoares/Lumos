@@ -435,8 +435,8 @@
         const texto = `Histórico do sistema Lumos (${linhas.length} eventos)\n` + linhas.join("\n");
         try { await navigator.clipboard.writeText(texto); lumosAlert(`${linhas.length} evento(s) copiado(s). É só colar na conversa com o suporte.`); } catch (_) { lumosAlert("Não foi possível copiar."); }
       });
-      // A lista de contas carrega antes: espera um pouco para os nomes dos clientes aparecerem
-      setTimeout(carregarEv, 600);
+      // Espera a lista de contas carregar, para mostrar o nome de cada cliente (e não o código)
+      (async () => { for (let i = 0; i < 40 && !(accounts && accounts.length); i++) await new Promise((r) => setTimeout(r, 150)); carregarEv(); })();
     }
   </script>
 </body>
