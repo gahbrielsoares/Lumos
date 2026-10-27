@@ -2308,6 +2308,13 @@ create policy "Cliente ve os proprios pagamentos" on public.assinatura_pagamento
 - `termos.html` e `privacidade.html`: textos próprios da Lumos. Preencha os dados marcados entre colchetes e peça a
   revisão de um advogado antes de publicar.
 
+## Área de trabalho (navegação nova)
+
+Sem SQL e sem funções. Depois do login, o sistema abre `inicio.html`: uma área de trabalho com as luzes de fundo e uma barra
+no estilo dock (Lumos, CRM, ERP e as páginas abertas). Cada página abre como uma janela; dá para deixar várias abertas e
+alternar sem perder o que estava na tela. Favoritos podem ser fixados (alfinete) e arrastados na área de trabalho.
+Uma página aberta sozinha (link direto) leva para a área de trabalho com ela já aberta.
+
 ## Status atual
 
 Concluído: autenticação e controle de acesso (admin/cliente/user), catálogo de

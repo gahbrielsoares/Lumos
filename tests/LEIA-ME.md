@@ -35,6 +35,7 @@ Nenhum teste usa o banco de verdade: todos usam um banco falso em memória.
 - `ficha_combo`, `subreceita_producao`: combos e produção de subreceita.
 - `nicho_restaurante`, `nicho_materiais`: cada nicho só vê os seus produtos.
 - `menu_grupos`, `esqueleto_paginas`: o menu e a moldura de todas as páginas.
+- `area_de_trabalho`: barra (dock), painéis do CRM, ERP e Lumos, páginas como janelas, alternar, fechar e favoritos.
 - `responsivo`: abre todas as páginas no tamanho de celular (inclusive depois de estreitar a janela) e falha se algo sair da tela.
 - `contabilidade_excel`, `nfce_assistente`, `clientes_restaurante`, `tutorial_kanban`, `tutorial_mesas`.
 

@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=90";
+import { supabase } from "./supabaseClient.js?v=91";
 
 // Itens fixos (sempre visíveis, não desativáveis): dashboard, integrações, agents, settings, logout.
 // group: "crm" (atendimento e vendas) ou "erp" (gestão da loja), o menu e as Configurações agrupam por isso.
@@ -97,6 +97,31 @@ export const ADMIN_ITEM = {
   icon: `<path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>`,
 };
 
+// ---------- Área de trabalho (inicio.html) ----------
+// Cada página do painel abre como uma janela dentro da área de trabalho. Dentro da janela, a página não mostra
+// o menu lateral. Aberta sozinha (link direto, favorito do navegador), leva para a área de trabalho com ela aberta.
+export const EM_JANELA = (() => { try { return window.self !== window.top; } catch (_) { return true; } })();
+(function areaDeTrabalho() {
+  const pagina = location.pathname.split("/").pop() || "";
+  if (EM_JANELA) {
+    document.documentElement.classList.add("em-janela");
+    // Link para outra página do painel: abre em outra janela da área de trabalho
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest("a[href]");
+      if (!a || a.target === "_blank" || e.ctrlKey || e.metaKey) return;
+      const href = a.getAttribute("href");
+      if (!/^[a-z0-9-]+\.html(\?|#|$)/i.test(href)) return;
+      if (/^(login|signup|index|plans|termos|privacidade|cardapio)\.html/.test(href)) return;
+      e.preventDefault();
+      window.parent.postMessage({ lumos: "abrir", href }, location.origin);
+    }, true);
+    return;
+  }
+  // Os testes automáticos abrem as páginas sozinhas (navegador controlado): sem redirecionar
+  if (navigator.webdriver || new URLSearchParams(location.search).has("solo")) return;
+  if (document.querySelector(".dash-shell")) location.replace(`inicio.html?abrir=${encodeURIComponent(pagina + location.search + location.hash)}`);
+})();
+
 // ---------- Esqueleto do painel (botão do celular, fundo e menu lateral) ----------
 // Antes ficava copiado em cada página; agora é montado aqui, uma vez só, assim que este arquivo carrega.
 // A página só precisa ter <div class="dash-shell"> com o <main> dentro.
@@ -175,7 +200,7 @@ export async function getAccess() {
 
   // Funcionário do estabelecimento: só as abas da função dele (e que o estabelecimento tem liberadas)
   if (p?.role === "equipe") {
-    const { getMyAccess } = await import("./workspace.js?v=90");
+    const { getMyAccess } = await import("./workspace.js?v=91");
     const me = await getMyAccess();
     const ownerTabs = Array.isArray(me.owner?.allowed_tabs) && me.owner.allowed_tabs.length ? me.owner.allowed_tabs : null;
     const tabs = (me.member?.allowed_tabs || []).filter((k) => !ownerTabs || ownerTabs.includes(k));
@@ -212,7 +237,7 @@ export async function getDisabledTabs() {
   const nichoCadastro = userData?.user?.user_metadata?.nicho;
   if (!data && nichoCadastro) {
     try {
-      const { aplicarNicho } = await import("./businessConfig.js?v=90");
+      const { aplicarNicho } = await import("./businessConfig.js?v=91");
       const { info } = await aplicarNicho(nichoCadastro);
       NICHO = info.key; document.body.dataset.nicho = NICHO;
       return info.disabledTabs || [];
@@ -244,13 +269,23 @@ function prepararModoOffline() {
   window.addEventListener("online", aviso); window.addEventListener("offline", aviso); aviso();
 }
 
+export async function itensDoMenu() {
+  const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
+  const pode = (item) => access.can(item.key) || (item.alias || []).some((k) => access.can(k));
+  const visible = (item) => (item.core && !item.adminControl) || (pode(item) && (item.core || !disabled.includes(item.key)));
+  const items = NAV_ITEMS.filter(visible).map((i) => ({ ...i, label: (ROTULOS_NICHO[NICHO] || {})[i.key] || i.label }));
+  if (access.isStaff) items.push(ADMIN_ITEM);
+  return { items, access, nicho: NICHO };
+}
+export { barraModoDemo, prepararModoOffline };
+
 export async function renderSidebar(activeKey) {
   prepararModoOffline();
   const nav = document.getElementById("dash-nav");
   if (!nav) return;
 
   const [disabled, access] = await Promise.all([getDisabledTabs(), getAccess()]);
-  if (access.demo) barraModoDemo(access.modo);
+  if (access.demo && !EM_JANELA) barraModoDemo(access.modo);
   // Funcionário: esconde as configurações do dono (engrenagens e afins, marcados com .owner-only)
   document.body.classList.toggle("is-team", !!access.isMember);
   // Todas as abas dependem do que o admin liberou (e, nas não fixas, do que o próprio usuário escolheu mostrar)

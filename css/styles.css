@@ -1943,3 +1943,107 @@ body.com-demo .dash-main { padding-top: 64px; }
   #hours-list .hours-fields { margin-left: 0 !important; width: 100%; }
   #hours-list .hours-fields input { flex: 1; min-width: 0; }
 }
+
+/* ===================== Área de trabalho (inicio.html) ===================== */
+/* Página aberta dentro de uma janela: sem menu lateral e sem fundo próprio */
+html.em-janela .dash-side, html.em-janela .mobile-nav-toggle, html.em-janela .mobile-nav-backdrop, html.em-janela .luzes { display: none !important; }
+html.em-janela .dash-shell { display: block; }
+html.em-janela .dash-main { padding: 24px 28px 40px !important; max-width: none; }
+@media (max-width: 900px) { html.em-janela .dash-main { padding: 16px 14px 32px !important; } }
+
+.ad-body { margin: 0; height: 100vh; height: 100dvh; overflow: hidden; background: var(--panel-bg); color: var(--panel-text); font-family: var(--panel-font-body); }
+.ad-area { position: fixed; inset: 0 0 92px 0; overflow: hidden; z-index: 1; }
+.ad-dica { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: 360px; text-align: center; color: var(--panel-text-muted); font-size: 14.5px; line-height: 1.5; }
+
+/* Ícone no estilo do macOS: quadrado arredondado com degradê, rótulo embaixo */
+.ad-icone { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 92px; padding: 8px 4px; border-radius: 16px; cursor: pointer; user-select: none; -webkit-user-select: none; position: relative; outline: none; }
+.ad-icone > span:not(.ad-tile) { font-size: 12.5px; font-weight: 600; text-align: center; line-height: 1.25; color: var(--panel-text); text-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.ad-icone:hover, .ad-icone:focus-visible { background: rgba(127,127,127,.14); }
+.ad-na-area { position: absolute; touch-action: none; transition: left .18s, top .18s; }
+.ad-na-area.arrastando { transition: none; z-index: 5; opacity: .9; transform: scale(1.06); }
+.ad-tile { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); flex-shrink: 0; }
+.ad-tile svg { width: 26px; height: 26px; }
+.ad-tile.mini { width: 22px; height: 22px; border-radius: 6px; box-shadow: none; } .ad-tile.mini svg { width: 13px; height: 13px; }
+.ad-crm { background: linear-gradient(145deg, #E8B95A, #C77D2E); }
+.ad-erp { background: linear-gradient(145deg, #4FA3C7, #2B5F8E); }
+.ad-lumos { background: linear-gradient(145deg, #6E7B8C, #39434F); }
+
+/* Dock: barra flutuante de vidro fosco, centralizada */
+.ad-dock { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 24px;
+  background: color-mix(in srgb, var(--panel-card) 72%, transparent); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent); box-shadow: 0 18px 50px rgba(0,0,0,.28); max-width: calc(100vw - 20px); }
+.ad-dock button { border: 0; background: none; cursor: pointer; color: var(--panel-text); font-family: inherit; }
+.ad-dock-grupo { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 16px; transition: background .15s, transform .15s; }
+.ad-dock-grupo:hover { background: rgba(127,127,127,.14); }
+.ad-dock-grupo.aberto { background: rgba(127,127,127,.2); }
+.ad-dock-grupo .ad-tile { width: 42px; height: 42px; border-radius: 12px; } .ad-dock-grupo .ad-tile svg { width: 22px; height: 22px; }
+.ad-dock-grupo b { font-size: 13.5px; letter-spacing: .02em; }
+.ad-dock-lumos { padding: 5px; }
+.ad-dock-lumos img { width: 42px; height: 42px; border-radius: 12px; object-fit: contain; background: color-mix(in srgb, var(--panel-bg) 60%, transparent); padding: 6px; box-sizing: border-box; }
+.ad-sep { width: 1px; height: 34px; background: var(--panel-border); margin: 0 4px; }
+.ad-abertas { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.ad-dock-app { position: relative; padding: 4px; border-radius: 14px; transition: transform .15s; }
+.ad-dock-app:hover { transform: translateY(-3px); }
+.ad-dock-app .ad-tile { width: 42px; height: 42px; border-radius: 12px; } .ad-dock-app .ad-tile svg { width: 21px; height: 21px; }
+.ad-ponto { position: absolute; left: 50%; bottom: -3px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--panel-text-muted); }
+.ad-dock-app.ativa .ad-ponto { background: var(--panel-accent); width: 16px; margin-left: -8px; border-radius: 3px; }
+.ad-fechar { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: var(--panel-card); border: 1px solid var(--panel-border); font-size: 13px; line-height: 15px; display: none; color: var(--panel-text); }
+.ad-dock-app:hover .ad-fechar { display: block; }
+
+/* Painéis (Lumos, CRM, ERP): sobem acima da barra, com vidro fosco */
+.ad-painel { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px) scale(.98); width: min(640px, calc(100vw - 24px)); max-height: min(560px, calc(100dvh - 130px)); overflow: auto;
+  z-index: 60; padding: 18px; border-radius: 24px; opacity: 0; pointer-events: none; transition: opacity .16s, transform .16s;
+  background: color-mix(in srgb, var(--panel-card) 82%, transparent); backdrop-filter: blur(28px) saturate(1.6); -webkit-backdrop-filter: blur(28px) saturate(1.6);
+  border: 1px solid color-mix(in srgb, var(--panel-border) 80%, transparent); box-shadow: 0 24px 70px rgba(0,0,0,.3); }
+.ad-painel.aberto { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+.ad-painel-topo { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ad-painel-topo b { font-size: 17px; }
+.ad-busca { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: rgba(127,127,127,.12); }
+.ad-busca svg { width: 16px; height: 16px; opacity: .6; }
+.ad-busca input { flex: 1; border: 0; background: none; outline: none; color: var(--panel-text); font-family: inherit; font-size: 14px; min-width: 0; }
+.ad-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; justify-items: center; }
+.ad-grade .ad-icone { width: 100%; }
+.ad-fixar { position: absolute; top: 4px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 0; display: none; place-items: center; cursor: pointer; background: var(--panel-card); color: var(--panel-text-muted); box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.ad-fixar svg { width: 13px; height: 13px; }
+.ad-fixar.fixo { display: grid; color: var(--panel-accent); }
+.ad-icone:hover .ad-fixar { display: grid; }
+.ad-vazio { grid-column: 1 / -1; color: var(--panel-text-muted); padding: 20px; }
+.ad-painel-rodape { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--panel-border); }
+.ad-usuario { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--panel-text-muted); } .ad-usuario svg { width: 18px; height: 18px; }
+.ad-acao { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; border: 0; cursor: pointer; background: rgba(127,127,127,.12); color: var(--panel-text); font-family: inherit; font-size: 13px; font-weight: 600; }
+.ad-acao svg { width: 16px; height: 16px; } .ad-acao:hover { background: rgba(127,127,127,.2); }
+.ad-acao.sair { color: #B94040; }
+
+/* Janelas: ocupam a tela acima da barra; só a da frente aparece */
+.ad-janelas { position: fixed; inset: 10px 10px calc(92px + env(safe-area-inset-bottom, 0px)) 10px; z-index: 20; pointer-events: none; }
+.ad-janela { position: absolute; inset: 0; display: none; flex-direction: column; border-radius: 18px; overflow: hidden; pointer-events: auto;
+  background: var(--panel-bg); border: 1px solid var(--panel-border); box-shadow: 0 20px 60px rgba(0,0,0,.28); }
+.ad-janela.ativa { display: flex; animation: adAbre .16s ease-out; }
+@keyframes adAbre { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+.ad-janela-barra { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 14px; flex-shrink: 0; border-bottom: 1px solid var(--panel-border); background: color-mix(in srgb, var(--panel-card) 85%, transparent); }
+.ad-semaforo { display: flex; gap: 8px; }
+.ad-semaforo button { width: 13px; height: 13px; border-radius: 50%; border: 0; cursor: pointer; padding: 0; }
+.ad-semaforo .vermelho { background: #FF5F57; } .ad-semaforo .amarelo { background: #FEBC2E; }
+.ad-janela-titulo { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin: 0 auto; }
+.ad-janela-espaco { width: 34px; }
+.ad-janela iframe { flex: 1; width: 100%; border: 0; background: var(--panel-bg); }
+
+/* Celular: barra ocupa a largura, painel vira uma folha que sobe de baixo */
+@media (max-width: 640px) {
+  .ad-dock { left: 8px; right: 8px; transform: none; justify-content: flex-start; padding: 6px 8px; gap: 4px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .ad-dock-grupo { padding: 4px 8px 4px 4px; } .ad-dock-grupo b { font-size: 12.5px; }
+  .ad-dock-grupo .ad-tile, .ad-dock-lumos img, .ad-dock-app .ad-tile { width: 38px; height: 38px; }
+  .ad-painel { width: calc(100vw - 16px); bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .ad-janelas { inset: 0 0 calc(70px + env(safe-area-inset-bottom, 0px)) 0; }
+  .ad-janela { border-radius: 0; border: 0; }
+  .ad-area { bottom: 76px; }
+  .ad-fixar { display: grid; }
+}
+/* Área de trabalho: as luzes são o papel de parede (visíveis nos dois modos) */
+.ad-body .luzes--panel { opacity: .75; }
+:root.dark .ad-body .luzes--panel { opacity: .5; }
+.ad-body .luz { opacity: .55; }
+/* Barra da conta de demonstração: no canto inferior esquerdo, sem cobrir as janelas */
+.ad-body .demo-modo { top: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 16px; transform: none; z-index: 55; }
+.ad-body .demo-modo > span { display: none; }
+@media (max-width: 1100px) { .ad-body .demo-modo { bottom: auto; top: 8px; left: auto; right: 8px; padding: 3px; } .ad-body .demo-modo button { padding: 5px 9px; font-size: 11.5px; } }

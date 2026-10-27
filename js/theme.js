@@ -20,6 +20,12 @@ function getSavedTheme() {
 }
 
 applyTheme(getSavedTheme());
+// Outra janela (ou a área de trabalho) mudou o tema: acompanha na hora
+window.addEventListener("storage", (e) => { if (e.key === STORAGE_KEY && e.newValue) applyTheme(e.newValue); });
+export function alternarTema() {
+  const next = document.documentElement.classList.contains("dark") ? "light" : "dark";
+  localStorage.setItem(STORAGE_KEY, next); applyTheme(next); return next;
+}
 
 export function initThemeToggle() {
   const btn = document.getElementById("theme-toggle-btn");

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Produtos | Lumos</title>
   <link rel="icon" type="image/png" href="img/logo.png">
-  <script src="js/logo.js?v=90" defer></script>
-  <link rel="stylesheet" href="css/styles.css?v=90" />
-  <script src="js/dialogs.js?v=90"></script>
+  <script src="js/logo.js?v=91" defer></script>
+  <link rel="stylesheet" href="css/styles.css?v=91" />
+  <script src="js/dialogs.js?v=91"></script>
 </head>
 <body>
 
@@ -118,14 +118,14 @@
   </div>
 
   <script type="module">
-    import { requireSession, signOut } from "./js/auth.js?v=90";
-    import { initThemeToggle } from "./js/theme.js?v=90";
-    import { initMobileNav } from "./js/mobileNav.js?v=90";
-    import { renderSidebar } from "./js/sidebar.js?v=90";
-    import { supabase } from "./js/supabaseClient.js?v=90";
-    import { listAgents } from "./js/agents.js?v=90";
-    import { getBusinessConfig } from "./js/businessConfig.js?v=90";
-    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=90";
+    import { requireSession, signOut } from "./js/auth.js?v=91";
+    import { initThemeToggle } from "./js/theme.js?v=91";
+    import { initMobileNav } from "./js/mobileNav.js?v=91";
+    import { renderSidebar } from "./js/sidebar.js?v=91";
+    import { supabase } from "./js/supabaseClient.js?v=91";
+    import { listAgents } from "./js/agents.js?v=91";
+    import { getBusinessConfig } from "./js/businessConfig.js?v=91";
+    import { EXEMPLO_NICHO, seedExampleCatalog } from "./js/simulator.js?v=91";
 
     // Loja sem produtos: oferece o cardápio/catálogo de exemplo do nicho
     async function prepararExemplo() {
@@ -151,7 +151,7 @@
       listCategories, addCategory, deleteCategory,
       listProducts, addProduct, updateProduct, deleteProduct,
       uploadPhotos, UNIT_LABELS,
-    } from "./js/products.js?v=90";
+    } from "./js/products.js?v=91";
 
     await requireSession();
     initThemeToggle();
@@ -181,7 +181,7 @@
 
     async function renderCategories() {
       const { data } = await listCategories();
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=90"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=91"); await nichoAtual();
       categories = (data || []).filter((c) => !doOutroNicho(c));
       document.getElementById("stat-categories").textContent = categories.length;
 
@@ -225,7 +225,7 @@
         return;
       }
       // Insumos da ficha técnica ficam na aba Ficha técnica, não no cardápio
-      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=90"); await nichoAtual();
+      const { doOutroNicho, nichoAtual } = await import("./js/nicho.js?v=91"); await nichoAtual();
       const data = (todosProdutos || []).filter((p) => p.is_insumo !== true && !doOutroNicho(p));
 
       // O formulário pode estar dentro da lista (edição): volta para o lugar antes de redesenhar
@@ -370,7 +370,7 @@
 
         const result = editingId
           ? await updateProduct(editingId, fields, category_ids)
-          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=90")).segmentoNovo() });
+          : await addProduct({ ...fields, photo_urls: photo_urls || [], category_ids, ...(await import("./js/nicho.js?v=91")).segmentoNovo() });
 
         if (result.error) throw result.error;
 
@@ -387,7 +387,7 @@
     renderCategories().then(renderProducts);
   
     // ================= Simulação para apresentação (só administração) =================
-    import("./js/simulacao.js?v=90").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
+    import("./js/simulacao.js?v=91").then(({ botaoSimular, destacar, ficticio, trocar }) => botaoSimular(() => ({
       titulo: "Produtos: o cardápio que alimenta tudo",
       antes: "O dono cadastra cada prato e bebida uma vez, com preço, foto e categoria.",
       faz: "Guarda o cardápio da casa. Insumos de cozinha (carne crua, pão) não ficam aqui: ficam na Ficha técnica e nunca aparecem para o cliente.",

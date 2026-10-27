@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js?v=90";
+import { supabase } from "./supabaseClient.js?v=91";
 
 // ---------- Cadastro ----------
 export async function signUp({ name, email, password, nicho }) {
@@ -105,11 +105,11 @@ export async function redirectAfterLogin() {
   if (falhou) { avisoInstabilidade(); return; }
 
   if (["admin", "suporte", "cliente"].includes(profile?.role)) {
-    window.location.href = "dashboard.html";
+    window.location.href = "inicio.html";
   } else if (profile?.role === "equipe") {
     const ok = await teamAccessOk();
     if (ok === "erro") { avisoInstabilidade(); return; }
-    window.location.href = ok ? "dashboard.html" : "plans.html?inativa=1&equipe=1";
+    window.location.href = ok ? "inicio.html" : "plans.html?inativa=1&equipe=1";
   } else {
     window.location.href = profile?.status === "inativo" ? "plans.html?inativa=1" : "plans.html";
   }

@@ -1,5 +1,5 @@
-import { supabase } from "./supabaseClient.js?v=90";
-import { getWorkspaceOwnerId } from "./workspace.js?v=90";
+import { supabase } from "./supabaseClient.js?v=91";
+import { getWorkspaceOwnerId } from "./workspace.js?v=91";
 
 // =====================================================================
 // Funções comuns das abas de ERP (Financeiro, Estoque, Compras, Relatórios)
